@@ -1,0 +1,81 @@
+{"T_ROLE":
+    [
+        {
+            "ID":"AMA_BZG","CATEGORY":"01","T_DESCR":
+            [
+                {"LANG":"D","DESCR":"Anlage Malo Bezug"}
+            ],
+            "T_ATTR":
+            [
+                {"ATTR_CATEGORY":"AKLASSE","DIVISION":"","ATTR_VALUE":"0001"},
+                {"ATTR_CATEGORY":"BEZUG","DIVISION":"","ATTR_VALUE":""},
+                {"ATTR_CATEGORY":"SERVICE","DIVISION":"","ATTR_VALUE":"E011"},
+                {"ATTR_CATEGORY":"SPEBENE","DIVISION":"","ATTR_VALUE":"NS/MS/HS"}
+            ],
+            "ROLE_TYPE":0,"LBS_OBJECT_CODE":0,"LBS_OBJECT_LEVEL":0
+        },
+        
+        {
+            "ID":"MA_BZG","CATEGORY":"03","T_DESCR":
+            [
+                {"LANG":"D","DESCR":"Malo Bezug"}
+            ],
+            "T_ATTR":
+            [
+                {"ATTR_CATEGORY":"DEREGSCENARIO","DIVISION":"","ATTR_VALUE":"300/301"},
+                {"ATTR_CATEGORY":"UISTRUTYP","DIVISION":"","ATTR_VALUE":"MA"},
+                {"ATTR_CATEGORY":"UITYPE","DIVISION":"","ATTR_VALUE":"0001//"}
+            ],
+            "ROLE_TYPE":0,"LBS_OBJECT_CODE":9992000001016,"LBS_OBJECT_LEVEL":1
+        }
+    ],
+
+    "T_MC":
+    [
+        {
+            "MCID":"1:0_PAUSCHAL","CONCEPT_CATEGORY":1,"CHECK_MAN":"","LBS_CODE":9992000000018,"EMPTY_OR_BUFFER":"","T_DESCR":
+            [
+                {"LANG":"D","DESCR":"Verbrauch ohne Messlokation (1:0_PAUSCHAL)"}
+            ],
+            "T_VAR":
+            [
+                {
+                    "MCVARID":"STANDARD","DATEFROM":"2020-01-01","DATETO":"9999-12-31","PRIORITY":1,"CHECK_VIEW_CAT":0,"T_DESCR":
+                    [
+                        {"LANG":"D","DESCR":"Verbrauch ohne Messlokation (1:0_PAUSCHAL)"}
+                    ],
+                    "T_ROLE":
+                    [
+                        {"ROLE_ID":"AMA_BZG","FREQUENCY_MIN":1,"FREQUENCY_MAX":1,"LAYOUT":
+                            {"X":150,"Y":320,"STRAND":""},
+                            "T_IAV":[
+
+                            ]
+                        },
+                        {"ROLE_ID":"MA_BZG","FREQUENCY_MIN":1,"FREQUENCY_MAX":1,"LAYOUT":
+                            {"X":150,"Y":150,"STRAND":""},
+                            "T_IAV":[
+
+                            ]
+                        }
+                    ],
+                    "T_ROLEREL":
+                    [
+                        {"OBJECT_ID_1":"AMA_BZG","OBJECT_ID_2":"MA_BZG","CARDINALITY":0,"T_OBJRAT":[
+
+                        ]
+                        }
+                    ],
+                    "T_ICHK":
+                    [
+
+                    ]
+                }
+            ]
+        }
+    ]
+    ,"T_AV":
+    [
+
+    ]
+}

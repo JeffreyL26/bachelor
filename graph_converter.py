@@ -73,11 +73,12 @@ def load_tables(base_dir: str) -> Dict[str, pd.DataFrame]:
         return normalize_columns(pd.read_csv(path, sep=";", encoding=enc, dtype=str))
 
     tables = {}
+
     # Sets von René
-    tables["malo"]    = rd("SDF_MALO.csv")
-    tables["melo"]    = rd("SDF_MELO.csv")
-    tables["pod_rel"] = rd("SDF_POD_REL.csv")
-    tables["meter"]   = rd("SDF_METER.csv")
+    tables["malo"] = rd("data/training_data/SDF_MALO.csv")
+    tables["melo"] = rd("data/training_data/SDF_MELO.csv")
+    tables["pod_rel"] = rd("data/training_data/SDF_POD_REL.csv")
+    tables["meter"] = rd("data/training_data/SDF_METER.csv")
 
     # Excel einlesen - 20s langsamer als CSV
     # def rd(name):
