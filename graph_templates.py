@@ -162,11 +162,11 @@ def lbsjson_to_template_graph(lbs_json: Dict[str, Any],
 
         edges.append(make_edge(c1, c2, rel_type))
 
-        # MEME-Selbstkanten rausfiltern (Artefakt aus AME_* Mappings)
-        edges = [
-            e for e in edges
-            if not (e["rel"] == "MEME" and e["src"] == e["dst"])
-        ]
+    # MEME-Selbstkanten rausfiltern (Artefakt aus AME_* Mappings)
+    edges = [
+        e for e in edges
+        if not (e["rel"] == "MEME" and e["src"] == e["dst"])
+    ]
 
     # 5) Pattern & Graph-Attribute
     malo_count = sum(1 for n in nodes if n["type"] == "MaLo")
