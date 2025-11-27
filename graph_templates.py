@@ -231,10 +231,8 @@ def build_all_templates(lbs_dir: str, out_path: str) -> None:
 if __name__ == "__main__":
     BASE = os.path.dirname(os.path.abspath(__file__))
 
-    # genau dein Ordner aus dem Screenshot:
     lbs_dir = os.path.join(BASE, "data", "lbs_templates")
 
-    # Output-Datei – ich würde sie in data/ legen:
-    out_path = os.path.join(BASE, "data", "lbs_templates.jsonl")
+    out_path = os.path.join(BASE, "data", "lbs_soll_graphs.jsonl")
 
     build_all_templates(lbs_dir, out_path)

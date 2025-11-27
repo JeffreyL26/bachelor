@@ -8,7 +8,7 @@ from torch_geometric.data import Data
 # Konfiguration: Kodierungen
 # -----------------------------
 
-# Knotentypen in deinen Graphen
+# Knotentypen
 NODE_TYPES = {
     "MaLo": 0,
     "MeLo": 1,
@@ -38,7 +38,6 @@ MELO_FUNC_UNKNOWN_INDEX = len(MELO_FUNCTIONS)
 NUM_MELO_FUNCTIONS = len(MELO_FUNCTIONS) + 1
 
 # Spannungsebene aus Ist-Daten (Spannungsebene E05/E06)
-# Falls du später andere Codes siehst, einfach ergänzen.
 VOLTAGE_LEVELS = {
     "E05": 0,
     "E06": 1,
@@ -70,7 +69,7 @@ def _one_hot(index: int, length: int) -> List[float]:
 
 def _encode_node_features(node: Dict[str, Any]) -> List[float]:
     """
-    Kodiert einen JSON-Knoten aus deinen Graphen in einen Feature-Vektor.
+    Kodiert einen JSON-Knoten in einen Feature-Vektor.
 
     Erwartetes Node-Format:
     {
@@ -85,7 +84,7 @@ def _encode_node_features(node: Dict[str, Any]) -> List[float]:
     # 1) node_type one-hot
     type_idx = NODE_TYPES.get(ntype, None)
     if type_idx is None:
-        # Unbekannter Typ → alles 0, optional könntest du hier auch erweitern
+        # Unbekannter Typ → alles 0, optional erweitern
         type_vec = [0.0] * NUM_NODE_TYPES
     else:
         type_vec = _one_hot(type_idx, NUM_NODE_TYPES)

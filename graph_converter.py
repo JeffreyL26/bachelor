@@ -518,6 +518,6 @@ if __name__ == "__main__":
     print(Counter(g["graph_attrs"]["pattern"] for g in graphs))
     print("Prozess ausgeführt in %s Sekunden" % (time.time() - start_time))
     # Optional: JSONL export
-    with open("ist_graphs_small.jsonl", "w", encoding="utf-8") as f:
+    with open(os.path.join(BASE, "data", "ist_graphs.jsonl"), "w", encoding="utf-8") as f:
          for g in graphs:
              f.write(json.dumps(g, ensure_ascii=False) + "\n")
