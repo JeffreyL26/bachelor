@@ -4,6 +4,8 @@ from typing import Dict, Any, List, Optional, Iterable
 import torch
 from torch_geometric.data import Data
 
+#TODO: Kommentare und Dokumentation revamp
+
 # -----------------------------
 # Konfiguration: Kodierungen
 # -----------------------------
