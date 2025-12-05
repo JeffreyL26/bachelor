@@ -24,8 +24,7 @@ def load_pairs_jsonl(path: str) -> List[TPair]:
 
 class TemplatePairDataset(Dataset):
     """
-    Dataset für DGMC-Training auf Basis deiner synthetischen Template-Paare.
-
+    Dataset für DGMC-Training auf Basis von synthetischen Template-Paare.
     Zunächst nur positive Paare (label == 1), weil dort eine echte Permutation
     (Ground Truth Matching) existiert.
 
