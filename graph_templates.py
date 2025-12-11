@@ -1,19 +1,25 @@
+# Imports für Dateien finden, einlesen und der ganze Kram
 import os
 import glob
 import json
 from typing import Dict, Any, List, Optional, Tuple
 
-#TODO: Kommentare und Dokumentation revamp
+#TODO: Kommentare und Dokumentation revamp - Ziel 15.12
 
 # Wir nutzen die Helfer aus graph_converter, damit Format identisch ist
 from graph_converter import make_node, make_edge, classify_pattern
 
 
-# -----------------------------
-# Hilfsfunktionen zu LBS-IDs
-# -----------------------------
+# ------------------------------
+# SEMANTIK EXTRAHIEREN
+# ------------------------------
 
 def _core_type_and_id(role_id: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Nimmt eine LBS-Rolle und übersetzt sie in Knotentyp und einheitliche Knoten-ID.
+    :param role_id: String der ID, "Hüllen" wie ANA_BZG oder G_BZG, die aber domänenspezifisch MaLo, MeLo, usw. sind
+    :return:
+    """
     if not role_id:
         return None, None
     rid = role_id.upper()
@@ -25,6 +31,7 @@ def _core_type_and_id(role_id: str) -> Tuple[Optional[str], Optional[str]]:
         return "MaLo", role_id
     if rid.startswith(("TR_", "ASR_")):
         return "TR", role_id
+    # z.B. Anlagerolle "Anlage MeLo ..." auf MeLo-ID mappen
     if rid.startswith("AME_"):
         return "MeLo", "ME_" + role_id.split("AME_", 1)[1]
     if rid.startswith("AMA_"):
@@ -33,6 +40,11 @@ def _core_type_and_id(role_id: str) -> Tuple[Optional[str], Optional[str]]:
 
 
 def _descr_de(role_obj: Dict[str, Any]) -> str:
+    """
+    Der LBS-Rolleneintrag hat mehrsprachige Beschreibungen. Die Funktion holt die deutsche.
+    :param role_obj: Der LBS-Rolleneintrag
+    :return: deutsche Beschreibung, falls vorhanden, andernfalls leerer String
+    """
     for d in role_obj.get("T_DESCR", []):
         if d.get("LANG") in ("D", "DE"):
             return d.get("DESCR", "")
@@ -40,6 +52,13 @@ def _descr_de(role_obj: Dict[str, Any]) -> str:
 
 
 def _infer_malo_direction(role_id: str, descr_de: str = "") -> Optional[str]:
+    """
+    Erkennt, ob MaLo Erzeuger oder Verbraucher ist. Landet dann in den Knoten-Features in @lbsjson_to_template_graph.
+    Zwei Graphen können die gleiche Anzahl MaLo haben, aber andere Funktionstypen.
+    :param role_id: MaLo-ID
+    :param descr_de: Deutsche Beschreibung der Rolle
+    :return: Klare Kategorie ("generation" oder "consumption"), falls erkannt
+    """
     rid = (role_id or "").upper()
     txt = (descr_de or "").upper()
     if "EIN" in rid or "EINSP" in rid or "EINSPEIS" in txt or "ERZEUG" in txt:
@@ -50,6 +69,14 @@ def _infer_malo_direction(role_id: str, descr_de: str = "") -> Optional[str]:
 
 
 def _infer_melo_function(role_id: str, descr_de: str = "") -> str:
+    """
+    Erkennt MeLo-Rolle (Hinterschaltung, Differenzmessung, Speicher, Nichts spezielles). Landet dann in den Knoten-Features
+    (attrs[function] in @lbsjson_to_template_graph).
+    Zwei Graphen können die gleiche Anzahl MeLo haben, aber andere Funktionstypen.
+    :param role_id: MeLo-ID
+    :param descr_de: Deutsche Beschreibung der Rolle
+    :return: Klare Funktion ("H", "D", "S" oder "N"), falls erkannt
+    """
     rid = (role_id or "").upper()
     txt = (descr_de or "").lower()
     if "_HS_" in rid or "hinterschalt" in txt:
@@ -61,9 +88,9 @@ def _infer_melo_function(role_id: str, descr_de: str = "") -> str:
     return "N"
 
 
-# -----------------------------
-# 1 LBS-JSON -> 1 Template-Graph
-# -----------------------------
+# ------------------------------
+# TODO
+# ------------------------------
 
 def lbsjson_to_template_graph(lbs_json: Dict[str, Any],
                               graph_id: Optional[str] = None) -> Dict[str, Any]:
@@ -193,9 +220,9 @@ def lbsjson_to_template_graph(lbs_json: Dict[str, Any],
     }
 
 
-# -----------------------------
-# Alle LBS-Dateien verarbeiten
-# -----------------------------
+# ------------------------------
+# TODO
+# ------------------------------
 
 def build_all_templates(lbs_dir: str, out_path: str) -> None:
     """

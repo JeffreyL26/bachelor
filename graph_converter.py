@@ -449,7 +449,7 @@ def build_graphs(t: Dict[str, pd.DataFrame],
 # ------------------------------
 def validate_relations(t: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
     """
-    Validiert die Beziehungen zwischen MaLo und MeLo basierend auf der gegebenen Mapping und den eingebundenen DataFrames.
+    Validiert die Beziehungen zwischen MaLo und MeLo basierend auf dem gegebenen Mapping und den eingebundenen DataFrames.
     Checkt fehlende Referenzen und Multiplizität der Beziehungen.
 
     :param t: Ergebnis von canonicalize, also ein Dictionary mit:
