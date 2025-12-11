@@ -66,29 +66,37 @@ def train_epoch(model: DGMC,
     indices = list(range(len(dataset)))
     random.shuffle(indices)
 
+    # Über alle Paare iterieren
     for idx in indices:
-        data = dataset[idx]
+        data = dataset[idx]                                             # Dataset mit Quell- und Zielgraph
         data = data.to(device)
 
+        # Gradienten auf Null setzen, vor neuer Loss-Berechnung
         optimizer.zero_grad()
 
-        # Single-Pair-Forward, wie im test() der DGMC-Beispiele:
-        # Batch-Argumente sind None, weil wir nicht batchen.
+        # INFO: DGMC rechnet erst Knotenembeddings mit GNN, baut daraus Knoten-Ähnlichkeitsmatrix und verbessert diese iterativ
+
+        # Single-Pair-Forward (Vorwärtsdurchlauf), wie im test() der DGMC-Beispiele:
+        # Batch-Argumente sind None, weil wir nicht batchen
+        # S0: Anfängliche Similarity-Matrix zwischen Knoten
+        # SL: Similarity-Matrix nach num_steps Matchingschritten
         S0, SL = model(
+            # Source
             data.x_s, data.edge_index_s, data.edge_attr_s, None,
+            # Target
             data.x_t, data.edge_index_t, data.edge_attr_t, None,
         )
 
-        # Ground Truth Matching aufbauen
+        # Ground Truth Matching aufbauen aus Permutationsvektor (Source-Index mit passendem Target-Index) und Matching-Tensor generate_y
         y = generate_y(data.y, device)
 
-        # Loss (Initial + verfeinertes Matching)
+        # Matching-Loss (Initial + verfeinertes Matching)
         loss = model.loss(S0, y)
         if model.num_steps > 0:
             loss = loss + model.loss(SL, y)
 
-        loss.backward()
-        optimizer.step()
+        loss.backward()                                                 # Gradient
+        optimizer.step()                                                # Adam-Gradientenupdate für alle Modellparameter
 
         total_loss += float(loss.item())
 
@@ -96,23 +104,36 @@ def train_epoch(model: DGMC,
 
 
 def main():
+    """
+    Konfiguriert das Training und startet es.
+    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # (Synthetische Trainingspaar-) Daten laden
     base = os.path.dirname(os.path.abspath(__file__))
     pairs_path = os.path.join(base, "data", "synthetic_training_pairs.jsonl")
 
+    # Erzeugt Dataset aus JSONL
     dataset = TemplatePairDataset(pairs_path, use_only_positive=True, undirected=True)
 
-    # Feature-Dimension aus erstem Datapoint
+    # Beispiel aus Dataset holen, um herauszufinden, ob Feature-Tensor = Source-Knoten
     sample = dataset[0]
+    # Knotenfeatures des Source-Graphen sample.x_s (Matrix)
+    # Größe der letzten Dimension = Feature-Dimension
+    # in_channels entspricht der Anzahll der Features pro Knoten
     in_channels = sample.x_s.size(-1)
+    # Jeder Knoten in n-dimensionalen Vektor, aus dem Similarity berechnet wird
     hidden_dim = 64
 
-    # psi_1 & psi_2: einfache GIN-Encoder
-    psi_1 = GIN(in_channels, hidden_dim, num_layers=3)
-    psi_2 = GIN(in_channels, hidden_dim, num_layers=3)
+    # Knoten-Encoder-Netze (GIN)
+    psi_1 = GIN(in_channels, hidden_dim, num_layers=3)                  # Für Source-Graphen
+    psi_2 = GIN(in_channels, hidden_dim, num_layers=3)                  # Für Target-Graphen
 
+    # DGMC-Modell
+    # 10 Matching-Refinement-Schritte
+    # k=-1 bedeutet alle Knoten berücksichtigen
     model = DGMC(psi_1, psi_2, num_steps=10, k=-1).to(device)
+    # Adam-Optimizer über alle trainierbaren Parameter
     optimizer = Adam(model.parameters(), lr=1e-3)
 
     epochs = 11
