@@ -258,16 +258,19 @@ def lbsjson_to_template_graph(lbs_json: Dict[str, Any],
 
 
 # ------------------------------
-# TODO
+# GRAPH-TEMPLATE FERTIGSTELEN
 # ------------------------------
 
 def build_all_templates(lbs_dir: str, out_path: str) -> None:
     """
-    Liest alle *.json in lbs_dir ein, konvertiert sie zu Template-Graphen
+    Liest alle JSON in lbs_dir ein, konvertiert sie zu Template-Graphen
     und schreibt sie als JSONL (ein Graph pro Zeile).
+    :param lbs_dir: Directory der Templates
+    :param out_path: Ausgabepfad
     """
     print("LBS-Verzeichnis:", lbs_dir)
 
+    # Alle Dateien suchen, die auf json enden
     pattern = os.path.join(lbs_dir, "*.json")
     files = glob.glob(pattern)
     print("Glob-Pattern:", pattern)
@@ -275,17 +278,19 @@ def build_all_templates(lbs_dir: str, out_path: str) -> None:
     for p in files:
         print("  -", os.path.basename(p))
 
+    # Liste, in die alle Template-Graphen kommen
     graphs: List[Dict[str, Any]] = []
 
     for path in files:
         with open(path, "rb") as f:
             raw = f.read()
-        # BDEW-Exports sind cp1252-kodiert
+        # BDEW-Exports sind cp1252-kodiert, deshalb rb (read binary) → Bytes in String
         lbs_json = json.loads(raw.decode("cp1252"))
+        # Graph bauen und ins Dict
         g = lbsjson_to_template_graph(lbs_json)
         graphs.append(g)
 
-    print("Gebaut:", len(graphs), "Template-Graphen")
+    print("Gebaut:", len(graphs), "Template-Graphen (Soll)")
 
     with open(out_path, "w", encoding="utf-8") as f:
         for g in graphs:
@@ -295,10 +300,9 @@ def build_all_templates(lbs_dir: str, out_path: str) -> None:
 
 
 if __name__ == "__main__":
+    # Pfade
     BASE = os.path.dirname(os.path.abspath(__file__))
-
     lbs_dir = os.path.join(BASE, "data", "lbs_templates")
-
     out_path = os.path.join(BASE, "data", "lbs_soll_graphs.jsonl")
 
     build_all_templates(lbs_dir, out_path)
