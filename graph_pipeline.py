@@ -4,13 +4,28 @@ from typing import Dict, Any, List, Optional, Iterable
 import torch
 from torch_geometric.data import Data
 
-#TODO: Kommentare und Dokumentation revamp
+#TODO: Kommentare und Dokumentation revamp - Ziel 15.12
 
-# -----------------------------
-# Konfiguration: Kodierungen
-# -----------------------------
+# ------------------------------
+# FEATURE - VOKABULAR
+# ------------------------------
+"""
+JSON-Graph hat die Form:
+{
+  "nodes": [
+    {"id": "12345678", "type": "MaLo", "attrs": {"direction": "consumption"}},
+    {"id": "DE00...", "type": "MeLo", "attrs": {"voltage_level": "E06"}},
+    {"id": "1ABC...", "type": "TR", "attrs": {}}
+  ],
+  "edges": [
+    {"src": "DE00...", "dst": "1ABC...", "rel": "METR"},
+    {"src": "DE00...", "dst": "12345678", "rel": "MEMA"}
+  ]
+}
 
-# Knotentypen
+GNN kann mit solchen Strings nicht anfangen, also übersetzen wirr in Tensor mit Features
+"""
+# Knotentypen One-Hot-Encoding
 NODE_TYPES = {
     "MaLo": 0,
     "MeLo": 1,
@@ -19,7 +34,7 @@ NODE_TYPES = {
 }
 NUM_NODE_TYPES = len(NODE_TYPES)
 
-# Richtung der MaLo
+# MaLo-Richtung
 DIRECTIONS = {
     "consumption": 0,
     "generation":  1,
@@ -28,18 +43,18 @@ DIRECTIONS = {
 DIR_UNKNOWN_INDEX = len(DIRECTIONS)
 NUM_DIRECTIONS = len(DIRECTIONS) + 1  # + unknown
 
-# MeLo-Funktion in Templates
+# MeLo-Funktion für Templates
 MELO_FUNCTIONS = {
     "N": 0,
     "H": 1,
     "D": 2,
     "S": 3,
-    # alles andere → unknown
+    # → unknown
 }
 MELO_FUNC_UNKNOWN_INDEX = len(MELO_FUNCTIONS)
 NUM_MELO_FUNCTIONS = len(MELO_FUNCTIONS) + 1
 
-# Spannungsebene aus Ist-Daten (Spannungsebene E05/E06)
+# Spannungsebene
 VOLTAGE_LEVELS = {
     "E05": 0,
     "E06": 1,
@@ -58,11 +73,17 @@ EDGE_UNKNOWN_INDEX = len(EDGE_TYPES)
 NUM_EDGE_TYPES = len(EDGE_TYPES) + 1
 
 
-# -----------------------------
-# Hilfsfunktionen
-# -----------------------------
+# ------------------------------
+# ONE-HOT-ENCODINGS
+# ------------------------------
 
 def _one_hot(index: int, length: int) -> List[float]:
+    """
+    Erzeugt eine One-Hot-Kodierung.
+    :param index: An dieser Stelle steht 1.0 im Vektor, ansonsten 0.0
+    :param length: Länge der Kodierung
+    :return: One-Hot-Vektor mit float, das PyG typischerweise float nutzt
+    """
     v = [0.0] * length
     if 0 <= index < length:
         v[index] = 1.0
@@ -79,59 +100,62 @@ def _encode_node_features(node: Dict[str, Any]) -> List[float]:
         "type": "MaLo" | "MeLo" | "TR" | "NeLo",
         "attrs": { ... }
     }
+    :param node: Knoten-Dict
     """
-    ntype = node.get("type")
-    attrs = node.get("attrs", {}) or {}
+    ntype = node.get("type")                                        # Knotentyp
+    attrs = node.get("attrs", {}) or {}                             # Attributdict
 
-    # 1) node_type one-hot
+    # Knotentyp zu One-Hot
     type_idx = NODE_TYPES.get(ntype, None)
     if type_idx is None:
-        # Unbekannter Typ → alles 0, optional erweitern
+        # Unbekannter Typ bedeutet alles 0, optional erweitern
         type_vec = [0.0] * NUM_NODE_TYPES
     else:
         type_vec = _one_hot(type_idx, NUM_NODE_TYPES)
 
-    # 2) direction one-hot (für MaLo, bei anderen egal)
+    # MaLo-Richtung
     raw_dir = attrs.get("direction")
-    dir_idx = DIRECTIONS.get(raw_dir, DIR_UNKNOWN_INDEX)
+    dir_idx = DIRECTIONS.get(raw_dir, DIR_UNKNOWN_INDEX)            # Bei MeLo, TR, NeLo ist das None
     dir_vec = _one_hot(dir_idx, NUM_DIRECTIONS)
 
-    # 3) MeLo-Funktion (nur bei MeLo wirklich belegt)
+    # MeLo-Funktion
     raw_fn = attrs.get("function") if ntype == "MeLo" else None
     fn_idx = MELO_FUNCTIONS.get(raw_fn, MELO_FUNC_UNKNOWN_INDEX)
     fn_vec = _one_hot(fn_idx, NUM_MELO_FUNCTIONS)
 
-    # 4) voltage_level (nur in Ist-MeLo vorhanden)
+    # Spannungsebene
     raw_volt = attrs.get("voltage_level") if ntype == "MeLo" else None
     volt_idx = VOLTAGE_LEVELS.get(raw_volt, VOLT_UNKNOWN_INDEX)
     volt_vec = _one_hot(volt_idx, NUM_VOLTAGE_LEVELS)
 
-    # 5) level (nur in Templates gesetzt; bei Ist default 0.0)
+    # LBS_OBJECT_LEVEL für Template-Graphen, einfache Zahl (bei Ist-Konstrukte default 0.0)
     level = float(attrs.get("level", 0.0))
 
+    # Konkatenation aller Feature-Blöcke: 4 Knotentypen + 3 MaLo-Richtungen + 5 MeLo-Funktionen + 3 Spannungsebenen + 1 Level = 16
     return type_vec + dir_vec + fn_vec + volt_vec + [level]
 
 
 def _encode_edge_attr(rel: str) -> List[float]:
     """
-    Kodiert Kanten-Typ (rel) als One-Hot-Feature.
-    Erwartete Werte: "MEMA", "METR", "MENE", "MEME".
+    Kodiert Kanten-Typ als One-Hot-Feature.
+    "MEMA", "METR", "MENE", "MEME".
+    :param rel: Kanten-Typ
     """
     idx = EDGE_TYPES.get(rel, EDGE_UNKNOWN_INDEX)
     return _one_hot(idx, NUM_EDGE_TYPES)
 
 
-# -----------------------------
-# JSON-Graph -> PyG Data
-# -----------------------------
+# ------------------------------
+# JSON-GRAPH ZU PyG DATA
+# ------------------------------
 
 def json_graph_to_pyg(
     g: Dict[str, Any],
-    undirected: bool = True,
+    undirected: bool = True,                                        # Damit das GNN in beide Richtungen Nachrichten senden kann
 ) -> Data:
     """
-    Konvertiert einen Graphen im JSON-Format aus deinen Dateien (ist_graphs_small.jsonl
-    oder lbs_templates.jsonl) in ein torch_geometric.data.Data-Objekt.
+    Konvertiert einen Graphen im JSON-Format (ist_graphs_small.jsonl
+    oder lbs_templates.jsonl) in ein torch_geometric.data.Data-Objekt
 
     Erwartetes dict-Format:
     {
@@ -147,12 +171,26 @@ def json_graph_to_pyg(
         ],
         "graph_attrs": {...}
     }
+
+    Erwartete Rückgabe:
+    Data(
+        x=[num_nodes, 16],
+        edge_index=[2, num_edges],
+        edge_attr=[num_edges, 5],
+        graph_id=...,
+        graph_attrs=...
+    )
     """
 
-    nodes = g.get("nodes", [])
-    edges = g.get("edges", [])
+    # Knoten und Kanten aus dict
+    nodes = g.get("nodes", [])                                      # Bsp.: {"id": "50414974078", "type": "MaLo", "attrs": {"direction": "consumption"}}
+    edges = g.get("edges", [])                                      # Bsp.: {"src": "DE0071...", "dst": "50414974078", "rel": "MEMA"}
 
-    # Map Node-ID -> Index
+    # Knoten-ID zu Index im Node-Array mappen
+    # Beispiel:
+    # nodes[0]["id"] = "123456789"     #MaLo
+    # nodes[1]["id"] = "DE00..."       #MeLo
+    # nodes[2]["id"] = "JEFLEHMA..."   #TR
     id_to_idx: Dict[str, int] = {n["id"]: i for i, n in enumerate(nodes)}
 
     # Node-Features
@@ -204,9 +242,9 @@ def json_graph_to_pyg(
     return data
 
 
-# -----------------------------
-# JSONL-Helfer
-# -----------------------------
+# ------------------------------
+# JSONL
+# ------------------------------
 
 def load_jsonl_graphs(path: str) -> List[Dict[str, Any]]:
     """
