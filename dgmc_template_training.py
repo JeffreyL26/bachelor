@@ -9,8 +9,8 @@ from dgmc_dataset import TemplatePairDataset
 
 #TODO: Zum Laufen bei realistischen Abweichungen bringen - Ziel vor Weihnachten
 # Exakte Permutation zwischen zwei identischen Graphen erkennen
-# DGMC-Pretraining auf synthetischen Template-Paaren konvergiert extrem schnell (Loss ~ 0),
-# weil die Aufgabe aktuell sehr einfach ist: identische Templates, nur permutiert. Epochs = 20
+# DGMC-Pretraining auf synthetischen Template-Paaren konvergiert extrem schnell (Loss gegen 0),
+# weil die Aufgabe aktuell sehr einfach ist: identische Templates, nur permutiert. Epochs = 20 oder 11
 # DGMC kann auf synthetischen Paaren Permutation lernen - GESCHAFFT
 # Als nächstes auf realistischen Abweichungen trainieren - erste Matching-Auswertung auf Ist-Graphen
 
