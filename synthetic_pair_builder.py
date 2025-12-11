@@ -4,7 +4,6 @@ import os
 import random
 from typing import Any, Dict, List, Optional, Tuple
 
-#TODO: Kommentare und Dokumentation revamp - Ziel 15.12
 
 # JSON-Graph und Trainingspaar
 TGraph = Dict[str, Any]
