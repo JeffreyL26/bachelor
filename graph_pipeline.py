@@ -4,8 +4,6 @@ from typing import Dict, Any, List, Optional, Iterable
 import torch
 from torch_geometric.data import Data
 
-#TODO: Kommentare und Dokumentation revamp - Ziel 15.12
-
 # ------------------------------
 # FEATURE - VOKABULAR
 # ------------------------------
@@ -193,15 +191,24 @@ def json_graph_to_pyg(
     # nodes[2]["id"] = "JEFLEHMA..."   #TR
     id_to_idx: Dict[str, int] = {n["id"]: i for i, n in enumerate(nodes)}
 
-    # Node-Features
+    # Node-Features x = [num_nodes, 16]
+    # Liste von Listen
+    # Beispiel:
+    # x_list = [
+    #     [... 16 floats für Node 0...],
+    #     [... 16 floats für Node 1...],
+    #     [... 16 floats für Node 2...],]
     x_list: List[List[float]] = [_encode_node_features(n) for n in nodes]
+
+    # Daraus ein Tensor → Knoten-Feature-Matrix
     x = torch.tensor(x_list, dtype=torch.float)
 
-    # Kanten & Edge-Features
-    edge_index_list: List[List[int]] = []
-    edge_attr_list: List[List[float]] = []
+    # Kanten und deren Features
+    edge_index_list: List[List[int]] = []                           # Liste von Quell- und Zielknotenpaaren
+    edge_attr_list: List[List[float]] = []                          # Liste der dazugehörigen Kanten-Features
 
     for e in edges:
+        # Je Quell-, Zielknoten und Relation extrahierem
         src_id = e.get("src")
         dst_id = e.get("dst")
         rel = e.get("rel")
@@ -210,31 +217,42 @@ def json_graph_to_pyg(
             # Inkonsistente Kante, überspringen
             continue
 
+        # Indizes  Quell- und Zielknoten
         i = id_to_idx[src_id]
         j = id_to_idx[dst_id]
 
+        # Kantentyp Featurevektor
         attr_vec = _encode_edge_attr(rel)
 
-        # gerichtete Kante i -> j
+        # gerichtete Kante i → j
         edge_index_list.append([i, j])
         edge_attr_list.append(attr_vec)
 
         if undirected:
-            # Rückkante j -> i hinzufügen
+            # Rückkante j → i hinzufügen
             edge_index_list.append([j, i])
             edge_attr_list.append(attr_vec)
 
+        # Bsiepiel:
+        # edge_index_list: [[MeLo Index, MaLo Index], [MaLo Index, MeLo Index]]
+        # edge_attr_list: [attr_vec, attr_vec]
+
+    # Umwandlung in PyG-Torch-Tensoren
+    # Es gibt Kanten
     if edge_index_list:
+        # Transponieren, den PyG hat Konvention [2 Spalten (src, dst), Anzahl Kanten], ich habe es ursprünglich andersherum. contiguous(), um aktuelle Reihenfolge beizubehalten
         edge_index = torch.tensor(edge_index_list, dtype=torch.long).t().contiguous()
         edge_attr = torch.tensor(edge_attr_list, dtype=torch.float)
+    # Es gibt keine Kanten
     else:
-        # Graph ohne Kanten – edge_index leeres Tensor-Shape [2, 0]
+        # edge_index leeres Tensor-Shape [2, 0]
         edge_index = torch.empty((2, 0), dtype=torch.long)
         edge_attr = torch.empty((0, NUM_EDGE_TYPES), dtype=torch.float)
 
+    # Standardformat für DGMC (theoretisch auch andere PyG-Modelle: MERKEN!)
     data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
 
-    # Meta-Infos für spätere Auswertung/Debugging mitschleppen
+    # Meta-Infos für Auswertung/Debugging
     data.graph_id = g.get("graph_id")
     data.graph_label = g.get("label")
     data.graph_attrs = g.get("graph_attrs", {})
@@ -248,9 +266,13 @@ def json_graph_to_pyg(
 
 def load_jsonl_graphs(path: str) -> List[Dict[str, Any]]:
     """
-    Lädt eine JSONL-Datei, in der pro Zeile ein Graph-JSON steht
-    (Format siehe json_graph_to_pyg).
+    Lädt eine JSONL-Datei, in der pro Zeile ein JSON-Graph steht
+    Format @json_graph_to_pyg
+    :param path: Pfad zur JSONL-Datei
+    :return: Liste von Graphen
     """
+
+    # Liste mit Graphen
     graphs: List[Dict[str, Any]] = []
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
@@ -263,7 +285,10 @@ def load_jsonl_graphs(path: str) -> List[Dict[str, Any]]:
 
 def load_jsonl_as_pyg(path: str, undirected: bool = True) -> List[Data]:
     """
-    Komfortfunktion: läd alle Graphen aus JSONL und konvertiert sie in PyG-Data-Objekte.
+    Lädt alle Graphen aus JSONL und konvertiert sie in PyG-Data-Objekte.
+    :param path: Pfad zur JSONL-Datei
+    :param undirected: Graphen gerichtet (=true) oder ungerichtet (= false)
+    :return: Liste von PyG-Data-Objekten
     """
     graphs = load_jsonl_graphs(path)
     return [json_graph_to_pyg(g, undirected=undirected) for g in graphs]
