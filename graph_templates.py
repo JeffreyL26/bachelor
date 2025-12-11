@@ -89,19 +89,38 @@ def _infer_melo_function(role_id: str, descr_de: str = "") -> str:
 
 
 # ------------------------------
-# TODO
+# GRAPH AUFBAUEN
 # ------------------------------
 
 def lbsjson_to_template_graph(lbs_json: Dict[str, Any],
                               graph_id: Optional[str] = None) -> Dict[str, Any]:
-    # 1) Meta zu T_ROLE aufbauen
+    """
+    Erstellt aus einem LBS-Export aus dem SAP-System (Soll-Konzept) einen "Goldstandard"-Graphen.
+    :param lbs_json: LBS-Export als Python-Dict
+    :param graph_id: ID des Graphen, falls vorhanden, sonst generiert
+    :return: Template-Graph, der einem Soll-Konstrukt entspricht (LBS-Code und dazugehörige Variante)
+    """
+
+    # T_ROLE für den Eintrag in der LBS-Rollentabelle - Nachschlagewerk erstellen
+    # Marker, ob Kernobjekt oder Zusatzrolle
+    # Beispiel T_ROLE-Eintrag:
+    # {
+    #     "ID": "ME_xyz",                                       INFO: Wäre ein Kernobjekt. AME_xyz wäre eine Anlage (technische Rolle), wie diese MeLo in einer bestimmten Variante genutzt wird
+    #     "LBS_OBJECT_LEVEL": 1,
+    #     "LBS_OBJECT_CODE": 10,
+    #     "T_DESCR": [...],
+    #     "T_ATTR": [...]
+    # }
+    # INFO Teil 2: Semantisch beschreiben beide dieselbe fachliche Einheit. Damit keine zwei Knoten gebaut werden, gibt es dazu Level- und Code-Flags
+
+    # Was weiß ich über diese Rolle aus der globalen Tabelle?
     role_meta: Dict[str, Dict[str, Any]] = {}
     for r in lbs_json.get("T_ROLE", []):
-        rid = r.get("ID", "")
-        descr = _descr_de(r)
-        level = r.get("LBS_OBJECT_LEVEL", 0)
-        code = r.get("LBS_OBJECT_CODE", 0)
-        attrs = {a.get("ATTR_CATEGORY"): a.get("ATTR_VALUE")
+        rid = r.get("ID", "")                                   # Rollen-ID, wie z.B. ME_xyz
+        descr = _descr_de(r)                                    # deutsche Beschreibung
+        level = r.get("LBS_OBJECT_LEVEL", 0)                    # 0 ist das, was nicht als Knoten gebraucht wird
+        code = r.get("LBS_OBJECT_CODE", 0)                      # wenn 0,0 reines Hilfsobjekt (wird später ignoriert)
+        attrs = {a.get("ATTR_CATEGORY"): a.get("ATTR_VALUE")    # Attribute ale Map
                  for a in r.get("T_ATTR", [])}
         role_meta[rid] = {
             "id": rid,
@@ -111,69 +130,77 @@ def lbsjson_to_template_graph(lbs_json: Dict[str, Any],
             "attrs": attrs,
         }
 
-    # 2) Erste MC / Variante wählen
+
+    # Messkonfiguration (MC)
     mc_list = lbs_json.get("T_MC", [])
     if not mc_list:
-        raise ValueError("LBS-JSON ohne T_MC!")
+        raise ValueError("LBS-JSON ohne Messkonzeptkonfiguration (MC)!")
     mc = mc_list[0]
-    lbs_code = mc.get("LBS_CODE")
-    var_list = mc.get("T_VAR", [])
+    lbs_code = mc.get("LBS_CODE")                               # Konfigurationstyp (jede MC sollte einen haben)
+    var_list = mc.get("T_VAR", [])                              # Varianten dessen (z.B. unterschiedliche Ausprägungen)
     if not var_list:
-        raise ValueError("LBS-JSON ohne T_VAR in T_MC!")
-    var = var_list[0]   # TODO: ggf. irgendwann nach PRIORITY wählen
+        raise ValueError("LBS-JSON ohne T_VAR in Messkonzeptkonfiguration (MC)!")
+    var = var_list[0]   # TODO: ggf. irgendwann nach PRIORITY wählen, derzeit einfach erste Variante
 
-    # 3) Knoten (Kernobjekte) aufbauen
+
+    # Knoten/Kernobjekte aufbauen
     nodes_by_id: Dict[str, Dict[str, Any]] = {}
 
-    for r in var.get("T_ROLE", []):
-        role_id = r.get("ROLE_ID", "")
+    for r in var.get("T_ROLE", []):                             # Innerhalb einer Variante gibt es auch eine T_ROLE Liste, hier: rollenbezogen
+        role_id = r.get("ROLE_ID", "")                          # z.B. AME_xyz, ME_xyz
+        # Mapping LBS-Rollen auf Knotentyp und Knoten-ID
         ntype, core_id = _core_type_and_id(role_id)
         if not ntype or not core_id:
             continue
 
+        # Metadaten aus Rollentabelle aus Kernrolle, alternativ Rollen-ID, ansonsten leer
         meta = role_meta.get(core_id, role_meta.get(role_id, {}))
         level = int(meta.get("level", 0))
         code = meta.get("code", 0)
         descr = meta.get("descr", "")
 
-        # reine Hilfsrollen (Level 0, Code 0) ignorieren
+        # keine Hilfsrolle, kein Kernobjekt → Knoten brauchen wir nicht
         if level == 0 and code == 0:
             continue
 
-        attrs: Dict[str, Any] = {"level": level}
-        if ntype == "MaLo":
+        # Knoten Attribute
+        attrs: Dict[str, Any] = {"level": level}                # Jeder Knoten bekommt Level
+        if ntype == "MaLo":                                     # MaLo-Knoten aus vorheriger Funktion
             direction = _infer_malo_direction(core_id, descr)
             if direction:
                 attrs["direction"] = direction
-        elif ntype == "MeLo":
+        elif ntype == "MeLo":                                   # MeLo-Knoten aus vorheriger Funktion
             fn = _infer_melo_function(core_id, descr)
             attrs["function"] = fn
+            # Wenn Hinterschaltung, hängt hinter anderer MeLo/Schaltstelle. Verhalten dynamischer und nicht immer gleich.
+            # TODO: im Messkonzept besonders flexible / geschaltete / nachgelagerte Verbrauchs-/Erzeugungs-Situationen
             attrs["dynamic"] = 1 if fn == "H" else 0
 
+        # Pro Kernobjekt GENAU ein Knoten im Graph
         if core_id not in nodes_by_id:
             nodes_by_id[core_id] = make_node(core_id, ntype, attrs)
 
+    # Liste aller Knoten im LBS-Konstrukt
     nodes: List[Dict[str, Any]] = list(nodes_by_id.values())
 
-    # 4) Kanten mit REL_TYPE
+    # Kanten durch REL_TYPE
     edges: List[Dict[str, str]] = []
-    for rr in var.get("T_ROLEREL", []):
-        o1 = rr.get("OBJECT_ID_1", "")
-        o2 = rr.get("OBJECT_ID_2", "")
-        t1, c1 = _core_type_and_id(o1)
-        t2, c2 = _core_type_and_id(o2)
+    for rr in var.get("T_ROLEREL", []):                         # Tabelle der Beziehungen zwischen Rollen
+        # Rollen-IDs der beiden Knoten mit Beziehung
+        t1, c1 = _core_type_and_id(rr.get("OBJECT_ID_1", ""))   # Typen wie MeLo und IDs
+        t2, c2 = _core_type_and_id(rr.get("OBJECT_ID_2", ""))
         if not t1 or not t2 or c1 not in nodes_by_id or c2 not in nodes_by_id:
             continue
 
         rel_type = None
-        for att in rr.get("T_OBJRAT", []):
+        for att in rr.get("T_OBJRAT", []):                      # T_OBJRAT ist die Attributliste zur Beziehung
             if att.get("ATTR_CATEGORY") == "REL_TYPE":
                 v = (att.get("ATTR_VALUE") or "").strip()
                 if v:
                     rel_type = v
                     break
 
-        # heuristische Fallbacks, falls REL_TYPE fehlt
+        # Fallbacks, falls REL_TYPE fehlt
         if rel_type is None:
             if t1 == "MeLo" and t2 == "MaLo":
                 rel_type = "MEMA"
@@ -186,35 +213,45 @@ def lbsjson_to_template_graph(lbs_json: Dict[str, Any],
             else:
                 continue
 
+        # 4 Beziehungen, die relevant sind: Darauf reduzieren
+        # NOTIZ: MEME sind Hinterzählungsketten
         if rel_type not in ("MEMA", "MENE", "MEME", "METR"):
             continue
 
+        # Beispiel:
+        # {
+        #     "src": c1,                                        Quellknoten
+        #     "dst": c2,                                        Zielknoten
+        #     "rel": rel_type                                   Beziehung
+        # }
         edges.append(make_edge(c1, c2, rel_type))
 
-    # MEME-Selbstkanten rausfiltern (Artefakt aus AME_* Mappings)
+    # Self-Loops herausfiltern, es könnten nämlich c1 = c2-Beziehungen entstehen (keine echte Beziehung "MeLo hängt mit sich selbst zusammen" → trivial)
     edges = [
         e for e in edges
         if not (e["rel"] == "MEME" and e["src"] == e["dst"])
     ]
 
-    # 5) Pattern & Graph-Attribute
+    # Pattern aufbauen (1:1, 1:2 , ...)
     malo_count = sum(1 for n in nodes if n["type"] == "MaLo")
     melo_count = sum(1 for n in nodes if n["type"] == "MeLo")
     pattern = classify_pattern(malo_count, melo_count)
 
+    # Wenn kein explizites graph_id, dann einfach nach LBS-Code
     if graph_id is None:
         graph_id = f"catalog-{lbs_code}"
 
+    # Rückgabe fertiger Graph
     return {
         "graph_id": graph_id,
-        "label": str(lbs_code) if lbs_code is not None else None,
+        "label": str(lbs_code) if lbs_code is not None else None,   # LBS-Code als String, für DGMC Klassen-ID
         "nodes": nodes,
         "edges": edges,
         "graph_attrs": {
             "pattern": pattern,
             "malo_count": malo_count,
             "melo_count": melo_count,
-            "is_template": True,
+            "is_template": True,                                    # Soll-Zustand Flag
             "lbs_code": str(lbs_code) if lbs_code is not None else None,
         }
     }
