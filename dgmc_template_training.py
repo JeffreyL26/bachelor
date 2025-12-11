@@ -7,7 +7,7 @@ from dgmc import DGMC
 from dgmc.models import GIN
 from dgmc_dataset import TemplatePairDataset
 
-#TODO: Zum Laufen bringen - Ziel vor Weihnachten
+#TODO: Zum Laufen bei realistischen Abweichungen bringen - Ziel vor Weihnachten
 # Exakte Permutation zwischen zwei identischen Graphen erkennen
 # DGMC-Pretraining auf synthetischen Template-Paaren konvergiert extrem schnell (Loss ~ 0),
 # weil die Aufgabe aktuell sehr einfach ist: identische Templates, nur permutiert. Epochs = 20
