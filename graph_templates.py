@@ -4,8 +4,6 @@ import glob
 import json
 from typing import Dict, Any, List, Optional, Tuple
 
-#TODO: Kommentare und Dokumentation revamp - Ziel 15.12
-
 # Wir nutzen die Helfer aus graph_converter, damit Format identisch ist
 from graph_converter import make_node, make_edge, classify_pattern
 
