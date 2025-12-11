@@ -78,7 +78,7 @@ def train_epoch(model: DGMC,
 
         # Single-Pair-Forward (Vorwärtsdurchlauf), wie im test() der DGMC-Beispiele:
         # Batch-Argumente sind None, weil wir nicht batchen
-        # S0: Anfängliche Similarity-Matrix zwischen Knoten
+        # S0: Anfängliche Affinitäts-Matrix zwischen Knoten
         # SL: Similarity-Matrix nach num_steps Matchingschritten
         S0, SL = model(
             # Source
@@ -125,11 +125,14 @@ def main():
     # Jeder Knoten in n-dimensionalen Vektor, aus dem Similarity berechnet wird
     hidden_dim = 64
 
-    # Knoten-Encoder-Netze (GIN)
+    # Knoten-Encoder-Netze (Graph Isomorphism Networks)
+    # Feature-Extraktor für Knoten, damit DGMC Graph-Struktur und Attribute vergleichen kann
+    # Ohne gäbe es nur rohe, flache One-Hot-Features, DGMC bekommt sie übergeben
+    # Ermöglicht struktur-sensitive Embeddings
     psi_1 = GIN(in_channels, hidden_dim, num_layers=3)                  # Für Source-Graphen
     psi_2 = GIN(in_channels, hidden_dim, num_layers=3)                  # Für Target-Graphen
 
-    # DGMC-Modell
+    # DGMC-Modell (für 2 GIN gebaut)
     # 10 Matching-Refinement-Schritte
     # k=-1 bedeutet alle Knoten berücksichtigen
     model = DGMC(psi_1, psi_2, num_steps=10, k=-1).to(device)
