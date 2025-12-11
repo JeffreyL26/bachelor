@@ -4,15 +4,22 @@ import os
 import random
 from typing import Any, Dict, List, Optional, Tuple
 
-#TODO: Kommentare und Dokumentation revamp
+#TODO: Kommentare und Dokumentation revamp - Ziel 15.12
 
+# JSON-Graph und Trainingspaar
 TGraph = Dict[str, Any]
 TPair  = Dict[str, Any]
 
+# ------------------------------
+# GRAPHEN LADEN UND PERMUTIEREN
+# ------------------------------
+
 def load_templates_jsonl(path: str) -> List[TGraph]:
     """
-    Lädt alle Template-Graphen (normalisiertes Format) aus einer JSONL-Datei,
-    also das, was graph_templates.build_all_templates schreibt.
+    Lädt alle normalisierte Template-Graphen aus einer JSONL-Datei,
+    aus @graph_templates.build_all_templates
+    :param path: Pfad zur JSONL-Datei
+    :return: Liste von Graphen
     """
     graphs: List[TGraph] = []
     with open(path, "r", encoding="utf-8") as f:
@@ -30,34 +37,46 @@ def permute_graph(g: TGraph) -> Tuple[TGraph, List[int]]:
     - die Knotenreihenfolge wird zufällig vertauscht
     - die Knoten-IDs bleiben gleich
     - Kanten bleiben als (src/dst)-IDs erhalten
+    → G2 hat dieselbe Struktur wie G1, Reihenfolge der Knoten anders, wahre Permutation der Knoten hinterlegen
     Zusätzlich wird eine Permutationsliste zurückgegeben:
     perm[i] = Index des Knoten i (im Original) in der neuen Knotenliste.
+
+    Ziel ist es, dass DGMC weiß, dass ein Knoten dem Knoten in einem anderen Graphen entspricht, ganz gleich wie sie nummeriert sind
+    :param g: Graph
+    :return: Permutierte Kopie, Permutationsliste
     """
+    # Knotenliste kopieren
     nodes = list(g["nodes"])
     n = len(nodes)
 
-    # Shuffle-Reihenfolge
+    # Zufallsreihenfolge
     order = list(range(n))
     random.shuffle(order)
 
+    # Neue Knoten
     new_nodes = [nodes[i] for i in order]
 
-    # Mapping: Node-ID -> neuer Index
+    # Node-ID → neuer Index
     id_to_new_idx = {node["id"]: idx for idx, node in enumerate(new_nodes)}
 
-    # Permutationsliste: alter Index -> neuer Index
+    # Dient zur Ground-Truth-Zuordnung (Matching-Matrix) die DGMC lernt
+    # perm[i] = j, Knoten, der früher an Stelle i war, ist jetzt an Stelle j
     perm = [id_to_new_idx[nodes[i]["id"]] for i in range(n)]
 
-    # Flache Kopie des Graphen, Nodes austauschen
+    # Permutierten Graphen bauen
     new_g: TGraph = {
-        "graph_id": f'{g.get("graph_id", "")}|perm',
+        "graph_id": f'{g.get("graph_id", "")}|perm',                    # perm anhängen → permutierte Version des Original-Graphen
         "label": g.get("label"),
-        "nodes": new_nodes,
-        "edges": list(g.get("edges", [])),
+        "nodes": new_nodes,                                             # "Neue" Knoten
+        "edges": list(g.get("edges", [])),                              # 1:1 dieselben, sie speichern die ID und brauchen daher keine Indizes
         "graph_attrs": dict(g.get("graph_attrs", {})),
     }
     return new_g, perm
 
+
+# ------------------------------
+# SYNTHETISCHE PAARE BAUEN
+# ------------------------------
 
 def build_synthetic_pairs(
     templates: List[TGraph],
