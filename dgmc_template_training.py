@@ -8,26 +8,61 @@ from dgmc.models import GIN
 from dgmc_dataset import TemplatePairDataset
 
 #TODO: Zum Laufen bringen - Ziel vor Weihnachten
+# Exakte Permutation zwischen zwei identischen Graphen erkennen
+# DGMC-Pretraining auf synthetischen Template-Paaren konvergiert extrem schnell (Loss ~ 0),
+# weil die Aufgabe aktuell sehr einfach ist: identische Templates, nur permutiert. Epochs = 20
+# DGMC kann auf synthetischen Paaren Permutation lernen - GESCHAFFT
+# Als nächstes auf realistischen Abweichungen trainieren - erste Matching-Auswertung auf Ist-Graphen
+
+# ------------------------------
+# MATCHING-ARRAYS AUFBAUEN
+# ------------------------------
 
 def generate_y(y_col: torch.Tensor, device: torch.device) -> torch.LongTensor:
     """
     Wandelt einen Vektor [num_nodes] in ein Matching-Array [2, num_nodes] um:
+
     y[0, k] = Index im Source-Graph,
     y[1, k] = Index im Target-Graph.
-    """
-    y_col = y_col.to(device)                   # z.B. [0, 2, 1, ...]
-    y_row = torch.arange(y_col.size(0), device=device)  # [0, 1, 2, ...]
-    return torch.stack([y_row, y_col], dim=0)           # Shape [2, num_nodes]
 
+    Bsp.:
+    y_col = tensor([2, 0, 1])
+
+    Source-Knoten 0 entspricht Target-Knoten 2, 1 entspricht Target-Knoten 0, 2 entspricht Target-Knoten 1
+
+    :param y_col: Tensor der Länge num_nodes, der für jeden Source-Knoten den Index des zugehörigen Target-Knotens enthält
+    :param device: Gerät, auf dem berechnet wird
+    """
+    y_col = y_col.to(device)                                        # Target-Indizes (z.B. [0, 2, 1, ...])
+    y_row = torch.arange(y_col.size(0), device=device)              # Source-Indizes (z.B. [0, 1, 2, ...])
+    return torch.stack([y_row, y_col], dim=0)               # Aus beiden Torch-Vektoren eine 2xN-Matrix
+
+
+# ------------------------------
+# TRAINING
+# ------------------------------
 
 def train_epoch(model: DGMC,
                 dataset: TemplatePairDataset,
                 optimizer: Adam,
                 device: torch.device) -> float:
+    """
+    Trainiert eine einzelne DGMC-Epoche unter Verwendung eines Datensatzes.
+    Durchläuft alle Samples im Datensatz, berechnet Vorwärtsdurchlauf für jedes Paar von Eingaben,
+    bewertet auch Verlust anhand der Ground-Truth-Übereinstimmung.
+
+    :param model: DGMC-Modell
+    :param dataset: Datensatz mit Quell- und Zielgraph
+    :param optimizer: Optimierer, der Parameter während des Trainings optimiert
+    :type optimizer: Adam
+    :param device: Gerät, auf dem berechnet wird
+    :return: Durchschnittlicher Loss pro Epoche
+    """
+
     model.train()
     total_loss = 0.0
 
-    # einfache Shuffle-Reihenfolge ohne DataLoader
+    # Vor Training Shuffling für Zufälligkeit
     indices = list(range(len(dataset)))
     random.shuffle(indices)
 
@@ -80,7 +115,7 @@ def main():
     model = DGMC(psi_1, psi_2, num_steps=10, k=-1).to(device)
     optimizer = Adam(model.parameters(), lr=1e-3)
 
-    epochs = 20
+    epochs = 11
     for epoch in range(1, epochs + 1):
         loss = train_epoch(model, dataset, optimizer, device)
         print(f"Epoch {epoch:02d} | loss = {loss:.4f}")
