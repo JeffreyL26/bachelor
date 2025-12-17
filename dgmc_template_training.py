@@ -10,7 +10,7 @@ from dgmc_dataset import TemplatePairDataset
 #TODO: Zum Laufen bei realistischen Abweichungen bringen - Ziel vor Weihnachten
 # Exakte Permutation zwischen zwei identischen Graphen erkennen
 # DGMC-Pretraining auf synthetischen Template-Paaren konvergiert extrem schnell (Loss gegen 0),
-# weil die Aufgabe aktuell sehr einfach ist: identische Templates, nur permutiert. Epochs = 20 oder 11
+# weil die Aufgabe aktuell sehr einfach ist: identische Templates, nur permutiert. Epochs = 20 oder 11 oder 15
 # DGMC kann auf synthetischen Paaren Permutation lernen - GESCHAFFT
 # Als nächstes auf realistischen Abweichungen trainieren - erste Matching-Auswertung auf Ist-Graphen
 
@@ -139,7 +139,7 @@ def main():
     # Adam-Optimizer über alle trainierbaren Parameter
     optimizer = Adam(model.parameters(), lr=1e-3)
 
-    epochs = 11
+    epochs = 15
     for epoch in range(1, epochs + 1):
         loss = train_epoch(model, dataset, optimizer, device)
         print(f"Epoch {epoch:02d} | loss = {loss:.4f}")

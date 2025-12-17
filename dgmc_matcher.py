@@ -14,9 +14,9 @@ from dgmc.models import GIN
 JsonGraph = Dict[str, Any]
 
 
-# -----------------------------
-# Hilfsfunktionen
-# -----------------------------
+# ------------------------------
+# TODO: Kommentare
+# ------------------------------
 
 def load_jsonl_graphs(path: str) -> List[JsonGraph]:
     graphs: List[JsonGraph] = []
@@ -34,7 +34,7 @@ def build_model(in_channels: int,
                 num_steps: int = 10,
                 device: torch.device = torch.device("cpu")) -> DGMC:
     """
-    Baut die DGMC-Architektur genau so nach, wie du sie beim Training verwendet hast.
+    DGMC-Architektur, wie beim Training verwendet
     """
     psi_1 = GIN(in_channels, hidden_dim, num_layers=3)
     psi_2 = GIN(in_channels, hidden_dim, num_layers=3)
@@ -53,7 +53,7 @@ def match_pair(
     Berechnet einen Matching-Score zwischen einem Ist-Graphen (g_src)
     und einem Template-Graphen (g_tgt) sowie ein Knoten-Mapping.
 
-    Rückgabe:
+    :return
     - score: globaler Score (Mean der row-wise Maxima der Matching-Matrix)
     - mapping: Liste von Zuordnungen pro Quellknoten mit Score
     """
@@ -104,19 +104,18 @@ def match_pair(
     return score, mapping
 
 
-# -----------------------------
-# Hauptpipeline: Ist -> Template
-# -----------------------------
+# ------------------------------
+# TODO: Kommentare
+# ------------------------------
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     base = os.path.dirname(os.path.abspath(__file__))
 
-    # Pfade an dein Repo angepasst:
     ist_path = os.path.join(base, "ist_graphs.jsonl")
     if not os.path.exists(ist_path):
-        # Fallback: vielleicht hast du die Datei in data/ gelegt
+        # Fallback
         ist_path = os.path.join(base, "data", "ist_graphs.jsonl")
 
     templates_path = os.path.join(base, "data", "lbs_soll_graphs.jsonl")
