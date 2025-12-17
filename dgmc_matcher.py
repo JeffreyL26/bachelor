@@ -59,11 +59,8 @@ def match_pair(
     """
 
     # JSON -> PyG-Graphen
-    data_s = json_graph_to_pyg(g_src, undirected=True)
-    data_t = json_graph_to_pyg(g_tgt, undirected=True)
-
-    data_s = data_s.to(device)
-    data_t = data_t.to(device)
+    data_s = json_graph_to_pyg(g_src, undirected=True).to(device)
+    data_t = json_graph_to_pyg(g_tgt, undirected=True).to(device)
 
     # DGMC-Forward, analog zum Training (ohne y)
     S0, SL = model(
@@ -74,11 +71,12 @@ def match_pair(
     # Wir nehmen die finale Matching-Matrix SL
     S = SL  # Shape [num_src_nodes, num_tgt_nodes]
 
-    # Zeilenweise Softmax → pro Quellknoten eine Verteilung über Zielknoten
-    S_soft = torch.softmax(S, dim=1)
+    # Falls irgendwann sparse (k>=1) verwendet wird:
+    if getattr(S, "is_sparse", False):
+        S = S.to_dense()
 
     # Row-wise Maxima als Score pro Quellknoten
-    row_max_vals, row_max_idx = S_soft.max(dim=1)  # Shape [num_src_nodes]
+    row_max_vals, row_max_idx = S.max(dim=1)  # Shape [num_src_nodes]
 
     # Globaler Graph-Score: Mittelwert der row-wise Maxima
     score = row_max_vals.mean().item()
@@ -88,16 +86,13 @@ def match_pair(
     tgt_ids = [n["id"] for n in g_tgt.get("nodes", [])]
 
     mapping: List[Dict[str, Any]] = []
-    num_src = len(src_ids)
-    for i in range(num_src):
+    for i in range(len(src_ids)):
         j = int(row_max_idx[i].item())
-        src_node_id = src_ids[i] if i < len(src_ids) else None
-        tgt_node_id = tgt_ids[j] if j < len(tgt_ids) else None
         mapping.append({
             "src_index": i,
-            "src_node_id": src_node_id,
+            "src_node_id": src_ids[i],
             "tgt_index": j,
-            "tgt_node_id": tgt_node_id,
+            "tgt_node_id": tgt_ids[j] if 0 <= j < len(tgt_ids) else None,
             "score": float(row_max_vals[i].item()),
         })
 
