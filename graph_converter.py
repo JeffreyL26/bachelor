@@ -16,7 +16,7 @@ warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 # ------------------------------
 # FORMATIEREN
 # ------------------------------
-def _canon(s: str) -> str:
+def _word_unifier(s: str) -> str:
     """
     Entfernt unnütze Leerzeichen, wandelt in lower case um, ersetzt Leerraumfolgen
     durch Unterstriche, wandelt Umlaute in ASCII um.
@@ -30,7 +30,7 @@ def _canon(s: str) -> str:
     s = re.sub(r"[^a-z0-9_]", "", s)
     return s
 
-def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
+def column_unifier(df: pd.DataFrame) -> pd.DataFrame:
     """
     Macht dasselbe wie in @_canon, nur für den gesamten DataFrame
 
@@ -41,14 +41,14 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     :return: Bereinigter Datensatz
     """
     df = df.copy()
-    df.columns = [_canon(c) for c in df.columns]
+    df.columns = [_word_unifier(c) for c in df.columns]
     return df
 
 
 # ------------------------------
 # ROHDATEN AUS EXCEL EINLESEN
 # ------------------------------
-def load_tables(base_dir: str) -> Dict[str, pd.DataFrame]:
+def table_loader(base_directory: str) -> Dict[str, pd.DataFrame]:
     """
     Lädt und verarbeitet mehrere Excel-Dateien als DataFrames in einem Dictionary.
     Spalten in jedem geladenen DataFrame werden bereinigt.
@@ -62,23 +62,23 @@ def load_tables(base_dir: str) -> Dict[str, pd.DataFrame]:
     ... <optional>
     }
 
-    :param base_dir: Verzeichnispfad
-    :type base_dir: str
+    :param base_directory: Verzeichnispfad
+    :type base_directory: str
     :return: Dictionary, in dem die Schlüssel die Datensatznamen und die Werte die DataFrames sind
     :rtype: Dict[str, pd.DataFrame]
     """
-    def rd(name):
+    def csv_reader(name):
         enc = "cp1252" if "MALO" in name.upper() else "utf-8-sig"  # Die CSVs sind nicht einheitlich exportiert, wir wollen Umlaute und ß behalten
-        path = os.path.join(base_dir, name)
-        return normalize_columns(pd.read_csv(path, sep=";", encoding=enc, dtype=str))
+        path = os.path.join(base_directory, name)
+        return column_unifier(pd.read_csv(path, sep=";", encoding=enc, dtype=str))
 
     tables = {}
 
     # Sets von René
-    tables["malo"] = rd("data/training_data/SDF_MALO.csv")
-    tables["melo"] = rd("data/training_data/SDF_MELO.csv")
-    tables["pod_rel"] = rd("data/training_data/SDF_POD_REL.csv")
-    tables["meter"] = rd("data/training_data/SDF_METER.csv")
+    tables["malo"] = csv_reader("data/training_data/SDF_MALO.csv")
+    tables["melo"] = csv_reader("data/training_data/SDF_MELO.csv")
+    tables["pod_rel"] = csv_reader("data/training_data/SDF_POD_REL.csv")
+    tables["meter"] = csv_reader("data/training_data/SDF_METER.csv")
 
     # Excel einlesen - 20s langsamer als CSV
     # def rd(name):
@@ -447,7 +447,7 @@ def build_graphs(t: Dict[str, pd.DataFrame],
 # ------------------------------
 # VALIDIERUNG
 # ------------------------------
-def validate_relations(t: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
+def relation_validation(t: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
     """
     Validiert die Beziehungen zwischen MaLo und MeLo basierend auf dem gegebenen Mapping und den eingebundenen DataFrames.
     Checkt fehlende Referenzen und Multiplizität der Beziehungen.
@@ -504,9 +504,9 @@ def validate_relations(t: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
 if __name__ == "__main__":
     start_time = time.time()
     BASE = os.path.dirname(os.path.abspath(__file__))
-    tables = load_tables(BASE)
+    tables = table_loader(BASE)
     tables = canonicalize(tables)
-    report = validate_relations(tables)
+    report = relation_validation(tables)
 
     # Fokus zunächst auf kleine Komponenten (<=2 MaLo, <=2 MeLo)
     graphs = build_graphs(tables, restrict_to=(2, 2))
