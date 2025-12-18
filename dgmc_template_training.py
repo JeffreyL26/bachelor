@@ -4,8 +4,9 @@ import random
 import torch
 from torch.optim import Adam
 from dgmc import DGMC
-from dgmc.models import GIN
 from dgmc_dataset import TemplatePairDataset
+from wrapper_GINE import EdgeAwareGINE
+
 
 #TODO: Zum Laufen bei realistischen Abweichungen bringen - Ziel vor Weihnachten
 # Exakte Permutation zwischen zwei identischen Graphen erkennen
@@ -122,6 +123,7 @@ def main():
     # Größe der letzten Dimension = Feature-Dimension
     # in_channels entspricht der Anzahll der Features pro Knoten
     in_channels = sample.x_s.size(-1)
+    edge_dim = sample.edge_attr_s.size(-1)
     # Jeder Knoten in n-dimensionalen Vektor, aus dem Similarity berechnet wird
     hidden_dim = 64
 
@@ -129,8 +131,8 @@ def main():
     # Feature-Extraktor für Knoten, damit DGMC Graph-Struktur und Attribute vergleichen kann
     # Ohne gäbe es nur rohe, flache One-Hot-Features, DGMC bekommt sie übergeben
     # Ermöglicht struktur-sensitive Embeddings
-    psi_1 = GIN(in_channels, hidden_dim, num_layers=3)                  # Für Source-Graphen
-    psi_2 = GIN(in_channels, hidden_dim, num_layers=3)                  # Für Target-Graphen
+    psi_1 = EdgeAwareGINE(in_channels, hidden_dim, edge_dim, num_layers=3, dropout=0.0, batch_norm=True, cat=True, lin=True)                  # Für Source-Graphen
+    psi_2 = EdgeAwareGINE(in_channels, hidden_dim, edge_dim, num_layers=3, dropout=0.0, batch_norm=True, cat=True, lin=True)                  # Für Target-Graphen
 
     # DGMC-Modell (für 2 GIN gebaut)
     # 10 Matching-Refinement-Schritte
@@ -139,7 +141,7 @@ def main():
     # Adam-Optimizer über alle trainierbaren Parameter
     optimizer = Adam(model.parameters(), lr=1e-3)
 
-    epochs = 15
+    epochs = 7
     for epoch in range(1, epochs + 1):
         loss = train_epoch(model, dataset, optimizer, device)
         print(f"Epoch {epoch:02d} | loss = {loss:.4f}")

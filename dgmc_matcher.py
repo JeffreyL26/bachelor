@@ -1,14 +1,11 @@
 from __future__ import annotations
-
 import json
 import os
 from typing import Any, Dict, List, Tuple
-
 import torch
-
 from graph_pipeline import json_graph_to_pyg
 from dgmc import DGMC
-from dgmc.models import GIN
+from wrapper_GINE import EdgeAwareGINE
 
 
 JsonGraph = Dict[str, Any]
@@ -30,16 +27,86 @@ def load_jsonl_graphs(path: str) -> List[JsonGraph]:
 
 
 def build_model(in_channels: int,
+                edge_dim: int,
                 hidden_dim: int = 64,
                 num_steps: int = 10,
                 device: torch.device = torch.device("cpu")) -> DGMC:
     """
     DGMC-Architektur, wie beim Training verwendet
     """
-    psi_1 = GIN(in_channels, hidden_dim, num_layers=3)
-    psi_2 = GIN(in_channels, hidden_dim, num_layers=3)
+    psi_1 = EdgeAwareGINE(in_channels, hidden_dim, edge_dim, num_layers=3, cat=True, lin=True)
+    psi_2 = EdgeAwareGINE(in_channels, hidden_dim, edge_dim, num_layers=3, cat=True, lin=True)
     model = DGMC(psi_1, psi_2, num_steps=num_steps, k=-1).to(device)
     return model
+
+def _greedy_typisiert(
+    S: torch.Tensor,               # [ns, nt], bereits "wahrscheinlichkeitsartig"
+    src_types: List[str],
+    tgt_types: List[str],
+) -> Tuple[float, List[Dict[str, Any]]]:
+    """
+    1:1 (partial) Matching per greedx:
+    - nur Typ-kompatible Paare erlaubt (MaLo-MaLo, MeLo-MeLo, TR-TR, NeLo-NeLo)
+    - jeder Target-Knoten max. 1x
+    - jeder Source-Knoten max. 1x
+    - Score bestraft Unmatched über Normalisierung mit max(ns, nt)
+    """
+    ns, nt = S.size(0), S.size(1)
+
+    # Typ -> Indizes (effizienter als ns*nt Schleife)
+    tgt_by_type: Dict[str, List[int]] = {}
+    for j, t in enumerate(tgt_types):
+        tgt_by_type.setdefault(t, []).append(j)
+
+    # Kandidatenliste: (score, i, j)
+    cands: List[Tuple[float, int, int]] = []
+    S_cpu = S.detach().cpu()
+    for i, st in enumerate(src_types):
+        js = tgt_by_type.get(st, [])
+        for j in js:
+            sc = float(S_cpu[i, j].item())
+            cands.append((sc, i, j))
+
+    # beste Paare zuerst
+    cands.sort(reverse=True, key=lambda x: x[0])
+
+    used_src = set()
+    used_tgt = set()
+    chosen: Dict[int, Tuple[int, float]] = {}  # src_i -> (tgt_j, score)
+
+    for sc, i, j in cands:
+        if i in used_src or j in used_tgt:
+            continue
+        used_src.add(i)
+        used_tgt.add(j)
+        chosen[i] = (j, sc)
+
+        if len(used_src) >= min(ns, nt):
+            break
+
+    # Mapping-Liste (für alle src-Knoten, unmatched -> tgt=None)
+    mapping: List[Dict[str, Any]] = []
+    sum_scores = 0.0
+    for i in range(ns):
+        if i in chosen:
+            j, sc = chosen[i]
+            sum_scores += sc
+            mapping.append({
+                "src_index": i,
+                "tgt_index": j,
+                "score": float(sc),
+            })
+        else:
+            mapping.append({
+                "src_index": i,
+                "tgt_index": None,
+                "score": 0.0,
+            })
+
+    # Global Score: Sum / max(ns, nt) -> penalisiert unmatched
+    denom = float(max(ns, nt)) if max(ns, nt) > 0 else 1.0
+    score = sum_scores / denom
+    return score, mapping
 
 
 @torch.no_grad()
@@ -69,11 +136,13 @@ def match_pair(
     )
 
     # Wir nehmen die finale Matching-Matrix SL
-    S = SL  # Shape [num_src_nodes, num_tgt_nodes]
+    S = SL if model.num_steps > 0 else S0   # Shape [num_src_nodes, num_tgt_nodes]
+    if hasattr(S, "to_dense"):
+        S = S.to_dense()
 
     # Falls irgendwann sparse (k>=1) verwendet wird:
-    if getattr(S, "is_sparse", False):
-        S = S.to_dense()
+    #if getattr(S, "is_sparse", False):
+    #    S = S.to_dense()
 
     # Row-wise Maxima als Score pro Quellknoten
     row_max_vals, row_max_idx = S.max(dim=1)  # Shape [num_src_nodes]
@@ -82,18 +151,28 @@ def match_pair(
     score = row_max_vals.mean().item()
 
     # Node-IDs zur besseren Interpretierbarkeit
-    src_ids = [n["id"] for n in g_src.get("nodes", [])]
-    tgt_ids = [n["id"] for n in g_tgt.get("nodes", [])]
+    src_nodes = g_src.get("nodes", [])
+    tgt_nodes = g_tgt.get("nodes", [])
+
+    src_ids = [n.get("id") for n in src_nodes]
+    tgt_ids = [n.get("id") for n in tgt_nodes]
+    src_types = [n.get("type") for n in src_nodes]
+    tgt_types = [n.get("type") for n in tgt_nodes]
+
+    score, mapping_greedy = _greedy_typisiert(S, src_types, tgt_types)
 
     mapping: List[Dict[str, Any]] = []
-    for i in range(len(src_ids)):
-        j = int(row_max_idx[i].item())
+    for gmp in mapping_greedy:
+        i = gmp["src_index"]
+        j = gmp["tgt_index"]
         mapping.append({
             "src_index": i,
-            "src_node_id": src_ids[i],
+            "src_node_id": src_ids[i] if i < len(src_ids) else None,
+            "src_type": src_types[i] if i < len(src_types) else None,
             "tgt_index": j,
-            "tgt_node_id": tgt_ids[j] if 0 <= j < len(tgt_ids) else None,
-            "score": float(row_max_vals[i].item()),
+            "tgt_node_id": (tgt_ids[j] if (j is not None and j < len(tgt_ids)) else None),
+            "tgt_type": (tgt_types[j] if (j is not None and j < len(tgt_types)) else None),
+            "score": float(gmp["score"]),
         })
 
     return score, mapping
@@ -133,8 +212,9 @@ def main():
     from graph_pipeline import json_graph_to_pyg as _j2p
     sample_template_pyg = _j2p(template_graphs[0], undirected=True)
     in_channels = sample_template_pyg.x.size(-1)
+    edge_dim = sample_template_pyg.edge_attr.size(-1)
 
-    model = build_model(in_channels, hidden_dim=64, num_steps=10, device=device)
+    model = build_model(in_channels, edge_dim=edge_dim, hidden_dim=64, num_steps=10, device=device)
     if not os.path.exists(model_path):
         raise RuntimeError(f"DGMC-Modell nicht gefunden unter {model_path}. Bitte zuerst dgmc_template_training.py ausführen.")
 
