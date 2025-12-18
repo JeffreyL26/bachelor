@@ -236,7 +236,7 @@ def map_direction(direction_code: Any) -> str:
 # ------------------------------
 # BIPARTITER GRAPH & KOMPONENTEN
 # ------------------------------
-def build_components(t: Dict[str, pd.DataFrame]) -> List[Tuple[set, set]]:
+def component_builder(dataframe_dict: Dict[str, pd.DataFrame]) -> List[Tuple[set, set]]:
     """
     Baut bipartite Graphen aus der pod_rel-Tabelle (MaLo–MeLo-Beziehungen) und zerlegt ihn dann in seine
     zusammenhängenden Komponenten.
@@ -244,10 +244,10 @@ def build_components(t: Dict[str, pd.DataFrame]) -> List[Tuple[set, set]]:
     Aus dem Graphen werden zusammenhängende Komponenten extrahiert und in Mengen von MaLo- und MeLo-Identifikatoren
     aufgeteilt.
 
-    :param t:  Ein Dictionary, das DataFrames enthält, wobei einer der Schlüssel "pod_rel" ist. Dieser
+    :param dataframe_dict:  Ein Dictionary, das DataFrames enthält, wobei einer der Schlüssel "pod_rel" ist. Dieser
             DataFrame muss die Spalten "malo_id" und "melo_id" enthalten, die Beziehungen zwischen
             MaLo- und MeLo-Entitäten darstellen.
-    :type t: Dict[str, pd.DataFrame]
+    :type dataframe_dict: Dict[str, pd.DataFrame]
 
     :return: Eine Liste von Tupeln, wobei jedes Tupel aus zwei Mengen besteht. Die erste Menge enthält
             MaLo-Identifikatoren und die zweite Menge MeLo-Identifikatoren, die zur gleichen
@@ -257,7 +257,7 @@ def build_components(t: Dict[str, pd.DataFrame]) -> List[Tuple[set, set]]:
 
     # Relationstabelle ohne Zeilen, in denen eine der beiden IDs fehlt
     # Spalten MaLo und MeLo
-    pr = t["pod_rel"][["malo_id", "melo_id"]].dropna().astype(str)
+    pr = dataframe_dict["pod_rel"][["malo_id", "melo_id"]].dropna().astype(str)
 
     # Ungerichteter Graph, wir prüfen erst auf allgemeine Verbundenheit
     G = nx.Graph()
@@ -378,7 +378,7 @@ def build_graphs(t: Dict[str, pd.DataFrame],
     #   ({"MaLo3", "MaLo4"}, {"MeLoD"}),     # 2:1
     #   ...
     # ]
-    comps = build_components(t)
+    comps = component_builder(t)
     graphs = []
 
     for malos, melos in comps:
