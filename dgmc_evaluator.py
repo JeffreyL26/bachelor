@@ -23,7 +23,7 @@ def load_jsonl(path: str) -> List[MatchRec]:
 
 
 def summarize_overall(matches: List[MatchRec]) -> None:
-    print("=== Overview ===")
+    print("+++ Überblick +++")
     print("Anzahl Matches:", len(matches))
 
     patterns = Counter(m["ist_pattern"] for m in matches)
@@ -43,7 +43,7 @@ def summarize_scores_by_pattern(matches: List[MatchRec]) -> None:
         pat = m.get("ist_pattern", "unknown")
         scores_by_pattern[pat].append(float(m.get("best_score", 0.0)))
 
-    print("\n=== Scores je Pattern ===")
+    print("\n+++ Score je Patternm +++")
     for pat, scores in sorted(scores_by_pattern.items()):
         if not scores:
             continue
@@ -78,7 +78,7 @@ def analyze_all_to_one_mapping(matches: List[MatchRec]) -> None:
             all_to_one_count += 1
             all_to_one_by_pattern[pat] += 1
 
-    print("\n=== Degenerates Matching (alle Ist-Knoten -> ein Template-Knoten) ===")
+    print("\n+++ Degenerates Matching (alle Ist-Knoten -> ein Template-Knoten) +++")
     print(f"Gesamt: {all_to_one_count}/{total} ({all_to_one_count/total*100:.1f}%)")
     for pat, cnt in sorted(all_to_one_by_pattern.items()):
         total_pat = total_by_pattern.get(pat, 0)
@@ -93,7 +93,7 @@ def print_sample_matches(matches: List[MatchRec],
     """
     Gibt ein paar Beispielmatches aus, optional gefiltert nach Pattern und/oder Template-Label.
     """
-    print("\n=== Beispiel-Matches ===")
+    print("\n+++ Beispiel-Matches +++")
     shown = 0
     for m in matches:
         if pattern_filter and m.get("ist_pattern") != pattern_filter:
