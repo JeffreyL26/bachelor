@@ -512,7 +512,7 @@ if __name__ == "__main__":
     graphs = build_graphs(tables, restrict_to=(2, 2))
     #graphs = build_graphs(tables, restrict_to=(4, 3))
 
-    print("Referentielle Checks:", json.dumps(report, indent=2, ensure_ascii=False))
+    print("Ist-Graphen Check:", json.dumps(report, indent=2, ensure_ascii=False))
     print(f"Gebaut: {len(graphs)} Graphen (Pattern-Counts):")
     from collections import Counter
     print(Counter(g["graph_attrs"]["pattern"] for g in graphs))
