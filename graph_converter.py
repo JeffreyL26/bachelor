@@ -290,12 +290,12 @@ def classify_pattern(malo_count: int, melo_count: int) -> str:
     if malo_count == 1 and melo_count == 1:
         return "1:1"
     if malo_count == 1 and melo_count == 2:
-        return "2:1"
-    if malo_count == 2 and melo_count == 1:
         return "1:2"
+    if malo_count == 2 and melo_count == 1:
+        return "2:1"
     if malo_count == 2 and melo_count == 2:
         return "2:2"
-    return f"{melo_count}:{malo_count}"
+    return f"{malo_count}:{melo_count}"
 
 
 # ------------------------------
