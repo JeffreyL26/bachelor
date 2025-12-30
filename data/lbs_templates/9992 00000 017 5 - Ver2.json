@@ -1,0 +1,153 @@
+{
+  "T_ROLE": [
+    {
+      "ID": "NELO",
+      "LBS_OBJECT_LEVEL": 1,
+      "LBS_OBJECT_CODE": "99920000001256",
+      "T_DESCR": [{"LANG": "D", "DESCR": "Netzlokation"}],
+      "T_ATTR": []
+    },
+
+    {
+      "ID": "ME_1214",
+      "LBS_OBJECT_LEVEL": 1,
+      "LBS_OBJECT_CODE": "99920000001214",
+      "T_DESCR": [{"LANG": "D", "DESCR": "Messlokation Netzuebergabe (N)"}],
+      "T_ATTR": []
+    },
+    {
+      "ID": "ME_DIF_1222",
+      "LBS_OBJECT_LEVEL": 2,
+      "LBS_OBJECT_CODE": "99920000001222",
+      "T_DESCR": [{"LANG": "D", "DESCR": "Messlokation Differenzmessung (D)"}],
+      "T_ATTR": []
+    },
+
+    {
+      "ID": "TR_1024",
+      "LBS_OBJECT_LEVEL": 1,
+      "LBS_OBJECT_CODE": "99920000001024",
+      "T_DESCR": [{"LANG": "D", "DESCR": "Technische Ressource Verbrauch (TR)"}],
+      "T_ATTR": []
+    },
+    {
+      "ID": "TR_1149",
+      "LBS_OBJECT_LEVEL": 2,
+      "LBS_OBJECT_CODE": "99920000001149",
+      "T_DESCR": [{"LANG": "D", "DESCR": "Technische Ressource Verbrauch (TR)"}],
+      "T_ATTR": []
+    },
+    {
+      "ID": "TR_1165",
+      "LBS_OBJECT_LEVEL": 2,
+      "LBS_OBJECT_CODE": "99920000001165",
+      "T_DESCR": [{"LANG": "D", "DESCR": "Technische Ressource Speicher (TR)"}],
+      "T_ATTR": []
+    },
+    {
+      "ID": "TR_1157",
+      "LBS_OBJECT_LEVEL": 2,
+      "LBS_OBJECT_CODE": "99920000001157",
+      "T_DESCR": [{"LANG": "D", "DESCR": "Technische Ressource Erzeugung (TR)"}],
+      "T_ATTR": []
+    },
+
+    {
+      "ID": "MA_BZG_1016",
+      "LBS_OBJECT_LEVEL": 1,
+      "LBS_OBJECT_CODE": "99920000001016",
+      "T_DESCR": [{"LANG": "D", "DESCR": "Marktlokation Bezug (Verbrauch)"}],
+      "T_ATTR": []
+    },
+    {
+      "ID": "MA_BZG_1107",
+      "LBS_OBJECT_LEVEL": 2,
+      "LBS_OBJECT_CODE": "99920000001107",
+      "T_DESCR": [{"LANG": "D", "DESCR": "Marktlokation Bezug (Verbrauch)"}],
+      "T_ATTR": []
+    },
+    {
+      "ID": "MA_EIN_1115",
+      "LBS_OBJECT_LEVEL": 2,
+      "LBS_OBJECT_CODE": "99920000001115",
+      "T_DESCR": [{"LANG": "D", "DESCR": "Marktlokation Einspeisung (Erzeugung)"}],
+      "T_ATTR": []
+    }
+  ],
+
+  "T_MC": [
+    {
+      "LBS_CODE": "9992000000175",
+      "T_VAR": [
+        {
+          "VAR_ID": "0001",
+          "PRIORITY": 1,
+
+          "T_ROLE": [
+            {"ROLE_ID": "NELO"},
+            {"ROLE_ID": "AME_1214"},
+            {"ROLE_ID": "AME_DIF_1222"},
+            {"ROLE_ID": "TR_1024"},
+            {"ROLE_ID": "TR_1149"},
+            {"ROLE_ID": "TR_1165"},
+            {"ROLE_ID": "TR_1157"},
+            {"ROLE_ID": "AMA_BZG_1016"},
+            {"ROLE_ID": "AMA_BZG_1107"},
+            {"ROLE_ID": "AMA_EIN_1115"}
+          ],
+
+          "T_ROLEREL": [
+            {
+              "OBJECT_ID_1": "AME_1214",
+              "OBJECT_ID_2": "NELO",
+              "T_OBJRAT": [{"ATTR_CATEGORY": "REL_TYPE", "ATTR_VALUE": "MENE"}]
+            },
+            {
+              "OBJECT_ID_1": "AME_1214",
+              "OBJECT_ID_2": "AME_DIF_1222",
+              "T_OBJRAT": [{"ATTR_CATEGORY": "REL_TYPE", "ATTR_VALUE": "MEME"}]
+            },
+
+            {
+              "OBJECT_ID_1": "AME_1214",
+              "OBJECT_ID_2": "TR_1024",
+              "T_OBJRAT": [{"ATTR_CATEGORY": "REL_TYPE", "ATTR_VALUE": "METR"}]
+            },
+            {
+              "OBJECT_ID_1": "AME_1214",
+              "OBJECT_ID_2": "AMA_BZG_1016",
+              "T_OBJRAT": [{"ATTR_CATEGORY": "REL_TYPE", "ATTR_VALUE": "MEMA"}]
+            },
+
+            {
+              "OBJECT_ID_1": "AME_DIF_1222",
+              "OBJECT_ID_2": "TR_1149",
+              "T_OBJRAT": [{"ATTR_CATEGORY": "REL_TYPE", "ATTR_VALUE": "METR"}]
+            },
+            {
+              "OBJECT_ID_1": "AME_DIF_1222",
+              "OBJECT_ID_2": "TR_1165",
+              "T_OBJRAT": [{"ATTR_CATEGORY": "REL_TYPE", "ATTR_VALUE": "METR"}]
+            },
+            {
+              "OBJECT_ID_1": "AME_DIF_1222",
+              "OBJECT_ID_2": "TR_1157",
+              "T_OBJRAT": [{"ATTR_CATEGORY": "REL_TYPE", "ATTR_VALUE": "METR"}]
+            },
+
+            {
+              "OBJECT_ID_1": "AME_DIF_1222",
+              "OBJECT_ID_2": "AMA_BZG_1107",
+              "T_OBJRAT": [{"ATTR_CATEGORY": "REL_TYPE", "ATTR_VALUE": "MEMA"}]
+            },
+            {
+              "OBJECT_ID_1": "AME_DIF_1222",
+              "OBJECT_ID_2": "AMA_EIN_1115",
+              "T_OBJRAT": [{"ATTR_CATEGORY": "REL_TYPE", "ATTR_VALUE": "MEMA"}]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
