@@ -1,0 +1,190 @@
+{
+  "graph_id": "catalog-9992000000183",
+  "label": "9992000000183",
+  "nodes": [
+    {
+      "id": "NELO_1256",
+      "type": "NeLo",
+      "attrs": {
+        "level": 1,
+        "cardinality": "0-1",
+        "object_code": "99920000001256"
+      }
+    },
+    {
+      "id": "ME_1214",
+      "type": "MeLo",
+      "attrs": {
+        "level": 1,
+        "function": "N",
+        "cardinality": "1",
+        "object_code": "99920000001214",
+        "direction_hint": "consumption+generation"
+      }
+    },
+    {
+      "id": "ME_1222",
+      "type": "MeLo",
+      "attrs": {
+        "level": 2,
+        "function": "D",
+        "cardinality": "1",
+        "object_code": "99920000001222",
+        "direction_hint": "consumption"
+      }
+    },
+    {
+      "id": "ME_1206",
+      "type": "MeLo",
+      "attrs": {
+        "level": 3,
+        "function": "H",
+        "cardinality": "1",
+        "object_code": "99920000001206",
+        "direction_hint": "generation"
+      }
+    },
+    {
+      "id": "MA_1016",
+      "type": "MaLo",
+      "attrs": {
+        "level": 1,
+        "direction": "consumption",
+        "cardinality": "1",
+        "object_code": "99920000001016"
+      }
+    },
+    {
+      "id": "MA_1107",
+      "type": "MaLo",
+      "attrs": {
+        "level": 2,
+        "direction": "consumption",
+        "cardinality": "1",
+        "object_code": "99920000001107"
+      }
+    },
+    {
+      "id": "MA_1123",
+      "type": "MaLo",
+      "attrs": {
+        "level": 3,
+        "direction": "consumption",
+        "cardinality": "0-1",
+        "object_code": "99920000001123"
+      }
+    },
+    {
+      "id": "MA_1131",
+      "type": "MaLo",
+      "attrs": {
+        "level": 3,
+        "direction": "generation",
+        "cardinality": "1",
+        "object_code": "99920000001131"
+      }
+    },
+    {
+      "id": "TR_1024",
+      "type": "TR",
+      "attrs": {
+        "level": 1,
+        "cardinality": "0-N",
+        "object_code": "99920000001024"
+      }
+    },
+    {
+      "id": "TR_1149",
+      "type": "TR",
+      "attrs": {
+        "level": 2,
+        "cardinality": "0-N",
+        "object_code": "99920000001149"
+      }
+    },
+    {
+      "id": "TR_1181",
+      "type": "TR",
+      "attrs": {
+        "level": 3,
+        "cardinality": "0-N",
+        "object_code": "99920000001181"
+      }
+    },
+    {
+      "id": "TR_1264",
+      "type": "TR",
+      "attrs": {
+        "level": 3,
+        "cardinality": "0-N",
+        "object_code": "99920000001264",
+        "tr_direction": "consumption+generation(storage)"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "src": "ME_1214",
+      "dst": "NELO_1256",
+      "rel": "MENE"
+    },
+    {
+      "src": "ME_1214",
+      "dst": "ME_1222",
+      "rel": "MEME"
+    },
+    {
+      "src": "ME_1222",
+      "dst": "ME_1206",
+      "rel": "MEME"
+    },
+    {
+      "src": "ME_1214",
+      "dst": "MA_1016",
+      "rel": "MEMA"
+    },
+    {
+      "src": "ME_1214",
+      "dst": "TR_1024",
+      "rel": "METR"
+    },
+    {
+      "src": "ME_1222",
+      "dst": "MA_1107",
+      "rel": "MEMA"
+    },
+    {
+      "src": "ME_1222",
+      "dst": "TR_1149",
+      "rel": "METR"
+    },
+    {
+      "src": "ME_1206",
+      "dst": "MA_1131",
+      "rel": "MEMA"
+    },
+    {
+      "src": "ME_1206",
+      "dst": "TR_1181",
+      "rel": "METR"
+    },
+    {
+      "src": "ME_1206",
+      "dst": "MA_1123",
+      "rel": "MEMA"
+    },
+    {
+      "src": "ME_1206",
+      "dst": "TR_1264",
+      "rel": "METR"
+    }
+  ],
+  "graph_attrs": {
+    "pattern": "4:3",
+    "malo_count": 4,
+    "melo_count": 3,
+    "is_template": true,
+    "lbs_code": "9992000000183",
+    "note": "Aus Tabelle+Grafik (4.15) modelliert. MELO_FUNCTIONS in graph_pipeline.py unterstützt 'H' (neben N,D,S). Kardinalitäten sind Metadaten (Methodik 1, keine Slot-Replikation)."
+  }
+}
