@@ -1,0 +1,672 @@
+{
+  "T_ROLE": [
+    {
+      "ID": "ANE_VERB_KASK_WP",
+      "CATEGORY": "01",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage NeLo (Verbrauchskaskade – Wärmepumpenkaskade)"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "AME_BZGEIN",
+      "CATEGORY": "05",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage MeLo (Netzübergabe)"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "AME_DIF_BZG",
+      "CATEGORY": "05",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage MeLo (Differenzmessung)"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "AMA_BZG_L1",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage MaLo (Verbrauch, Ebene 1)"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "AMA_BZG_L2",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage MaLo (Verbrauch, Ebene 2)"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "AMA_EIN_L2",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage MaLo (Erzeugung, Ebene 2)"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "ATR_BZG_L1",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage TR (Verbrauch, Ebene 1)"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "ATR_BZG_L2",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage TR (Verbrauch, Ebene 2)"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "ATR_EIN_L2",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage TR (Erzeugung, Ebene 2)"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "ATR_SPEI_L2",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage TR (Verbrauch & Erzeugung (Speicher), Ebene 2)"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "NELO",
+      "CATEGORY": "01",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "NeLo"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001256,
+      "LBS_OBJECT_LEVEL": 1
+    },
+    {
+      "ID": "ME_BZGEIN",
+      "CATEGORY": "05",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "MeLo (Netzübergabe)"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001214,
+      "LBS_OBJECT_LEVEL": 1
+    },
+    {
+      "ID": "ME_DIF_BZG",
+      "CATEGORY": "05",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "MeLo (Differenzmessung)"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001222,
+      "LBS_OBJECT_LEVEL": 2
+    },
+    {
+      "ID": "TR_BZG_1024",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "TR – Verbrauch"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001024,
+      "LBS_OBJECT_LEVEL": 1
+    },
+    {
+      "ID": "TR_BZG_1149",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "TR – Verbrauch"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001149,
+      "LBS_OBJECT_LEVEL": 2
+    },
+    {
+      "ID": "TR_SPEI_1165",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "TR – Verbrauch & Erzeugung (Speicher)"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001165,
+      "LBS_OBJECT_LEVEL": 2
+    },
+    {
+      "ID": "TR_EIN_1157",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "TR – Erzeugung"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001157,
+      "LBS_OBJECT_LEVEL": 2
+    },
+    {
+      "ID": "MA_BZG_1016",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "MaLo – Verbrauch"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001016,
+      "LBS_OBJECT_LEVEL": 1
+    },
+    {
+      "ID": "MA_BZG_1107",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "MaLo – Verbrauch"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001107,
+      "LBS_OBJECT_LEVEL": 2
+    },
+    {
+      "ID": "MA_EIN_1115",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "MaLo – Erzeugung"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001115,
+      "LBS_OBJECT_LEVEL": 2
+    }
+  ],
+  "T_MC": [
+    {
+      "MCID": "4.14_VERBRAUCHSKASKADE_WAERMEPUMPE",
+      "CONCEPT_CATEGORY": "LBS_TEMPLATE",
+      "CHECK_MAN": 0,
+      "LBS_CODE": 9992000000175,
+      "EMPTY_OR_BUFFER": 0,
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Verbrauchskaskade mit ungemessenen TR (Wärmepumpenkaskade)"
+        }
+      ],
+      "T_VAR": [
+        {
+          "MCVARID": "VER2",
+          "DATEFROM": "2000-01-01",
+          "DATETO": "9999-12-31",
+          "PRIORITY": 1,
+          "CHECK_VIEW_CAT": 0,
+          "T_DESCR": [
+            {
+              "LANG": "D",
+              "DESCR": "Variante (Ver2, unsplittet)"
+            }
+          ],
+          "T_ROLE": [
+            {
+              "ROLE_ID": "ANE_VERB_KASK_WP",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "AME_BZGEIN",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "AME_DIF_BZG",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "AMA_BZG_L1",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "AMA_BZG_L2",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "AMA_EIN_L2",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "ATR_BZG_L1",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "ATR_BZG_L2",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "ATR_EIN_L2",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "ATR_SPEI_L2",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "NELO",
+              "FREQUENCY_MIN": 0,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "ME_BZGEIN",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "ME_DIF_BZG",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "TR_BZG_1024",
+              "FREQUENCY_MIN": 0,
+              "FREQUENCY_MAX": 99,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "TR_BZG_1149",
+              "FREQUENCY_MIN": 0,
+              "FREQUENCY_MAX": 99,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "TR_SPEI_1165",
+              "FREQUENCY_MIN": 0,
+              "FREQUENCY_MAX": 99,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "TR_EIN_1157",
+              "FREQUENCY_MIN": 0,
+              "FREQUENCY_MAX": 99,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "MA_BZG_1016",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "MA_BZG_1107",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            },
+            {
+              "ROLE_ID": "MA_EIN_1115",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "STRAND": 0,
+              "CLUSTER": 0,
+              "NODE_NUM": 0
+            }
+          ],
+          "T_ROLEREL": [
+            {
+              "OBJECT_ID_1": "ANE_VERB_KASK_WP",
+              "OBJECT_ID_2": "NELO",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "AME_BZGEIN",
+              "OBJECT_ID_2": "ME_BZGEIN",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "AME_DIF_BZG",
+              "OBJECT_ID_2": "ME_DIF_BZG",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "AMA_BZG_L1",
+              "OBJECT_ID_2": "MA_BZG_1016",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "AMA_BZG_L2",
+              "OBJECT_ID_2": "MA_BZG_1107",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "AMA_EIN_L2",
+              "OBJECT_ID_2": "MA_EIN_1115",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "ATR_BZG_L1",
+              "OBJECT_ID_2": "TR_BZG_1024",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "ATR_BZG_L2",
+              "OBJECT_ID_2": "TR_BZG_1149",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "ATR_SPEI_L2",
+              "OBJECT_ID_2": "TR_SPEI_1165",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "ATR_EIN_L2",
+              "OBJECT_ID_2": "TR_EIN_1157",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "ME_BZGEIN",
+              "OBJECT_ID_2": "NELO",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "ME_BZGEIN",
+              "OBJECT_ID_2": "ME_DIF_BZG",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "ME_BZGEIN",
+              "OBJECT_ID_2": "MA_BZG_1016",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "ME_BZGEIN",
+              "OBJECT_ID_2": "TR_BZG_1024",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "ME_DIF_BZG",
+              "OBJECT_ID_2": "MA_BZG_1107",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "ME_DIF_BZG",
+              "OBJECT_ID_2": "MA_EIN_1115",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "ME_DIF_BZG",
+              "OBJECT_ID_2": "TR_BZG_1149",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "ME_DIF_BZG",
+              "OBJECT_ID_2": "TR_SPEI_1165",
+              "T_ATTR": []
+            },
+            {
+              "OBJECT_ID_1": "ME_DIF_BZG",
+              "OBJECT_ID_2": "TR_EIN_1157",
+              "T_ATTR": []
+            }
+          ],
+          "T_ICHK": []
+        }
+      ]
+    }
+  ],
+  "T_AV": [],
+  "_lbs_optionality": {
+    "lbs_code": "9992000000175",
+    "lbs_objects": [
+      {
+        "object_code": "9992000001256",
+        "object_type": "NeLo",
+        "level": 1,
+        "min_occurs": 0,
+        "max_occurs": 1,
+        "flexibility": "flexibel"
+      },
+      {
+        "object_code": "9992000001214",
+        "object_type": "MeLo",
+        "level": 1,
+        "min_occurs": 1,
+        "max_occurs": 1,
+        "flexibility": "starr",
+        "direction_hint": "consumption+generation (Netzübergabe)",
+        "melo_function": "N"
+      },
+      {
+        "object_code": "9992000001222",
+        "object_type": "MeLo",
+        "level": 2,
+        "min_occurs": 1,
+        "max_occurs": 1,
+        "flexibility": "starr",
+        "direction_hint": "consumption (Differenzmessung)",
+        "melo_function": "D"
+      },
+      {
+        "object_code": "9992000001024",
+        "object_type": "TR",
+        "level": 1,
+        "min_occurs": 0,
+        "max_occurs": "N",
+        "flexibility": "flexibel",
+        "direction_hint": "consumption"
+      },
+      {
+        "object_code": "9992000001149",
+        "object_type": "TR",
+        "level": 2,
+        "min_occurs": 0,
+        "max_occurs": "N",
+        "flexibility": "flexibel",
+        "direction_hint": "consumption"
+      },
+      {
+        "object_code": "9992000001165",
+        "object_type": "TR",
+        "level": 2,
+        "min_occurs": 0,
+        "max_occurs": "N",
+        "flexibility": "flexibel",
+        "direction_hint": "consumption+generation(storage)"
+      },
+      {
+        "object_code": "9992000001157",
+        "object_type": "TR",
+        "level": 2,
+        "min_occurs": 0,
+        "max_occurs": "N",
+        "flexibility": "flexibel",
+        "direction_hint": "generation"
+      },
+      {
+        "object_code": "9992000001016",
+        "object_type": "MaLo",
+        "level": 1,
+        "min_occurs": 1,
+        "max_occurs": 1,
+        "flexibility": "starr",
+        "direction_hint": "consumption"
+      },
+      {
+        "object_code": "9992000001107",
+        "object_type": "MaLo",
+        "level": 2,
+        "min_occurs": 1,
+        "max_occurs": 1,
+        "flexibility": "starr",
+        "direction_hint": "consumption"
+      },
+      {
+        "object_code": "9992000001115",
+        "object_type": "MaLo",
+        "level": 2,
+        "min_occurs": 1,
+        "max_occurs": 1,
+        "flexibility": "starr",
+        "direction_hint": "generation"
+      }
+    ],
+    "constraints": []
+  }
+}

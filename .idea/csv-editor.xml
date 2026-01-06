@@ -10,6 +10,20 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\data\training_data\SDF_MELO.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value=";" />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\data\training_data\SDF_POD_REL.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value=";" />
+            </Attribute>
+          </value>
+        </entry>
       </map>
     </option>
   </component>
