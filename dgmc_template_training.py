@@ -141,7 +141,7 @@ def main():
     # Adam-Optimizer über alle trainierbaren Parameter
     optimizer = Adam(model.parameters(), lr=1e-3)
 
-    epochs = 7
+    epochs = 15
     for epoch in range(1, epochs + 1):
         loss = train_epoch(model, dataset, optimizer, device)
         print(f"Epoch {epoch:02d} | loss = {loss:.4f}")
