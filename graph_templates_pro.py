@@ -31,7 +31,6 @@ from __future__ import annotations
 import glob
 import json
 import os
-import re
 from typing import Any, Dict, List, Optional, Tuple
 
 # Wir nutzen die Helfer aus graph_converter, damit das Format identisch ist
@@ -362,8 +361,24 @@ def _edges_and_rules_from_optionality(opt: Dict[str, Any], code_to_type: Dict[st
         if code not in code_to_type:
             continue
 
-        refs = obj.get("reference_to_melo")
-        refs = [r for r in refs if r in code_to_type and code_to_type.get(r) == "MeLo"]
+        refs_raw = obj.get("reference_to_melo")
+
+        # reference_to_melo kann None, ein einzelner Code oder eine Liste sein
+        if not refs_raw:
+            refs = []
+        elif isinstance(refs_raw, list):
+            refs = refs_raw
+        else:
+            refs = [refs_raw]
+
+        # sanitizen + nur valide MeLo-Targets behalten
+        refs = [
+            str(r).strip()
+            for r in refs
+            if r is not None and str(r).strip()
+               and r in code_to_type
+               and code_to_type.get(r) == "MeLo"
+        ]
 
         # Mapping Objekt->Relation
         rel_for_type = {
