@@ -1,0 +1,48 @@
+{
+  "ist": {
+    "count": 2472,
+    "pattern_distribution": {
+      "1:1": 2293,
+      "2:1": 96,
+      "2:2": 80,
+      "3:2": 2,
+      "3:1": 1
+    },
+    "nodes": {
+      "min": 3,
+      "mean": 3.1399676375404533,
+      "max": 7
+    },
+    "edges": {
+      "min": 2,
+      "mean": 2.1399676375404533,
+      "max": 6
+    },
+    "edge_type_totals": {
+      "METR": 2554,
+      "MEMA": 2736
+    },
+    "tr_per_melo": {
+      "min_mean": 1.0,
+      "mean_mean": 1.0,
+      "max_mean": 1.0
+    }
+  },
+  "templates": {
+    "count": 15,
+    "pattern_distribution_constraints_based": {
+      "1:0": 1,
+      "1:1": 2,
+      "2:1": 2,
+      "2:2": 3,
+      "3:2": 3,
+      "3:3": 3,
+      "1:2": 1
+    },
+    "templates_with_missing_optionality": 0
+  },
+  "baseline": {
+    "top1_hard_violation_count": 0,
+    "top1_hard_violation_rate": 0.0
+  }
+}
