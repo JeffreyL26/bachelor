@@ -31,6 +31,7 @@ from __future__ import annotations
 import glob
 import json
 import os
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 # Wir nutzen die Helfer aus graph_converter, damit das Format identisch ist
@@ -240,8 +241,11 @@ def _build_nodes_from_optionality(opt: Dict[str, Any]) -> Tuple[List[Dict[str, A
             if obj.get("direction_hint"):
                 attrs["direction_hint"] = obj.get("direction_hint")
         elif obj_type == "TR":
-            if obj.get("tr_direction"):
-                attrs["tr_direction"] = obj.get("tr_direction")
+            tr_dir = obj.get("tr_direction")
+            if tr_dir:
+                attrs["tr_direction"] = tr_dir
+                # Für einheitliche Feature-Kodierung: direction als Alias
+                attrs["direction"] = tr_dir
         # NeLo: keine zusätzlichen Features
 
         nodes.append(make_node(code, obj_type, attrs))
@@ -363,9 +367,9 @@ def _edges_and_rules_from_optionality(opt: Dict[str, Any], code_to_type: Dict[st
 
         refs_raw = obj.get("reference_to_melo")
 
-        # reference_to_melo kann None, ein einzelner Code oder eine Liste sein
+        # `reference_to_melo` kann None, ein einzelner Code oder eine Liste sein
         if not refs_raw:
-            refs = []
+            refs: List[str] = []
         elif isinstance(refs_raw, list):
             refs = refs_raw
         else:
@@ -474,11 +478,16 @@ def lbsjson_to_template_graph(lbs_json: Dict[str, Any], graph_id: Optional[str] 
         # Pattern / Counts: sinnvollerweise über Min-Occurs (Template = Constraints, nicht instanziiert)
         malo_min, malo_max = _min_max_counts(opt, "MaLo")
         melo_min, melo_max = _min_max_counts(opt, "MeLo")
+        tr_min, tr_max = _min_max_counts(opt, "TR")
+        nelo_min, nelo_max = _min_max_counts(opt, "NeLo")
+
         pattern_min = classify_pattern(malo_min, melo_min)
 
         # Counts (einmal: Anzahl Objekt-TYPEN im Template-Graph, einmal: Minimal-Occurrences)
         malo_node_types = sum(1 for n in nodes if n["type"] == "MaLo")
         melo_node_types = sum(1 for n in nodes if n["type"] == "MeLo")
+        tr_node_types = sum(1 for n in nodes if n["type"] == "TR")
+        nelo_node_types = sum(1 for n in nodes if n["type"] == "NeLo")
 
         if graph_id is None:
             graph_id = f"catalog-{lbs_code}"
@@ -494,14 +503,22 @@ def lbsjson_to_template_graph(lbs_json: Dict[str, Any], graph_id: Optional[str] 
                 "pattern_min": pattern_min,
                 "malo_min": malo_min,
                 "melo_min": melo_min,
+                "tr_min": tr_min,
+                "nelo_min": nelo_min,
                 "malo_max": malo_max,
                 "melo_max": melo_max,
+                "tr_max": tr_max,
+                "nelo_max": nelo_max,
                 "malo_node_types": malo_node_types,
                 "melo_node_types": melo_node_types,
+                "tr_node_types": tr_node_types,
+                "nelo_node_types": nelo_node_types,
                 "is_template": True,
                 "lbs_code": str(lbs_code) if lbs_code is not None else None,
-                # Vollständige Constraints mitführen
-                "_lbs_optionality": opt,
+                # `lbs_objects` ist bereits 1:1 in den Knoten (`nodes[].attrs`) repräsentiert.
+                # Deshalb führen wir es nicht noch einmal als Block mit.
+                "optionality_meta": {k: v for k, v in opt.items() if k not in ("lbs_objects", "constraints", "lbs_code")},
+                "optionality_constraints": opt.get("constraints"),
                 # Regeln für unklare Zuordnungen (nicht "raten")
                 "attachment_rules": attachment_rules,
             },

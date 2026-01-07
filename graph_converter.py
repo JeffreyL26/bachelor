@@ -388,51 +388,96 @@ def build_graphs(t: Dict[str, pd.DataFrame],
         if restrict_to and (m_count > restrict_to[0] or e_count > restrict_to[1]):
             continue
 
-        nodes = []
-        edges = []
+        nodes: List[Dict[str, Any]] = []
+        edges: List[Dict[str, Any]] = []
+
+        # Hilfssets für stabile Graphen (keine doppelten Nodes/Edges)
+        node_ids: set = set()
+        edge_keys: set = set()
+
+        def _add_node(n: Dict[str, Any]) -> None:
+            nid = n.get("id")
+            if nid in node_ids:
+                return
+            node_ids.add(nid)
+            nodes.append(n)
+
+        def _add_edge(src: str, dst: str, rel: str) -> None:
+            key = (src, dst, rel)
+            if key in edge_keys:
+                return
+            edge_keys.add(key)
+            edges.append(make_edge(src, dst, rel))
+
+        # MaLo<->MeLo-Paare innerhalb der aktuellen Komponente
+        comp_pairs = set(
+            (str(r.malo_id), str(r.melo_id))
+            for _, r in pr_df.iterrows()
+            if r.malo_id in malos and r.melo_id in melos
+        )
+
+        # Für Heuristiken: MeLo -> [MaLo]
+        melo_to_malos = defaultdict(list)
+        for malo_id, melo_id in comp_pairs:
+            melo_to_malos[str(melo_id)].append(str(malo_id))
 
         # MaLo-Knoten hinzufügen
-        # Bsp.:
-        # {
-        #     "id": mid,
-        #     "type": "MaLo",
-        #     "attrs": {"direction": "consumption" / "generation" / None}
-        # }
         for mid in sorted(malos):
             dinfo = malo_info.get(mid, {})
             direction = map_direction(dinfo.get("direction_code"))
-            nodes.append(make_node(mid, "MaLo", {"direction": direction}))
+            _add_node(make_node(mid, "MaLo", {"direction": direction}))
 
         # MeLo-Knoten und TR pro Knoten hinzufügen
-        # Bsp.:
-        # {
-        #     "id": eid,
-        #     "type": "MeLo",
-        #     "attrs": {"voltage_level": "NS" / "MS" / None}
-        # }
         for eid in sorted(melos):
             einfo = melo_info.get(eid, {})
-            nodes.append(make_node(eid, "MeLo", {"voltage_level": einfo.get("voltage_level")}))
+            _add_node(make_node(eid, "MeLo", {"voltage_level": einfo.get("voltage_level")}))
+
+            # TR-Richtung heuristisch aus den zugehörigen MaLo-Richtungen ableiten (falls eindeutig)
+            dirs = {
+                map_direction(malo_info.get(mid, {}).get("direction_code"))
+                for mid in melo_to_malos.get(eid, [])
+            }
+            dirs.discard(None)
+            tr_dir = next(iter(dirs)) if len(dirs) == 1 else None
+
             # Liste aller TR-IDs, die zu dieser MeLo gehören (ggf. leere Liste)
             for tr in meter_by_melo.get(eid, []):
-                nodes.append(make_node(tr, "TR", {}))
-                edges.append(make_edge(eid, tr, "METR"))
+                tr_attrs: Dict[str, Any] = {}
+                if tr_dir:
+                    tr_attrs["direction"] = tr_dir
+                _add_node(make_node(tr, "TR", tr_attrs))
+                _add_edge(eid, tr, "METR")
 
         # Kanten zwischen MeLo und MaLo setzen (nur Paare der aktuellen Komponente)
-        comp_pairs = set((str(r.malo_id), str(r.melo_id)) for _, r in pr_df.iterrows()
-                         if r.malo_id in malos and r.melo_id in melos)
         for (malo_id, melo_id) in comp_pairs:
-            edges.append(make_edge(melo_id, malo_id, "MEMA"))
+            _add_edge(melo_id, malo_id, "MEMA")
 
         # Graph-Metadaten
-        pattern = classify_pattern(m_count, e_count)                    # Pattern-Funktion (Relation MaLo - MeLo) - Label für Bündelformat
+        pattern = classify_pattern(m_count, e_count)       # Label für Bündelformat
         graph_id = f"comp:{sorted(list(malos))}|{sorted(list(melos))}"  # Eindeutige ID pro Graph
+
+        # Counts / einfache Statistiken (für spätere Filter/Analysen nützlich)
+        tr_count = sum(1 for n in nodes if n.get("type") == "TR")
+        nelo_count = sum(1 for n in nodes if n.get("type") == "NeLo")
+
+        edge_type_counts: Dict[str, int] = {}
+        for e in edges:
+            rel = e.get("rel")
+            edge_type_counts[rel] = edge_type_counts.get(rel, 0) + 1
+
         graphs.append({
             "graph_id": graph_id,
             "label": None,  # kein LBS-Code, reines Ist-Bündel
             "nodes": nodes,
             "edges": edges,
-            "graph_attrs": {"pattern": pattern, "malo_count": m_count, "melo_count": e_count}
+            "graph_attrs": {
+                "pattern": pattern,
+                "malo_count": m_count,
+                "melo_count": e_count,
+                "tr_count": tr_count,
+                "nelo_count": nelo_count,
+                "edge_type_counts": edge_type_counts,
+            }
         })
 
     #Bsp.:
@@ -508,7 +553,7 @@ if __name__ == "__main__":
     tables = canonicalize(tables)
     report = relation_validation(tables)
 
-    # Fokus zunächst auf kleine Komponenten (<=2 MaLo, <=2 MeLo) oder doch alles
+    # Fokus zunächst auf kleine Komponenten (<=2 MaLo, <=2 MeLo)
     graphs = build_graphs(tables, restrict_to=(2, 2))
     #graphs = build_graphs(tables, restrict_to=(4, 3))
 
@@ -518,6 +563,6 @@ if __name__ == "__main__":
     print(Counter(g["graph_attrs"]["pattern"] for g in graphs))
     print("Prozess ausgeführt in %s Sekunden" % (time.time() - start_time))
     # Optional: JSONL export
-    with open(os.path.join(BASE, "data", "ist_graphs.jsonl"), "w", encoding="utf-8") as f:
+    with open(os.path.join(BASE, "data", "ist_graphs_pro.jsonl"), "w", encoding="utf-8") as f:
          for g in graphs:
              f.write(json.dumps(g, ensure_ascii=False) + "\n")
