@@ -106,51 +106,6 @@ def _infer_melo_function(role_id: str, descr_de: str = "") -> str:
 _KNOWN_TYPES = {"MaLo", "MeLo", "TR", "NeLo"}
 _ALLOWED_REL_TYPES = {"MEMA", "MENE", "MEME", "METR"}
 
-
-# def _norm_obj_code(value: Any) -> Optional[str]:
-#     """Normalisiert einen LBS-Objektcode auf ein konsistentes String-Format.
-#
-#     In den `_lbs_optionality`-Blöcken existieren Objektcodes teils in zwei Schreibweisen:
-#     * 13-stellig ...01256
-#     * 14-stellig ...001256 (bzw. ...001016)
-#
-#     Empirisch sind das dieselben Codes, nur einmal ohne führende 0 im letzten 5er-Block.
-#     Wir normalisieren 13-stellige Codes, indem wir **eine 0 vor die letzten 4 Ziffern** schieben.
-#
-#     Beispiel:
-#       9992000001256  -> 99920000001256
-#       9992000001016  -> 99920000001016
-#     """
-#     if value is None:
-#         return None
-#     s = str(value).strip()
-#     if not s:
-#         return None
-#     # Nur Ziffern extrahieren (sicher gegen unerwartete Formate)
-#     digits = re.sub(r"\D", "", s)
-#     if digits:
-#         s = digits
-#     # Nur für die üblichen BDEW-Templatecodes anwenden
-#     if s.isdigit() and len(s) == 13 and s.startswith("9992"):
-#         s = s[:-4] + "0" + s[-4:]
-#     return s
-
-
-# def _norm_obj_code_list(value: Any) -> List[str]:
-#     """Normalisiert einen einzelnen Code oder eine Liste von Codes zu einer Liste."""
-#     if value is None:
-#         return []
-#     if isinstance(value, list):
-#         out: List[str] = []
-#         for v in value:
-#             nv = _norm_obj_code(v)
-#             if nv:
-#                 out.append(nv)
-#         return out
-#     nv = _norm_obj_code(value)
-#     return [nv] if nv else []
-
-
 def _as_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
