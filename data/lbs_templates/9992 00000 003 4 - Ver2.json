@@ -445,7 +445,7 @@
     "lbs_code": "9992000000034",
     "lbs_objects": [
       {
-        "object_code": "99920000001256",
+        "object_code": "9992000001256",
         "object_type": "NeLo",
         "level": 1,
         "min_occurs": 0,
@@ -453,7 +453,7 @@
         "flexibility": "flexibel"
       },
       {
-        "object_code": "99920000001214",
+        "object_code": "9992000001214",
         "object_type": "MeLo",
         "level": 1,
         "min_occurs": 1,
@@ -463,7 +463,7 @@
         "direction_hint": "consumption+generation (Netzübergabe)"
       },
       {
-        "object_code": "99920000001058",
+        "object_code": "9992000001058",
         "object_type": "TR",
         "level": 1,
         "min_occurs": 0,
@@ -472,7 +472,7 @@
         "tr_direction": "generation"
       },
       {
-        "object_code": "99920000001074",
+        "object_code": "9992000001074",
         "object_type": "TR",
         "level": 1,
         "min_occurs": 0,
@@ -481,7 +481,7 @@
         "tr_direction": "consumption+generation(storage)"
       },
       {
-        "object_code": "99920000001066",
+        "object_code": "9992000001066",
         "object_type": "MaLo",
         "level": 1,
         "min_occurs": 1,
@@ -490,7 +490,7 @@
         "direction": "generation"
       },
       {
-        "object_code": "99920000001016",
+        "object_code": "9992000001016",
         "object_type": "MaLo",
         "level": 1,
         "min_occurs": 0,

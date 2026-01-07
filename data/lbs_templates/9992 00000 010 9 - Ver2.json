@@ -527,7 +527,7 @@
     "lbs_code": "9992000000109",
     "lbs_objects": [
       {
-        "object_code": "99920000001256",
+        "object_code": "9992000001256",
         "object_type": "NeLo",
         "level": 1,
         "min_occurs": 0,
@@ -535,7 +535,7 @@
         "flexibility": "flexibel"
       },
       {
-        "object_code": "99920000001032",
+        "object_code": "9992000001032",
         "object_type": "MeLo",
         "level": 1,
         "min_occurs": 2,
@@ -543,46 +543,46 @@
         "flexibility": "flexibel",
         "melo_function": "N",
         "direction_hint": "consumption (Netzübergabe)",
-        "reference_to_nelo": "99920000001256"
+        "reference_to_nelo": "9992000001256"
       },
       {
-        "object_code": "99920000001024",
+        "object_code": "9992000001024",
         "object_type": "TR",
         "level": 1,
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
         "tr_direction": "consumption",
-        "reference_to_melo": "99920000001032"
+        "reference_to_melo": "9992000001032"
       },
       {
-        "object_code": "99920000001016",
+        "object_code": "9992000001016",
         "object_type": "MaLo",
         "level": 1,
         "min_occurs": 1,
         "max_occurs": 1,
         "flexibility": "starr",
         "direction": "consumption",
-        "reference_to_melo": "99920000001032"
+        "reference_to_melo": "9992000001032"
       }
     ],
     "constraints": {
       "reference_rules": [
         {
-          "if_object_code": "99920000001032",
+          "if_object_code": "9992000001032",
           "condition": "occurs>1",
-          "then_reference_to": "99920000001016",
+          "then_reference_to": "9992000001016",
           "rationale": "BDEW note: additional reference from MeLo 1032 to MaLo 1016 is necessary when object code 1032 occurs more than once."
         },
         {
-          "if_object_code": "99920000001032",
+          "if_object_code": "9992000001032",
           "condition": "occurs>1 AND nelo_id_present",
-          "then_reference_to": "99920000001256",
+          "then_reference_to": "9992000001256",
           "rationale": "BDEW note: additional reference from MeLo 1032 to NeLo 1256 (if NeLo-ID exists) is necessary when object code 1032 occurs more than once."
         },
         {
-          "if_object_code": "99920000001024",
-          "then_reference_to": "99920000001032",
+          "if_object_code": "9992000001024",
+          "then_reference_to": "9992000001032",
           "rationale": "BDEW table indicates TR 1024 references Messlokation 1032."
         }
       ],

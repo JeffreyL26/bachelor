@@ -865,7 +865,7 @@
     "lbs_code": "9992000000084",
     "lbs_objects": [
       {
-        "object_code": "99920000001256",
+        "object_code": "9992000001256",
         "object_type": "NeLo",
         "level": 1,
         "min_occurs": 0,
@@ -873,7 +873,7 @@
         "flexibility": "flexibel"
       },
       {
-        "object_code": "99920000001214",
+        "object_code": "9992000001214",
         "object_type": "MeLo",
         "level": 1,
         "min_occurs": 1,
@@ -883,7 +883,7 @@
         "direction_hint": "consumption & generation (Netzübergabe)"
       },
       {
-        "object_code": "99920000001082",
+        "object_code": "9992000001082",
         "object_type": "MeLo",
         "level": 2,
         "min_occurs": 1,
@@ -893,7 +893,7 @@
         "direction_hint": "consumption (Hinterschaltung)"
       },
       {
-        "object_code": "99920000001090",
+        "object_code": "9992000001090",
         "object_type": "MeLo",
         "level": 2,
         "min_occurs": 1,
@@ -903,7 +903,7 @@
         "direction_hint": "generation (Hinterschaltung)"
       },
       {
-        "object_code": "99920000001024",
+        "object_code": "9992000001024",
         "object_type": "TR",
         "level": 1,
         "min_occurs": 0,
@@ -912,7 +912,7 @@
         "tr_direction": "consumption"
       },
       {
-        "object_code": "99920000001149",
+        "object_code": "9992000001149",
         "object_type": "TR",
         "level": 2,
         "min_occurs": 0,
@@ -921,7 +921,7 @@
         "tr_direction": "consumption"
       },
       {
-        "object_code": "99920000001165",
+        "object_code": "9992000001165",
         "object_type": "TR",
         "level": 2,
         "min_occurs": 0,
@@ -930,7 +930,7 @@
         "tr_direction": "consumption+generation(storage)"
       },
       {
-        "object_code": "99920000001157",
+        "object_code": "9992000001157",
         "object_type": "TR",
         "level": 2,
         "min_occurs": 0,
@@ -939,7 +939,7 @@
         "tr_direction": "generation"
       },
       {
-        "object_code": "99920000001016",
+        "object_code": "9992000001016",
         "object_type": "MaLo",
         "level": 1,
         "min_occurs": 1,
@@ -948,7 +948,7 @@
         "direction": "consumption"
       },
       {
-        "object_code": "99920000001107",
+        "object_code": "9992000001107",
         "object_type": "MaLo",
         "level": 2,
         "min_occurs": 1,
@@ -957,7 +957,7 @@
         "direction": "consumption"
       },
       {
-        "object_code": "99920000001272",
+        "object_code": "9992000001272",
         "object_type": "MaLo",
         "level": 2,
         "min_occurs": 0,
@@ -966,7 +966,7 @@
         "direction": "consumption"
       },
       {
-        "object_code": "99920000001115",
+        "object_code": "9992000001115",
         "object_type": "MaLo",
         "level": 2,
         "min_occurs": 1,
@@ -979,64 +979,64 @@
       "cardinality_constraints": [
         {
           "equal_count_between_object_codes": [
-            "99920000001082",
-            "99920000001107"
+            "9992000001082",
+            "9992000001107"
           ]
         },
         {
           "equal_count_between_object_codes": [
-            "99920000001090",
-            "99920000001115"
+            "9992000001090",
+            "9992000001115"
           ]
         }
       ],
       "reference_rules": [
         {
-          "if_object_code": "99920000001149",
-          "then_reference_to": "99920000001082",
+          "if_object_code": "9992000001149",
+          "then_reference_to": "9992000001082",
           "rationale": "BDEW table: TR 1149 references Messlokation 1082."
         },
         {
-          "if_object_code": "99920000001107",
-          "then_reference_to": "99920000001082",
+          "if_object_code": "9992000001107",
+          "then_reference_to": "9992000001082",
           "rationale": "BDEW table: MaLo 1107 references Messlokation 1082."
         },
         {
-          "if_object_code": "99920000001082",
+          "if_object_code": "9992000001082",
           "condition": "occurs>1",
-          "then_reference_to": "99920000001107",
+          "then_reference_to": "9992000001107",
           "rationale": "BDEW note: additional reference from MeLo 1082 to MaLo 1107 required when MeLo 1082 occurs more than once."
         },
         {
-          "if_object_code": "99920000001165",
-          "then_reference_to": "99920000001090",
+          "if_object_code": "9992000001165",
+          "then_reference_to": "9992000001090",
           "rationale": "BDEW table: TR 1165 references Messlokation 1090."
         },
         {
-          "if_object_code": "99920000001157",
-          "then_reference_to": "99920000001090",
+          "if_object_code": "9992000001157",
+          "then_reference_to": "9992000001090",
           "rationale": "BDEW table: TR 1157 references Messlokation 1090."
         },
         {
-          "if_object_code": "99920000001272",
-          "then_reference_to": "99920000001090",
+          "if_object_code": "9992000001272",
+          "then_reference_to": "9992000001090",
           "rationale": "BDEW table: MaLo 1272 references Messlokation 1090."
         },
         {
-          "if_object_code": "99920000001115",
-          "then_reference_to": "99920000001090",
+          "if_object_code": "9992000001115",
+          "then_reference_to": "9992000001090",
           "rationale": "BDEW table: MaLo 1115 references Messlokation 1090."
         },
         {
-          "if_object_code": "99920000001090",
+          "if_object_code": "9992000001090",
           "condition": "occurs>1",
-          "then_reference_to": "99920000001115",
+          "then_reference_to": "9992000001115",
           "rationale": "BDEW note: additional reference(s) from MeLo 1090 to MaLo 1115 required when MeLo 1090 occurs more than once."
         },
         {
-          "if_object_code": "99920000001090",
+          "if_object_code": "9992000001090",
           "condition": "occurs>1",
-          "then_reference_to": "99920000001272",
+          "then_reference_to": "9992000001272",
           "rationale": "BDEW note: additional reference(s) from MeLo 1090 to MaLo 1272 required when MeLo 1090 occurs more than once."
         }
       ]

@@ -1536,7 +1536,7 @@
     "lbs_code": "9992000000026",
     "lbs_objects": [
       {
-        "object_code": "99920000001256",
+        "object_code": "9992000001256",
         "object_type": "NeLo",
         "level": 1,
         "min_occurs": 0,
@@ -1544,7 +1544,7 @@
         "flexibility": "flexibel"
       },
       {
-        "object_code": "99920000001032",
+        "object_code": "9992000001032",
         "object_type": "MeLo",
         "level": 1,
         "min_occurs": 1,
@@ -1554,7 +1554,7 @@
         "direction_hint": "consumption (Netzübergabe)"
       },
       {
-        "object_code": "99920000001024",
+        "object_code": "9992000001024",
         "object_type": "TR",
         "level": 1,
         "min_occurs": 0,
@@ -1563,7 +1563,7 @@
         "tr_direction": "consumption"
       },
       {
-        "object_code": "99920000001016",
+        "object_code": "9992000001016",
         "object_type": "MaLo",
         "level": 1,
         "min_occurs": 1,

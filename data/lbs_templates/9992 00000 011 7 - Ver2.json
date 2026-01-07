@@ -584,7 +584,7 @@
     "lbs_code": "9992000000117",
     "lbs_objects": [
       {
-        "object_code": "99920000001256",
+        "object_code": "9992000001256",
         "object_type": "NeLo",
         "level": 1,
         "min_occurs": 0,
@@ -592,7 +592,7 @@
         "flexibility": "flexibel"
       },
       {
-        "object_code": "99920000001214",
+        "object_code": "9992000001214",
         "object_type": "MeLo",
         "level": 1,
         "min_occurs": 1,
@@ -602,7 +602,7 @@
         "direction_hint": "consumption+generation (Netzübergabe)"
       },
       {
-        "object_code": "99920000001032",
+        "object_code": "9992000001032",
         "object_type": "MeLo",
         "level": 1,
         "min_occurs": 0,
@@ -612,7 +612,7 @@
         "direction_hint": "consumption (Netzübergabe)"
       },
       {
-        "object_code": "99920000001024",
+        "object_code": "9992000001024",
         "object_type": "TR",
         "level": 1,
         "min_occurs": 0,
@@ -621,7 +621,7 @@
         "tr_direction": "consumption"
       },
       {
-        "object_code": "99920000001280",
+        "object_code": "9992000001280",
         "object_type": "TR",
         "level": 1,
         "min_occurs": 0,
@@ -630,7 +630,7 @@
         "tr_direction": "consumption"
       },
       {
-        "object_code": "99920000001074",
+        "object_code": "9992000001074",
         "object_type": "TR",
         "level": 1,
         "min_occurs": 0,
@@ -639,7 +639,7 @@
         "tr_direction": "consumption+generation(storage)"
       },
       {
-        "object_code": "99920000001058",
+        "object_code": "9992000001058",
         "object_type": "TR",
         "level": 1,
         "min_occurs": 0,
@@ -648,7 +648,7 @@
         "tr_direction": "generation"
       },
       {
-        "object_code": "99920000001016",
+        "object_code": "9992000001016",
         "object_type": "MaLo",
         "level": 1,
         "min_occurs": 1,
@@ -657,7 +657,7 @@
         "direction": "consumption"
       },
       {
-        "object_code": "99920000001066",
+        "object_code": "9992000001066",
         "object_type": "MaLo",
         "level": 1,
         "min_occurs": 1,
@@ -668,97 +668,97 @@
     ],
     "reference_rules": [
       {
-        "from_object_code": "99920000001024",
+        "from_object_code": "9992000001024",
         "from_object_type": "TR",
-        "to_object_code": "99920000001032",
+        "to_object_code": "9992000001032",
         "to_object_type": "MeLo",
         "rule": "TR 1024 referenziert MeLo 1032 (Referenz Messlokation)."
       },
       {
-        "from_object_code": "99920000001280",
+        "from_object_code": "9992000001280",
         "from_object_type": "TR",
-        "to_object_code": "99920000001214",
+        "to_object_code": "9992000001214",
         "to_object_type": "MeLo",
         "rule": "TR 1280 referenziert MeLo 1214 (Referenz Messlokation)."
       },
       {
-        "from_object_code": "99920000001074",
+        "from_object_code": "9992000001074",
         "from_object_type": "TR",
-        "to_object_code": "99920000001214",
+        "to_object_code": "9992000001214",
         "to_object_type": "MeLo",
         "rule": "TR 1074 (Speicher) referenziert MeLo 1214 (Referenz Messlokation)."
       },
       {
-        "from_object_code": "99920000001058",
+        "from_object_code": "9992000001058",
         "from_object_type": "TR",
-        "to_object_code": "99920000001214",
+        "to_object_code": "9992000001214",
         "to_object_type": "MeLo",
         "rule": "TR 1058 (Erzeugung) referenziert MeLo 1214 (Referenz Messlokation)."
       },
       {
-        "from_object_code": "99920000001016",
+        "from_object_code": "9992000001016",
         "from_object_type": "MaLo",
-        "to_object_code": "99920000001032",
+        "to_object_code": "9992000001032",
         "to_object_type": "MeLo",
         "rule": "MaLo 1016 referenziert MeLo 1032 (Referenz Messlokation)."
       },
       {
-        "from_object_code": "99920000001016",
+        "from_object_code": "9992000001016",
         "from_object_type": "MaLo",
-        "to_object_code": "99920000001214",
+        "to_object_code": "9992000001214",
         "to_object_type": "MeLo",
         "rule": "MaLo 1016 referenziert MeLo 1214 (Referenz Messlokation)."
       },
       {
-        "from_object_code": "99920000001066",
+        "from_object_code": "9992000001066",
         "from_object_type": "MaLo",
-        "to_object_code": "99920000001214",
+        "to_object_code": "9992000001214",
         "to_object_type": "MeLo",
         "rule": "MaLo 1066 referenziert MeLo 1214 (Referenz Messlokation)."
       },
       {
-        "from_object_code": "99920000001032",
+        "from_object_code": "9992000001032",
         "from_object_type": "MeLo",
-        "to_object_code": "99920000001256",
+        "to_object_code": "9992000001256",
         "to_object_type": "NeLo",
         "rule": "MeLo 1032 referenziert NeLo 1256 (Referenz Netzlokation)."
       },
       {
-        "from_object_code": "99920000001214",
+        "from_object_code": "9992000001214",
         "from_object_type": "MeLo",
-        "to_object_code": "99920000001256",
+        "to_object_code": "9992000001256",
         "to_object_type": "NeLo",
         "rule": "MeLo 1214 referenziert NeLo 1256 (Referenz Netzlokation)."
       },
       {
-        "if_object_code": "99920000001032",
+        "if_object_code": "9992000001032",
         "condition": "occurs>1",
         "then_reference_to": [
           {
-            "object_code": "99920000001016",
+            "object_code": "9992000001016",
             "object_type": "MaLo"
           },
           {
-            "object_code": "99920000001256",
+            "object_code": "9992000001256",
             "object_type": "NeLo"
           }
         ],
         "rule": "Hinweistext: Falls MeLo 1032 mehrfach vorkommt, sind zusätzliche Referenzen zu MaLo 1016 und NeLo 1256 nötig (Disambiguierung)."
       },
       {
-        "if_object_code": "99920000001214",
+        "if_object_code": "9992000001214",
         "condition": "occurs>1",
         "then_reference_to": [
           {
-            "object_code": "99920000001016",
+            "object_code": "9992000001016",
             "object_type": "MaLo"
           },
           {
-            "object_code": "99920000001066",
+            "object_code": "9992000001066",
             "object_type": "MaLo"
           },
           {
-            "object_code": "99920000001256",
+            "object_code": "9992000001256",
             "object_type": "NeLo"
           }
         ],
