@@ -508,7 +508,7 @@ if __name__ == "__main__":
     tables = canonicalize(tables)
     report = relation_validation(tables)
 
-    # Fokus zunächst auf kleine Komponenten (<=2 MaLo, <=2 MeLo)
+    # Fokus zunächst auf kleine Komponenten (<=2 MaLo, <=2 MeLo) oder doch alles
     graphs = build_graphs(tables, restrict_to=(2, 2))
     #graphs = build_graphs(tables, restrict_to=(4, 3))
 
