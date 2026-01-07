@@ -169,6 +169,8 @@ def _parse_lbs_optionality(lbs_json: Dict[str, Any]) -> Optional[Dict[str, Any]]
             for rule in c_norm["reference_rules"]:
                 if not isinstance(rule, dict):
                     continue
+                # rationale entfernen
+                rule.pop("rationale", None)
                 if "if_object_code" in rule:
                     rule["if_object_code"] = rule.get("if_object_code")
                 if "then_reference_to" in rule:
@@ -181,6 +183,8 @@ def _parse_lbs_optionality(lbs_json: Dict[str, Any]) -> Optional[Dict[str, Any]]
             for cc in c_norm["cardinality_constraints"]:
                 if not isinstance(cc, dict):
                     continue
+                # rationale entfernen
+                cc.pop("rationale", None)
                 if "equal_count_between_object_codes" in cc:
                     cc["equal_count_between_object_codes"] = [
                         str(x).strip()
@@ -517,7 +521,6 @@ def lbsjson_to_template_graph(lbs_json: Dict[str, Any], graph_id: Optional[str] 
                 "lbs_code": str(lbs_code) if lbs_code is not None else None,
                 # `lbs_objects` ist bereits 1:1 in den Knoten (`nodes[].attrs`) repräsentiert.
                 # Deshalb führen wir es nicht noch einmal als Block mit.
-                "optionality_meta": {k: v for k, v in opt.items() if k not in ("lbs_objects", "constraints", "lbs_code")},
                 "optionality_constraints": opt.get("constraints"),
                 # Regeln für unklare Zuordnungen (nicht "raten")
                 "attachment_rules": attachment_rules,
