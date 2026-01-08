@@ -12,6 +12,7 @@ import networkx as nx                           # Aus Beziehungen Graphkomponent
 # Fehlermeldungen aus den Excel-Sachen ignorieren
 warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
+#TODO: Brauchen wir classify_pattern?
 
 # ------------------------------
 # FORMATIEREN
@@ -576,7 +577,6 @@ def build_graphs(t: Dict[str, pd.DataFrame],
                     graph_id = f"bundle:{bundle_id}"
 
         # --- Graph-Metadaten / Graph-Features ---
-        pattern = classify_pattern(m_count, e_count)
 
         tr_count = len(seen_tr)
         nelo_count = 0  # Relations fehlen derzeit
@@ -586,7 +586,6 @@ def build_graphs(t: Dict[str, pd.DataFrame],
             edge_type_counts[e.get("rel")] += 1
 
         graph_attrs = {
-            "pattern": pattern,
             "malo_count": m_count,
             "melo_count": e_count,
             "tr_count": tr_count,
@@ -756,7 +755,6 @@ if __name__ == "__main__":
 
         from collections import Counter
         print(f"[{tag}] Gebaut: {len(graphs)} Graphen (Pattern-Counts):")
-        print(Counter(g["graph_attrs"]["pattern"] for g in graphs))
 
         # Dataset-spezifischer Export
         #out_name = "ist_graphs.jsonl" if tag == "sdf" else "ist_graphs_pro.jsonl"

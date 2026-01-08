@@ -35,7 +35,9 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 # Wir nutzen die Helfer aus graph_converter, damit das Format identisch ist
-from graph_converter import classify_pattern, make_edge, make_node
+from graph_converter import make_edge, make_node
+
+#TODO: Brauchen wir classify_pattern?
 
 
 # ---------------------------------------------------------------------------
@@ -485,7 +487,6 @@ def lbsjson_to_template_graph(lbs_json: Dict[str, Any], graph_id: Optional[str] 
         tr_min, tr_max = _min_max_counts(opt, "TR")
         nelo_min, nelo_max = _min_max_counts(opt, "NeLo")
 
-        pattern_min = classify_pattern(malo_min, melo_min)
 
         # Counts (einmal: Anzahl Objekt-TYPEN im Template-Graph, einmal: Minimal-Occurrences)
         malo_node_types = sum(1 for n in nodes if n["type"] == "MaLo")
@@ -502,9 +503,6 @@ def lbsjson_to_template_graph(lbs_json: Dict[str, Any], graph_id: Optional[str] 
             "nodes": nodes,
             "edges": edges,
             "graph_attrs": {
-                # Backwards-compat: pattern wird als Minimalpattern gesetzt
-                "pattern": pattern_min,
-                "pattern_min": pattern_min,
                 "malo_min": malo_min,
                 "melo_min": melo_min,
                 "tr_min": tr_min,
@@ -595,7 +593,6 @@ def lbsjson_to_template_graph(lbs_json: Dict[str, Any], graph_id: Optional[str] 
 
     malo_count = sum(1 for n in nodes if n["type"] == "MaLo")
     melo_count = sum(1 for n in nodes if n["type"] == "MeLo")
-    pattern = classify_pattern(malo_count, melo_count)
 
     if graph_id is None:
         graph_id = f"catalog-{lbs_code}"
@@ -606,7 +603,6 @@ def lbsjson_to_template_graph(lbs_json: Dict[str, Any], graph_id: Optional[str] 
         "nodes": nodes,
         "edges": edges,
         "graph_attrs": {
-            "pattern": pattern,
             "malo_count": malo_count,
             "melo_count": melo_count,
             "is_template": True,
