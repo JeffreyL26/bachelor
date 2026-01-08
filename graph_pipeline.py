@@ -173,10 +173,10 @@ def _encode_node_features(node: Dict[str, Any]) -> List[float]:
     volt_vec = _one_hot(volt_idx, NUM_VOLTAGE_LEVELS)
 
     # LBS_OBJECT_LEVEL für Template-Graphen, einfache Zahl (bei Ist-Konstrukte default 0.0)
-    level = float(attrs.get("level", 0.0))
+    #level = float(attrs.get("level", 0.0))
 
-    # Konkatenation aller Feature-Blöcke: 4 Knotentypen + 4 Richtungen + 5 MeLo-Funktionen + 3 Spannungsebenen + 1 Level = 17
-    return type_vec + dir_vec + fn_vec + volt_vec + [level]
+    # Konkatenation aller Feature-Blöcke: 4 Knotentypen + 4 Richtungen + 5 MeLo-Funktionen + 3 Spannungsebenen = 16
+    return type_vec + dir_vec + fn_vec + volt_vec
 
 
 def _encode_edge_attr(rel: str) -> List[float]:
@@ -218,7 +218,7 @@ def json_graph_to_pyg(
 
     Erwartete Rückgabe:
     Data(
-        x=[num_nodes, 17],
+        x=[num_nodes, 16],
         edge_index=[2, num_edges],
         edge_attr=[num_edges, 5],
         graph_id=...,
@@ -241,13 +241,13 @@ def json_graph_to_pyg(
     node_ids = [n.get("id") for n in nodes]
     node_types = [n.get("type") for n in nodes]
 
-    # Node-Features x = [num_nodes, 17]
+    # Node-Features x = [num_nodes, 16]
     # Liste von Listen
     # Beispiel:
     # x_list = [
-    #     [... 17 floats für Node 0...],
-    #     [... 17 floats für Node 1...],
-    #     [... 17 floats für Node 2...],]
+    #     [... 16 floats für Node 0...],
+    #     [... 16 floats für Node 1...],
+    #     [... 16 floats für Node 2...],]
     x_list: List[List[float]] = [_encode_node_features(n) for n in nodes]
 
     # Daraus ein Tensor → Knoten-Feature-Matrix
