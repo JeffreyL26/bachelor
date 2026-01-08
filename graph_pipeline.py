@@ -32,10 +32,13 @@ NODE_TYPES = {
 }
 NUM_NODE_TYPES = len(NODE_TYPES)
 
-# MaLo-Richtung
+# Richtung (MaLo/TR): Verbrauch/Einspeisung/Bidirektional (z.B. Speicher-TR)
+# Hinweis: In den Templates taucht für TR u.a. "consumption+generation(storage)" auf.
+# Wir normalisieren verschiedene Schreibweisen auf {consumption, generation, both}.
 DIRECTIONS = {
     "consumption": 0,
     "generation":  1,
+    "both":        2,
     # alles andere → unknown
 }
 DIR_UNKNOWN_INDEX = len(DIRECTIONS)
@@ -88,6 +91,43 @@ def _one_hot(index: int, length: int) -> List[float]:
     return v
 
 
+def _normalize_direction(raw: Any) -> Optional[str]:
+    """
+    Normalisiert unterschiedliche Schreibweisen von Richtungen.
+
+    Erwartete kanonische Rückgabe:
+      - "consumption"
+      - "generation"
+      - "both"        (z.B. Speicher-TR: consumption+generation(storage))
+      - None          (unbekannt / nicht ableitbar)
+
+    Wir sind bewusst tolerant, weil die Quellen teils unterschiedliche Keys/Strings verwenden.
+    """
+    if raw is None:
+        return None
+    s = str(raw).strip()
+    if not s:
+        return None
+
+    s_low = s.lower()
+
+    # Harte Treffer (bereits kanonisch)
+    if s_low in ("consumption", "generation", "both"):
+        return s_low
+
+    # Kombinierte Schreibweisen (Templates: consumption+generation(storage))
+    if ("consumption" in s_low and "generation" in s_low) or ("einspeis" in s_low and "ausspeis" in s_low):
+        return "both"
+
+    # Deutsche Heuristiken (falls mal durchrutscht)
+    if "einspeis" in s_low or "erzeug" in s_low:
+        return "generation"
+    if "ausspeis" in s_low or "bezug" in s_low or "verbrauch" in s_low:
+        return "consumption"
+
+    return None
+
+
 def _encode_node_features(node: Dict[str, Any]) -> List[float]:
     """
     Kodiert einen JSON-Knoten in einen Feature-Vektor.
@@ -111,13 +151,19 @@ def _encode_node_features(node: Dict[str, Any]) -> List[float]:
     else:
         type_vec = _one_hot(type_idx, NUM_NODE_TYPES)
 
-    # MaLo-Richtung
+    # Richtung (MaLo/TR): kann je nach Quelle unter verschiedenen Keys liegen.
     raw_dir = attrs.get("direction")
-    dir_idx = DIRECTIONS.get(raw_dir, DIR_UNKNOWN_INDEX)            # Bei MeLo, TR, NeLo ist das None
+    if raw_dir is None and ntype == "TR":
+        raw_dir = attrs.get("tr_direction")
+    if raw_dir is None and ntype == "MaLo":
+        raw_dir = attrs.get("direction_hint")
+
+    canon_dir = _normalize_direction(raw_dir)
+    dir_idx = DIRECTIONS.get(canon_dir, DIR_UNKNOWN_INDEX)
     dir_vec = _one_hot(dir_idx, NUM_DIRECTIONS)
 
     # MeLo-Funktion
-    raw_fn = attrs.get("function") if ntype == "MeLo" else None
+    raw_fn = (attrs.get("function") or attrs.get("melo_function")) if ntype == "MeLo" else None
     fn_idx = MELO_FUNCTIONS.get(raw_fn, MELO_FUNC_UNKNOWN_INDEX)
     fn_vec = _one_hot(fn_idx, NUM_MELO_FUNCTIONS)
 
@@ -129,7 +175,7 @@ def _encode_node_features(node: Dict[str, Any]) -> List[float]:
     # LBS_OBJECT_LEVEL für Template-Graphen, einfache Zahl (bei Ist-Konstrukte default 0.0)
     level = float(attrs.get("level", 0.0))
 
-    # Konkatenation aller Feature-Blöcke: 4 Knotentypen + 3 MaLo-Richtungen + 5 MeLo-Funktionen + 3 Spannungsebenen + 1 Level = 16
+    # Konkatenation aller Feature-Blöcke: 4 Knotentypen + 4 Richtungen + 5 MeLo-Funktionen + 3 Spannungsebenen + 1 Level = 17
     return type_vec + dir_vec + fn_vec + volt_vec + [level]
 
 
@@ -172,7 +218,7 @@ def json_graph_to_pyg(
 
     Erwartete Rückgabe:
     Data(
-        x=[num_nodes, 16],
+        x=[num_nodes, 17],
         edge_index=[2, num_edges],
         edge_attr=[num_edges, 5],
         graph_id=...,
@@ -191,13 +237,17 @@ def json_graph_to_pyg(
     # nodes[2]["id"] = "JEFLEHMA..."   #TR
     id_to_idx: Dict[str, int] = {n["id"]: i for i, n in enumerate(nodes)}
 
-    # Node-Features x = [num_nodes, 16]
+    # Debug/Trace: Node-IDs und -Typen (hilfreich bei Matching/Fehleranalyse)
+    node_ids = [n.get("id") for n in nodes]
+    node_types = [n.get("type") for n in nodes]
+
+    # Node-Features x = [num_nodes, 17]
     # Liste von Listen
     # Beispiel:
     # x_list = [
-    #     [... 16 floats für Node 0...],
-    #     [... 16 floats für Node 1...],
-    #     [... 16 floats für Node 2...],]
+    #     [... 17 floats für Node 0...],
+    #     [... 17 floats für Node 1...],
+    #     [... 17 floats für Node 2...],]
     x_list: List[List[float]] = [_encode_node_features(n) for n in nodes]
 
     # Daraus ein Tensor → Knoten-Feature-Matrix
@@ -208,10 +258,17 @@ def json_graph_to_pyg(
     edge_attr_list: List[List[float]] = []                          # Liste der dazugehörigen Kanten-Features
 
     for e in edges:
-        # Je Quell-, Zielknoten und Relation extrahierem
+        # Je Quell-, Zielknoten und Relation extrahieren
+        if not isinstance(e, dict):
+            continue
+
         src_id = e.get("src")
         dst_id = e.get("dst")
-        rel = e.get("rel")
+
+        # Beziehungstyp: je nach Generator "rel" (neu) oder "type" (alt)
+        rel = e.get("rel") or e.get("type") or e.get("edge_type") or e.get("relation")
+        if isinstance(rel, str):
+            rel = rel.strip().upper()
 
         if src_id not in id_to_idx or dst_id not in id_to_idx:
             # Inkonsistente Kante, überspringen
@@ -256,6 +313,10 @@ def json_graph_to_pyg(
     data.graph_id = g.get("graph_id")
     data.graph_label = g.get("label")
     data.graph_attrs = g.get("graph_attrs", {})
+
+    # Hilfreich für Debugging / spätere Auswertung (DGMC ignoriert das)
+    data.node_ids = node_ids
+    data.node_types = node_types
 
     return data
 
