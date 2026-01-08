@@ -108,113 +108,235 @@ def table_loader(base_directory: str) -> Dict[str, pd.DataFrame]:
 # ------------------------------
 # VEREINHEITLICHEN
 # ------------------------------
+
+# ------------------------------
+# ROHDATEN AUS EXCEL/CSV EINLESEN (NEUER DATENSATZ)
+# ------------------------------
+def table_loader_new(base_directory: str) -> Dict[str, pd.DataFrame]:
+    """Lädt den neuen Bündel/MCID-Datensatz (CSV) aus data/training_data/.
+
+    Erwartete Kern-Dateien (required):
+      - MALO.csv
+      - MELO.csv
+      - PODREL.csv
+      - METER.csv
+
+    Optionale Dateien (werden geladen, falls vorhanden):
+      - TR.csv
+      - BNDL2MC.csv
+      - NELO.csv
+
+    Die Spaltennamen werden wie bei den SDF-Tabellen via column_unifier() bereinigt.
+    """
+    def csv_reader(rel_path: str) -> pd.DataFrame:
+        # CSV-Exports sind nicht immer einheitlich kodiert; wir versuchen robust zu lesen.
+        enc_candidates = ["cp1252", "utf-8-sig", "utf-8"]
+        path = os.path.join(base_directory, rel_path)
+        last_err = None
+        for enc in enc_candidates:
+            try:
+                return column_unifier(pd.read_csv(path, sep=";", encoding=enc, dtype=str))
+            except Exception as e:
+                last_err = e
+        raise last_err  # pragma: no cover
+
+    base = "data/training_data"
+    required = {
+        "malo": f"{base}/MALO.csv",
+        "melo": f"{base}/MELO.csv",
+        "pod_rel": f"{base}/PODREL.csv",
+        "meter": f"{base}/METER.csv",
+    }
+
+    tables: Dict[str, pd.DataFrame] = {}
+    for key, rel in required.items():
+        path = os.path.join(base_directory, rel)
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Missing required CSV for new dataset: {rel}")
+        tables[key] = csv_reader(rel)
+
+    optional = {
+        "tr": f"{base}/TR.csv",
+        "bndl2mc": f"{base}/BNDL2MC.csv",
+        "nelo": f"{base}/NELO.csv",
+    }
+    for key, rel in optional.items():
+        path = os.path.join(base_directory, rel)
+        if os.path.exists(path):
+            tables[key] = csv_reader(rel)
+
+    return tables
+
+
+def table_loader_all(base_directory: str) -> Dict[str, Dict[str, pd.DataFrame]]:
+    """Lädt **beide** Datensätze (SDF + neuer Bündel/MCID-Datensatz)."""
+    return {
+        "sdf": table_loader(base_directory),
+        "new": table_loader_new(base_directory),
+    }
+
 def canonicalize(tables: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
-    """
-    Verarbeitet und standardisiert Tabellendaten, indem Spalten umbenannt oder neue Spalten
-    hinzugefügt werden.
-    Jeder Schlüssel im Eingabe dictionary entspricht einer bestimmten Kategorie („malo“,
-    „melo“, ...) und wird validiert, umbenannt und in ein kanonisches Format konvertiert.
-    Wenn erforderliche Spalten nicht existieren, löst die Funktion einen Fehler aus.
-    Verarbeitet mehrere Kategorien, darunter „malo“, „melo“, „pod_rel“, „meter“ sowie optional
-    die Kategorie „msb“.
+    """Standardisiert Tabellendaten in ein kanonisches Format.
 
-    :param tables: Dictionary mit String-Schlüssel und DataFrame-Values, die standardisiert werden sollen.
-    :type tables: Dict[str, pd.DataFrame]
-    :return: Standardisiertes Input-Dictionary
-    :rtype: Dict[str, pd.DataFrame]
-    :raises ValueError: Wenn eine erwartete Spalte fehlt oder nicht gemappt werden kann.
-    """
-    t = {}
+    Pflicht-Keys in `tables`:
+      - malo, melo, pod_rel, meter
 
+    Optionale Keys (wenn vorhanden werden sie ebenfalls kanonisiert):
+      - tr, bndl2mc, nelo
+
+    Ziel: Beide Datensätze (SDF und neuer Bündel/MCID-Datensatz) sollen möglichst dieselbe
+    kanonische Struktur nutzen, damit dieselben Downstream-Methoden (component_builder,
+    build_graphs, Baseline/Pipeline) darauf arbeiten können.
+    """
+
+    def _clean_id_series(s: pd.Series) -> pd.Series:
+        # robuste Normalisierung: str, strip, entferne "nan"/leere
+        s = s.astype(str).str.strip()
+        s = s.replace({"nan": "", "None": ""})
+        return s
+
+    t: Dict[str, pd.DataFrame] = {}
+
+    # ------------------------------
     # MaLo
+    # ------------------------------
     malo = tables["malo"].copy()
-
-    # Mapping auf eindeutige ID und Lieferrichtung (Ein-/Ausspeisung)
-    # Nach möglichen Spalten, in denen MaLo sein könnte, suchen
-    malo_id_cols = [c for c in malo.columns if "marktlokation" in c and "id" in c] + \
-                   [c for c in malo.columns if c in ("malo_tranche", "maloid", "malo_id")]
+    malo_id_cols = [c for c in malo.columns if "marktlokation" in c and "id" in c] +                    [c for c in malo.columns if c in ("malo_tranche", "maloid", "malo_id", "id_der_marktlokation__tranche")]
     if not malo_id_cols:
         raise ValueError("MALO: keine Spalte für MaLo-ID gefunden!")
-    # Erste gefundene Spalte wird als MaLo-ID verwende
     malo.rename(columns={malo_id_cols[0]: "malo_id"}, inplace=True)
 
-    dir_cols = [c for c in malo.columns if "ausspeisung" in c and "einspeisung" in c] + \
-               [c for c in malo.columns if c in ("lieferrichtung", "richtung", "direction_code")]
+    dir_cols = [c for c in malo.columns if "ausspeisung" in c and "einspeisung" in c] +                [c for c in malo.columns if c in ("lieferrichtung", "richtung", "direction_code", "ausspeisung__einspeisung_lieferrichtung")]
     if dir_cols:
         malo.rename(columns={dir_cols[0]: "direction_code"}, inplace=True)
     else:
         malo["direction_code"] = None
 
-    # Speichern im Ergebnis-Dictionary
+    malo["malo_id"] = _clean_id_series(malo["malo_id"])
+    malo = malo[malo["malo_id"] != ""]
+    malo = malo.drop_duplicates(subset=["malo_id"], keep="last")
     t["malo"] = malo
 
+    # ------------------------------
     # MeLo
+    # ------------------------------
     melo = tables["melo"].copy()
-
-    # Nach möglichen Spalten, in denen MeLo sein könnte, suchen
     melo_id_cols = [c for c in melo.columns if c in ("messlokation", "melo", "melo_id")]
     if not melo_id_cols:
         raise ValueError("MELO: keine Spalte für MeLo-ID gefunden!")
     melo.rename(columns={melo_id_cols[0]: "melo_id"}, inplace=True)
 
-    # Sucht nach möglichen Spannungsebene-Spalten
-    # Falls keine: voltage_level mit None
     volt_cols = [c for c in melo.columns if "spannungsebene" in c or c == "voltage_level"]
     if volt_cols:
         melo.rename(columns={volt_cols[0]: "voltage_level"}, inplace=True)
     else:
         melo["voltage_level"] = None
 
-    # Speichern im Ergebnis-Dictionary
+    melo["melo_id"] = _clean_id_series(melo["melo_id"])
+    melo = melo[melo["melo_id"] != ""]
+    melo = melo.drop_duplicates(subset=["melo_id"], keep="last")
     t["melo"] = melo
 
-    # POD_REL (Relation MaLo <-> MeLo, Tabelle, die verknüpft)
+    # ------------------------------
+    # POD_REL (MaLo <-> MeLo)
+    # ------------------------------
     pr = tables["pod_rel"].copy()
-
-    # MaLo
-    pr_malo_cols = [c for c in pr.columns if c in ("malo_tranche", "malo_id", "malo")]
-    # MeLo
+    pr_malo_cols = [c for c in pr.columns if c in ("malo_tranche", "malo_id", "malo", "malo_tranche")] +                    [c for c in pr.columns if "malo" in c and "tranche" in c]
     pr_melo_cols = [c for c in pr.columns if c in ("melo", "messlokation", "melo_id")]
     if not pr_malo_cols or not pr_melo_cols:
         raise ValueError("POD_REL: Spalten für MaLo/MeLo nicht gefunden!")
     pr.rename(columns={pr_malo_cols[0]: "malo_id", pr_melo_cols[0]: "melo_id"}, inplace=True)
+
+    pr["malo_id"] = _clean_id_series(pr["malo_id"])
+    pr["melo_id"] = _clean_id_series(pr["melo_id"])
+    pr = pr[(pr["malo_id"] != "") & (pr["melo_id"] != "")]
     t["pod_rel"] = pr
 
-    # METER (TR per MeLo)
+    # ------------------------------
+    # METER (TR pro MeLo über Serialnummer)
+    # ------------------------------
     me = tables["meter"].copy()
-
-    # Kandidaten MeLo-ID in der ZÄHLERTABELLE
-    # Kandidaten für Zähler-ID
-    # Pro MeLo: Welche TRs (Zähler, Messgeräte) hängen an MeLo dran?
     me_melo_cols = [c for c in me.columns if c in ("meldepunktbez_gers", "melo", "melo_id", "messlokation")]
     me_ser_cols  = [c for c in me.columns if c in ("serialnummer", "serial", "zaehlernummer", "zaehler_id")]
     if not me_melo_cols or not me_ser_cols:
         raise ValueError("METER: Spalten für MeLo/Serialnummer nicht gefunden!")
-
-    # Für jede MeLo einen TR-Knoten pro Zähler mit METR-Kante
     me.rename(columns={me_melo_cols[0]: "melo_id", me_ser_cols[0]: "tr_id"}, inplace=True)
+
+    me["melo_id"] = _clean_id_series(me["melo_id"])
+    me["tr_id"] = _clean_id_series(me["tr_id"])
+    me = me[(me["melo_id"] != "") & (me["tr_id"] != "")]
     t["meter"] = me
 
-    # MSB optional
-    # MeLo-Spalten und iln (internationale Lokationsnummer des MSB) finden
-    # Welche MSB welche MeLo betreut
+    # ------------------------------
+    # TR (optional) – für Checks/Analysen (nicht zwingend für Graphbau)
+    # ------------------------------
+    if "tr" in tables:
+        tr = tables["tr"].copy()
+        tr_id_cols = [c for c in tr.columns if c in ("externeid", "tr_id", "tr", "id")]
+        malo_cols  = [c for c in tr.columns if c in ("malo_anlage", "malo", "malo_id", "marktlokation", "marktlokation_id")]
+        if tr_id_cols:
+            tr.rename(columns={tr_id_cols[0]: "tr_id"}, inplace=True)
+        else:
+            tr["tr_id"] = None
+        if malo_cols:
+            tr.rename(columns={malo_cols[0]: "malo_id"}, inplace=True)
+        else:
+            tr["malo_id"] = None
 
-    # if "sdf_msb" in tables:
-    #    msb = tables["sdf_msb"].copy()
-    #    msb_melo_cols = [c for c in msb.columns if c in ("messlokation", "melo_id", "melo")]
-    #    msb_iln_cols  = [c for c in msb.columns if "iln" in c]
-    #    if msb_melo_cols:
-    #        msb.rename(columns={msb_melo_cols[0]: "melo_id"}, inplace=True)
-    #    if msb_iln_cols:
-    #        msb.rename(columns={msb_iln_cols[0]: "msb_iln"}, inplace=True)
-    #    t["msb"] = msb
+        if "tr_id" in tr.columns:
+            tr["tr_id"] = _clean_id_series(tr["tr_id"])
+        if "malo_id" in tr.columns:
+            tr["malo_id"] = _clean_id_series(tr["malo_id"])
+        t["tr"] = tr
+
+    # ------------------------------
+    # BNDL2MC (optional) – bundle_id/mcid Metadaten
+    # ------------------------------
+    if "bndl2mc" in tables:
+        bm = tables["bndl2mc"].copy()
+        bundle_cols = [c for c in bm.columns if c in ("buendel", "bndel", "bundle", "bundle_id")]
+        malo_cols   = [c for c in bm.columns if c in ("marktlokation", "malo", "malo_id")]
+        melo_cols   = [c for c in bm.columns if c in ("messlokation", "melo", "melo_id")]
+        mcid_cols   = [c for c in bm.columns if c in ("mcid",)]
+        if bundle_cols:
+            bm.rename(columns={bundle_cols[0]: "bundle_id"}, inplace=True)
+        else:
+            bm["bundle_id"] = None
+        if malo_cols:
+            bm.rename(columns={malo_cols[0]: "malo_id"}, inplace=True)
+        else:
+            bm["malo_id"] = None
+        if melo_cols:
+            bm.rename(columns={melo_cols[0]: "melo_id"}, inplace=True)
+        else:
+            bm["melo_id"] = None
+        if mcid_cols:
+            bm.rename(columns={mcid_cols[0]: "mcid"}, inplace=True)
+        else:
+            bm["mcid"] = None
+
+        for col in ("bundle_id", "malo_id", "melo_id", "mcid"):
+            if col in bm.columns:
+                bm[col] = _clean_id_series(bm[col])
+        bm = bm[(bm["bundle_id"] != "") & ((bm["malo_id"] != "") | (bm["melo_id"] != ""))]
+        t["bndl2mc"] = bm
+
+    # ------------------------------
+    # NELO (optional) – derzeit nur IDs; Relations fehlen noch
+    # ------------------------------
+    if "nelo" in tables:
+        ne = tables["nelo"].copy()
+        nelo_id_cols = [c for c in ne.columns if c in ("id", "nelo", "nelo_id", "ne_id")]
+        if nelo_id_cols:
+            ne.rename(columns={nelo_id_cols[0]: "nelo_id"}, inplace=True)
+        else:
+            ne["nelo_id"] = None
+        if "nelo_id" in ne.columns:
+            ne["nelo_id"] = _clean_id_series(ne["nelo_id"])
+            ne = ne[ne["nelo_id"] != ""]
+        t["nelo"] = ne
 
     return t
-
-
-# ------------------------------
-# FACHLICHE CODES → ROLLEN
-# ------------------------------
 def map_direction(direction_code: Any) -> str:
     """
     Mapping von Einspeisung und Ausspeisung auf consumption und generation.
@@ -329,169 +451,229 @@ def make_edge(src: str, dst: str, rel: str) -> Dict[str, str]:
     """
     return {"src": src, "dst": dst, "rel": rel}
 
-def build_graphs(t: Dict[str, pd.DataFrame],
-                 restrict_to: Tuple[int, int] = None) -> List[Dict[str, Any]]:
-    """
-    Baut Graphen für jede verbundene Komponente aus MaLo/MeLo im Stil der LBS.
-    Jede Komponente ist ein Ist-Bündel.
 
-    :param t: Dictionary mit Input-Daten für Graph-Konstruktion:
-              - 'malo': MaLo DataFrame
-              - 'melo': MeLo DataFrame
-              - 'pod_rel': MeLo - MaLo-Beziehung DataFrame
-              - 'meter': Meter DataFrame
-    :param restrict_to: Zwei Integer mit maximale Anzahl für MaLo bzw. MeLo
-    :return: Liste aus Dictionaries, jeweils einen Graph repräsentierend (Metadata, Knoten, Kanten, Attribute)
-    :rtype: List[Dict[str, Any]]
+def build_graphs(t: Dict[str, pd.DataFrame],
+                 restrict_to: Tuple[int, int] = None,
+                 dataset_tag: str = None) -> List[Dict[str, Any]]:
+    """Baut Ist-Graphen aus den kanonisierten Tabellen.
+
+    Knoten:
+      - MaLo (attrs: direction)
+      - MeLo (attrs: voltage_level)
+      - TR   (attrs: direction optional, abgeleitet über die an die MeLo gekoppelten MaLo)
+
+    Kanten:
+      - MEMA: MeLo -> MaLo
+      - METR: MeLo -> TR  (TR aus METER.Serialnummer pro MeLo)
+
+    WICHTIG:
+      - TR wird **nicht** an "alle MeLo" gehängt, sondern nur an die MeLo, zu der in METER
+        explizit eine Zuordnung existiert.
+      - bundle_id wird nur als graph_id genutzt, wenn BNDL2MC für die Komponente eindeutig ist.
     """
     malo_df = t["malo"].copy()
     melo_df = t["melo"].copy()
-    pr_df   = t["pod_rel"][["malo_id", "melo_id"]].dropna().astype(str).copy() # Auf die wichitgsten beiden Spalten reduziert
+    pr_df   = t["pod_rel"][["malo_id", "melo_id"]].dropna().astype(str).copy()
     meter_df = t["meter"].copy()
 
-    # Setzt MaLo- und MeLo-ID als Index und erzeugt Dictionary
-    # Bsp.:
-    # {
-    #     "MaLo1": {"direction_code": "Z07", ...},
-    #     "MaLo2": {"direction_code": "Z06", ...},
-    #     ...
-    # }
+    bndl_df = t.get("bndl2mc")  # optional
+
+    # Index-Infos
     malo_info = malo_df.set_index("malo_id").to_dict(orient="index")
     melo_info = melo_df.set_index("melo_id").to_dict(orient="index")
 
-    # TR je MeLo sammeln
-    # Bsp.:
-    # {
-    #     "MeLoA": ["Zähler1", "Zähler2"],
-    #     "MeLoB": ["Zähler3"],
-    #     ...
-    # }
-    meter_by_melo = defaultdict(list)                                   # Für jeden neuen Key eine leere List
-    if "melo_id" in meter_df.columns and "tr_id" in meter_df.columns:   # Nur, wenn beide Spalten existieren
-        for _, r in meter_df[["melo_id", "tr_id"]].dropna().astype(str).iterrows(): # Iteration über diese Spalten
-            meter_by_melo[r.melo_id].append(r.tr_id)                    # Für jede MeLo hängt eine (oder mehrere) TR-IDs dran
+    # Adjazenz: MeLo -> {MaLo}
+    malos_by_melo = defaultdict(set)
+    for _, r in pr_df.iterrows():
+        malos_by_melo[str(r.melo_id)].add(str(r.malo_id))
 
-    # Bsp.:
-    # [
-    #   ({"MaLo1"}, {"MeLoA"}),              # 1:1
-    #   ({"MaLo2"}, {"MeLoB", "MeLoC"}),     # 1:2
-    #   ({"MaLo3", "MaLo4"}, {"MeLoD"}),     # 2:1
-    #   ...
-    # ]
+    # TR je MeLo sammeln (dedupliziert)
+    meter_by_melo = defaultdict(list)
+    if "melo_id" in meter_df.columns and "tr_id" in meter_df.columns:
+        tmp = meter_df[["melo_id", "tr_id"]].dropna().astype(str)
+        for melo_id, grp in tmp.groupby("melo_id")["tr_id"]:
+            # deterministisch sortieren
+            uniq = sorted({x for x in grp.tolist() if x and x.lower() != "nan"})
+            meter_by_melo[melo_id] = uniq
+
     comps = component_builder(t)
-    graphs = []
+    graphs: List[Dict[str, Any]] = []
 
     for malos, melos in comps:
         m_count, e_count = len(malos), len(melos)
 
-        # Wenn Komponente zu groß, dann überspringen
-        if restrict_to and (m_count > restrict_to[0] or e_count > restrict_to[1]):
-            continue
+        # optionaler Größenfilter (Debug)
+        if restrict_to:
+            max_m, max_e = restrict_to
+            if m_count > max_m or e_count > max_e:
+                continue
 
         nodes: List[Dict[str, Any]] = []
         edges: List[Dict[str, Any]] = []
 
-        # Hilfssets für stabile Graphen (keine doppelten Nodes/Edges)
-        node_ids: set = set()
-        edge_keys: set = set()
-
-        def _add_node(n: Dict[str, Any]) -> None:
-            nid = n.get("id")
-            if nid in node_ids:
-                return
-            node_ids.add(nid)
-            nodes.append(n)
-
-        def _add_edge(src: str, dst: str, rel: str) -> None:
-            key = (src, dst, rel)
-            if key in edge_keys:
-                return
-            edge_keys.add(key)
-            edges.append(make_edge(src, dst, rel))
-
-        # MaLo<->MeLo-Paare innerhalb der aktuellen Komponente
-        comp_pairs = set(
-            (str(r.malo_id), str(r.melo_id))
-            for _, r in pr_df.iterrows()
-            if r.malo_id in malos and r.melo_id in melos
-        )
-
-        # Für Heuristiken: MeLo -> [MaLo]
-        melo_to_malos = defaultdict(list)
-        for malo_id, melo_id in comp_pairs:
-            melo_to_malos[str(melo_id)].append(str(malo_id))
-
-        # MaLo-Knoten hinzufügen
-        for mid in sorted(malos):
+        # Richtung pro MaLo (für Ableitung TR-direction)
+        malo_dir = {}
+        for mid in malos:
             dinfo = malo_info.get(mid, {})
-            direction = map_direction(dinfo.get("direction_code"))
-            _add_node(make_node(mid, "MaLo", {"direction": direction}))
+            malo_dir[mid] = map_direction(dinfo.get("direction_code"))
 
-        # MeLo-Knoten und TR pro Knoten hinzufügen
+        # --- MaLo-Knoten ---
+        for mid in sorted(malos):
+            nodes.append(make_node(mid, "MaLo", {"direction": malo_dir.get(mid)}))
+
+        # --- MeLo-Knoten + TR ---
+        seen_tr = set()
+        tr_direction_by_tr = {}  # last writer wins, aber wir versuchen deterministisch zu sein
+
         for eid in sorted(melos):
             einfo = melo_info.get(eid, {})
-            _add_node(make_node(eid, "MeLo", {"voltage_level": einfo.get("voltage_level")}))
+            nodes.append(make_node(eid, "MeLo", {"voltage_level": einfo.get("voltage_level")}))
 
-            # TR-Richtung heuristisch aus den zugehörigen MaLo-Richtungen ableiten (falls eindeutig)
-            dirs = {
-                map_direction(malo_info.get(mid, {}).get("direction_code"))
-                for mid in melo_to_malos.get(eid, [])
-            }
-            dirs.discard(None)
-            tr_dir = next(iter(dirs)) if len(dirs) == 1 else None
+            # TR-direction: aus allen an diese MeLo gekoppelten MaLo ableiten
+            dirs = {malo_dir.get(mid) for mid in malos_by_melo.get(eid, set())}
+            dirs = {d for d in dirs if d is not None}
+            derived_tr_dir = list(dirs)[0] if len(dirs) == 1 else None
 
-            # Liste aller TR-IDs, die zu dieser MeLo gehören (ggf. leere Liste)
             for tr in meter_by_melo.get(eid, []):
-                tr_attrs: Dict[str, Any] = {}
-                if tr_dir:
-                    tr_attrs["direction"] = tr_dir
-                _add_node(make_node(tr, "TR", tr_attrs))
-                _add_edge(eid, tr, "METR")
+                if tr not in seen_tr:
+                    seen_tr.add(tr)
+                    tr_direction_by_tr[tr] = derived_tr_dir
+                    nodes.append(make_node(tr, "TR", {"direction": derived_tr_dir}))
+                edges.append(make_edge(eid, tr, "METR"))
 
-        # Kanten zwischen MeLo und MaLo setzen (nur Paare der aktuellen Komponente)
-        for (malo_id, melo_id) in comp_pairs:
-            _add_edge(melo_id, malo_id, "MEMA")
+        # --- MEMA-Kanten (MeLo -> MaLo) ---
+        # Effizient: über die bereits aufgebaute Adjazenz (malos_by_melo) iterieren (O(E) statt O(E * #Comps))
+        seen_mema = set()
+        for melo_id in sorted(melos):
+            for malo_id in sorted(malos_by_melo.get(melo_id, set())):
+                if malo_id in malos:
+                    key = (melo_id, malo_id)
+                    if key not in seen_mema:
+                        seen_mema.add(key)
+                        edges.append(make_edge(melo_id, malo_id, "MEMA"))
 
-        # Graph-Metadaten
-        pattern = classify_pattern(m_count, e_count)       # Label für Bündelformat
-        graph_id = f"comp:{sorted(list(malos))}|{sorted(list(melos))}"  # Eindeutige ID pro Graph
+# --- graph_id: bundle_id wenn eindeutig ---
+        graph_id = f"comp:{sorted(malos)}|{sorted(melos)}"
+        bundle_id = None
+        if isinstance(bndl_df, pd.DataFrame) and not bndl_df.empty:
+            # bevorzugt: nur Rows, die wirklich innerhalb der Komponente liegen
+            subset = bndl_df[
+                (bndl_df.get("malo_id").astype(str).isin(list(malos)) if "malo_id" in bndl_df.columns else False) &
+                (bndl_df.get("melo_id").astype(str).isin(list(melos)) if "melo_id" in bndl_df.columns else False)
+            ] if ("malo_id" in bndl_df.columns and "melo_id" in bndl_df.columns) else pd.DataFrame()
 
-        # Counts / einfache Statistiken (für spätere Filter/Analysen nützlich)
-        tr_count = sum(1 for n in nodes if n.get("type") == "TR")
-        nelo_count = sum(1 for n in nodes if n.get("type") == "NeLo")
+            if subset.empty:
+                # fallback (weniger streng): OR-Filter
+                subset = bndl_df[
+                    (bndl_df.get("malo_id").astype(str).isin(list(malos)) if "malo_id" in bndl_df.columns else False) |
+                    (bndl_df.get("melo_id").astype(str).isin(list(melos)) if "melo_id" in bndl_df.columns else False)
+                ] if ("malo_id" in bndl_df.columns or "melo_id" in bndl_df.columns) else pd.DataFrame()
 
-        edge_type_counts: Dict[str, int] = {}
+            if not subset.empty and "bundle_id" in subset.columns:
+                bundles = [b for b in subset["bundle_id"].dropna().astype(str).unique().tolist() if b and b.lower() != "nan"]
+                if len(bundles) == 1:
+                    bundle_id = bundles[0]
+                    graph_id = f"bundle:{bundle_id}"
+
+        # --- Graph-Metadaten / Graph-Features ---
+        pattern = classify_pattern(m_count, e_count)
+
+        tr_count = len(seen_tr)
+        nelo_count = 0  # Relations fehlen derzeit
+
+        edge_type_counts = defaultdict(int)
         for e in edges:
-            rel = e.get("rel")
-            edge_type_counts[rel] = edge_type_counts.get(rel, 0) + 1
+            edge_type_counts[e.get("rel")] += 1
+
+        graph_attrs = {
+            "pattern": pattern,
+            "malo_count": m_count,
+            "melo_count": e_count,
+            "tr_count": tr_count,
+            "nelo_count": nelo_count,
+            "edge_type_counts": dict(edge_type_counts),
+        }
+        if dataset_tag:
+            graph_attrs["dataset"] = dataset_tag
+        if bundle_id is not None:
+            graph_attrs["bundle_id"] = bundle_id
 
         graphs.append({
             "graph_id": graph_id,
-            "label": None,  # kein LBS-Code, reines Ist-Bündel
             "nodes": nodes,
             "edges": edges,
-            "graph_attrs": {
-                "pattern": pattern,
-                "malo_count": m_count,
-                "melo_count": e_count,
-                "tr_count": tr_count,
-                "nelo_count": nelo_count,
-                "edge_type_counts": edge_type_counts,
-            }
+            "graph_attrs": graph_attrs
         })
 
-    #Bsp.:
-    # [
-    #     {"graph_id": "...", "nodes": [...], "edges": [...], "graph_attrs": {...}},
-    #     {...},
-    #     ...
-    # ]
     return graphs
 
 
 # ------------------------------
-# VALIDIERUNG
+# TR-CHECKS (NEUER DATENSATZ)
 # ------------------------------
+def check_tr_only_with_malo_anlage(t: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
+    """Prüft TR.csv (falls vorhanden) auf TR, die *nur* über MaLo-Anlage referenziert werden.
+
+    Hintergrund:
+      - In TR.csv existiert typischerweise eine Spalte wie "MaLo (Anlage)".
+      - Wenn diese MaLo-IDs **nicht** in POD_REL auftauchen, sind diese TRs im aktuellen
+        Graphschema (MeLo-basierte TR über METER) *nicht* eindeutig platzierbar.
+
+    Rückgabe:
+      - Counts + Beispiel-IDs, damit du entscheiden kannst, ob du zusätzlich TR-MaLo-Kanten
+        modellieren musst (oder ob alles über METER abgedeckt ist).
+    """
+    if "tr" not in t:
+        return {"available": False, "reason": "no TR table loaded"}
+
+    tr = t["tr"].copy()
+    if tr.empty or "tr_id" not in tr.columns:
+        return {"available": True, "total_tr": 0}
+
+    # nur Rows mit tr_id
+    tr_ids = tr["tr_id"].dropna().astype(str)
+    tr_ids = tr_ids[tr_ids.str.strip() != ""]
+    total_tr = int(tr_ids.nunique())
+
+    # MaLo-Referenz (Anlage)
+    if "malo_id" not in tr.columns:
+        return {"available": True, "total_tr": total_tr, "note": "TR table has no malo_id column after canonicalize"}
+
+    tr2 = tr[["tr_id", "malo_id"]].dropna().astype(str)
+    tr2["tr_id"] = tr2["tr_id"].str.strip()
+    tr2["malo_id"] = tr2["malo_id"].str.strip()
+    tr2 = tr2[(tr2["tr_id"] != "") & (tr2["malo_id"] != "")]
+
+    # TR->MaLo Multiplizität
+    malos_per_tr = tr2.groupby("tr_id")["malo_id"].nunique()
+    tr_multi_malo = sorted(malos_per_tr[malos_per_tr > 1].index.tolist())
+
+    # Orphan-MaLo (TR referenziert MaLo, die es in MALO nicht gibt)
+    malo_ids = set(t.get("malo", pd.DataFrame()).get("malo_id", pd.Series(dtype=str)).astype(str).tolist())
+    tr_malo_ids = set(tr2["malo_id"].tolist())
+    orphan_malo_refs = sorted(list(tr_malo_ids - malo_ids)) if malo_ids else []
+
+    # TR, deren MaLo-Anlage nicht in POD_REL auftaucht (also keine MeLo-Verknüpfung)
+    pod_malo_ids = set(t.get("pod_rel", pd.DataFrame()).get("malo_id", pd.Series(dtype=str)).astype(str).tolist())
+    malo_without_podrel = sorted(list(tr_malo_ids - pod_malo_ids)) if pod_malo_ids else sorted(list(tr_malo_ids))
+
+    return {
+        "available": True,
+        "total_tr": total_tr,
+        "rows_with_tr_and_malo": int(len(tr2)),
+        "tr_with_multiple_malos": {
+            "count": int(len(tr_multi_malo)),
+            "examples": tr_multi_malo[:20],
+        },
+        "orphan_malo_refs": {
+            "count": int(len(orphan_malo_refs)),
+            "examples": orphan_malo_refs[:20],
+        },
+        "malo_refs_without_podrel": {
+            "count": int(len(malo_without_podrel)),
+            "examples": malo_without_podrel[:20],
+        },
+    }
 def relation_validation(t: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
     """
     Validiert die Beziehungen zwischen MaLo und MeLo basierend auf dem gegebenen Mapping und den eingebundenen DataFrames.
@@ -544,25 +726,52 @@ def relation_validation(t: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
 
 
 # ------------------------------
+
+# ------------------------------
 # MAIN
 # ------------------------------
 if __name__ == "__main__":
     start_time = time.time()
     BASE = os.path.dirname(os.path.abspath(__file__))
-    tables = table_loader(BASE)
-    tables = canonicalize(tables)
-    report = relation_validation(tables)
 
-    # Fokus zunächst auf kleine Komponenten (<=2 MaLo, <=2 MeLo)
-    graphs = build_graphs(tables, restrict_to=(2, 2))
-    #graphs = build_graphs(tables, restrict_to=(4, 3))
+    datasets = table_loader_all(BASE)
 
-    print("Ist-Graphen Check:", json.dumps(report, indent=2, ensure_ascii=False))
-    print(f"Gebaut: {len(graphs)} Graphen (Pattern-Counts):")
-    from collections import Counter
-    print(Counter(g["graph_attrs"]["pattern"] for g in graphs))
+    all_graphs: List[Dict[str, Any]] = []
+
+    for tag, raw_tables in datasets.items():
+        tables = canonicalize(raw_tables)
+
+        report = relation_validation(tables)
+        print(f"\n[{tag}] Ist-Graphen Check:")
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+
+        # Optional: TR-Analyse für neuen Datensatz
+        if tag == "new":
+            tr_report = check_tr_only_with_malo_anlage(tables)
+            print(f"\n[{tag}] TR-Check (MaLo Anlage):")
+            print(json.dumps(tr_report, indent=2, ensure_ascii=False))
+
+        graphs = build_graphs(tables, restrict_to=None, dataset_tag=tag)
+        all_graphs.extend(graphs)
+
+        from collections import Counter
+        print(f"[{tag}] Gebaut: {len(graphs)} Graphen (Pattern-Counts):")
+        print(Counter(g["graph_attrs"]["pattern"] for g in graphs))
+
+        # Dataset-spezifischer Export
+        #out_name = "ist_graphs.jsonl" if tag == "sdf" else "ist_graphs_pro.jsonl"
+        #out_path = os.path.join(BASE, "data", out_name)
+        #os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        #with open(out_path, "w", encoding="utf-8") as f:
+        #    for g in graphs:
+        #        f.write(json.dumps(g, ensure_ascii=False) + "\n")
+        #print(f"[{tag}] Export: {out_path}")
+
+    # Gesamtexport (beide Datensätze zusammen)
+    out_all = os.path.join(BASE, "data", "ist_graphs_all.jsonl")
+    with open(out_all, "w", encoding="utf-8") as f:
+        for g in all_graphs:
+            f.write(json.dumps(g, ensure_ascii=False) + "\n")
+    print(f"\n[all] Export: {out_all}")
+
     print("Prozess ausgeführt in %s Sekunden" % (time.time() - start_time))
-    # Optional: JSONL export
-    with open(os.path.join(BASE, "data", "ist_graphs_pro.jsonl"), "w", encoding="utf-8") as f:
-         for g in graphs:
-             f.write(json.dumps(g, ensure_ascii=False) + "\n")
