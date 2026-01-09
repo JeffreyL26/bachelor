@@ -166,6 +166,7 @@ def _parse_lbs_optionality(lbs_json: Dict[str, Any]) -> Optional[Dict[str, Any]]
     constraints = opt.get("constraints")
     if isinstance(constraints, dict):
         c_norm = json.loads(json.dumps(constraints))  # safe deep copy
+        c_norm.pop("notes", None)
         # reference_rules
         if isinstance(c_norm.get("reference_rules"), list):
             for rule in c_norm["reference_rules"]:
@@ -625,7 +626,7 @@ def build_all_templates(lbs_dir: str, out_path: str) -> None:
     for path in files:
         with open(path, "rb") as f:
             raw = f.read()
-        lbs_json = json.loads(raw.decode("cp1252"))
+        lbs_json = json.loads(raw.decode("utf-8"))
         graphs.append(lbsjson_to_template_graph(lbs_json))
 
     print("Gebaut:", len(graphs), "Template-Graphen (Soll)")
