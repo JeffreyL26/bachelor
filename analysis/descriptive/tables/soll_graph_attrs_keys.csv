@@ -1,0 +1,17 @@
+key,count,pct
+malo_min,15,100.0%
+melo_min,15,100.0%
+tr_min,15,100.0%
+nelo_min,15,100.0%
+malo_max,15,100.0%
+melo_max,15,100.0%
+tr_max,15,100.0%
+nelo_max,15,100.0%
+malo_node_types,15,100.0%
+melo_node_types,15,100.0%
+tr_node_types,15,100.0%
+nelo_node_types,15,100.0%
+is_template,15,100.0%
+lbs_code,15,100.0%
+optionality_constraints,15,100.0%
+attachment_rules,15,100.0%

@@ -1,0 +1,10 @@
+kind,type,attr,present,present_pct,total
+ist,MaLo,direction,2657,96.2%,2761
+ist,MaLo,direction_hint,0,0.0%,2761
+ist,MeLo,direction_hint,0,0.0%,2624
+ist,MeLo,dynamic,0,0.0%,2624
+ist,MeLo,function,0,0.0%,2624
+ist,MeLo,melo_function,0,0.0%,2624
+ist,MeLo,voltage_level,2624,100.0%,2624
+ist,TR,direction,2378,90.6%,2624
+ist,TR,tr_direction,0,0.0%,2624
