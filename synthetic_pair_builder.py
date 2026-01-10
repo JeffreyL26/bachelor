@@ -44,8 +44,8 @@ def permute_graph(g: TGraph) -> Tuple[TGraph, List[int]]:
     Zusätzlich wird eine Permutationsliste zurückgegeben:
       perm[i] = Index des Knoten i (im Original) in der neuen Knotenliste.
 
-    Wichtig: Die permutierte Kopie ist eine deepcoyp der Knoten/Kanten/Attrs,
-    damit spätere Veränderungen nicht das Original-Template mutieren.
+    Wichtig: Die permutierte Kopie ist eine DEEP-COPY der Knoten/Kanten/Attrs,
+    damit spätere Augmentierungen nicht das Original-Template mutieren.
 
     :param g: Graph
     :return: (Permutierte Kopie, Permutationsliste)
@@ -56,7 +56,7 @@ def permute_graph(g: TGraph) -> Tuple[TGraph, List[int]]:
     order = list(range(n))
     random.shuffle(order)
 
-    # wir wollen später Attribute/Kanten "kaputt" machen, ohne das Original zu ändern (deepcopy)
+    # Deep-Copy: wir wollen später Attribute/Kanten "kaputt" machen, ohne das Original zu ändern
     new_nodes = [copy.deepcopy(nodes[i]) for i in order]
     id_to_new_idx = {node["id"]: idx for idx, node in enumerate(new_nodes)}
 
@@ -158,12 +158,16 @@ def apply_attachment_ambiguity(
     only_rewire_when_rules_exist: bool = True,
 ) -> Tuple[int, int]:
     """
-     Attachment-Mehrdeutigkeit abbilden.
+    Phase A Punkt (5): Attachment-Mehrdeutigkeit abbilden.
 
+    Idee:
       - Wenn graph_attrs["attachment_rules"] Kandidaten-MeLos nennt, instanziieren wir
         (mit Wahrscheinlichkeit) eine konkrete Anbindung (z.B. METR: MeLo -> TR).
-      - Zusätzlich können wir bestehende METR/MENE Kanten, für die Regeln existieren,
+      - Zusätzlich können wir bestehende METR/MENE/MEMA Kanten, für die Regeln existieren,
         auf alternative MeLo-Kandidaten umverdrahten.
+
+    Das ist fachlich plausibel, weil die Kandidaten explizit aus den Templates stammen
+    (keine geratenen Kanten ohne Regelbasis).
 
     :return: (added_edges, rewired_edges)
     """
@@ -178,6 +182,8 @@ def apply_attachment_ambiguity(
     if not isinstance(rules, list) or not rules:
         return 0, 0
 
+    allowed_rels = {"METR", "MENE", "MEMA"}
+
     # Map (rel, object_code) -> candidates
     rule_map: Dict[Tuple[str, str], List[str]] = {}
     for r in rules:
@@ -186,7 +192,7 @@ def apply_attachment_ambiguity(
         rel = r.get("rel")
         obj = r.get("object_code")
         cands = r.get("target_candidates") or []
-        if rel not in ("METR", "MENE"):
+        if rel not in allowed_rels:
             continue
         if not obj or not isinstance(cands, list):
             continue
@@ -203,7 +209,7 @@ def apply_attachment_ambiguity(
     edge_set = {_edge_key(e) for e in edges}
 
     added = 0
-    # 1) Regeln instanziieren: fehlende METR/MENE Kanten hinzufügen
+    # 1) Regeln instanziieren: fehlende METR/MENE/MEMA Kanten hinzufügen
     for (rel, obj), cands in rule_map.items():
         if obj not in node_ids:
             continue
@@ -228,14 +234,14 @@ def apply_attachment_ambiguity(
         rel = e.get("rel")
         dst = e.get("dst")
         src = e.get("src")
-        if rel not in ("METR", "MENE"):
+        if rel not in allowed_rels:
             continue
 
         key = (rel, dst)
         if key not in rule_map:
             if only_rewire_when_rules_exist:
                 continue
-            # fallback: alle MeLo als Kandidaten
+            # fallback (wenn man es explizit will): alle MeLo als Kandidaten
             cands = [m for m in melo_ids if m != src]
         else:
             cands = [c for c in rule_map[key] if c != src]
@@ -268,10 +274,40 @@ def apply_attachment_ambiguity(
     return added, rewired
 
 
+def _force_one_change(g: TGraph) -> Dict[str, Any]:
+    """
+    Fallback, falls durch Zufall in einem Paar keine Augmentation gegriffen hat.
+    Ziel: Positive Paare sollen i.d.R. nicht 1:1 identisch bleiben (außer wirklich nichts droppbar ist).
+    """
+    # 1) Versuche, ein relevantes Attribut zu löschen
+    candidates = []
+    for node in g.get("nodes", []):
+        attrs = node.get("attrs")
+        if not isinstance(attrs, dict):
+            continue
+        for key in ("direction", "tr_direction", "function", "voltage_level", "dynamic"):
+            if key in attrs:
+                candidates.append((node, key))
+    if candidates:
+        node, key = random.choice(candidates)
+        del node["attrs"][key]
+        return {"forced": {"type": "attr_dropout", "node_id": node.get("id"), "attr": key}}
+
+    # 2) Falls keine Attribute droppbar sind: droppe eine Kante
+    edges = g.get("edges", [])
+    if isinstance(edges, list) and edges:
+        removed = edges.pop(random.randrange(len(edges)))
+        g["edges"] = edges
+        return {"forced": {"type": "edge_dropout", "removed": removed}}
+
+    return {}
+
+
 def augment_graph_phase_a(
     g: TGraph,
     p_edge_less: float = 0.05,
     p_apply_attachment: float = 0.70,
+    ensure_nontrivial: bool = True,
 ) -> Dict[str, Any]:
     """
     Wendet die Phase-A Augmentations auf einen Graphen an (in-place).
@@ -306,6 +342,11 @@ def augment_graph_phase_a(
     if attr_dropped:
         meta["attr_dropout"] = {"dropped": attr_dropped}
 
+    # Safety: im Zweifel ein kleines bisschen Noise erzwingen,
+    # damit der Datensatz nicht aus reinem "Permutation-only" besteht.
+    if ensure_nontrivial and not meta:
+        meta.update(_force_one_change(g))
+
     return meta
 
 
@@ -320,6 +361,7 @@ def build_synthetic_pairs(
     # Phase-A Steuerparameter
     p_edge_less: float = 0.05,
     p_apply_attachment: float = 0.70,
+    ensure_nontrivial: bool = True,
 ) -> List[TPair]:
     """
     Baut synthetische Trainingspaare:
@@ -340,6 +382,7 @@ def build_synthetic_pairs(
     :param max_neg_pairs: Max. Anzahl negativer Paare insgesamt
     :param p_edge_less: Wahrscheinlichkeit, alle Kanten zu entfernen (wenn Kanten existieren)
     :param p_apply_attachment: Wahrscheinlichkeit, Attachment-Ambiguity-Operator anzuwenden
+    :param ensure_nontrivial: Erzwingt minimalen Noise, falls ein positives Paar zufällig unverändert blieb
     :return: Liste von Paaren
     """
     pairs: List[TPair] = []
@@ -353,6 +396,7 @@ def build_synthetic_pairs(
                 g_perm,
                 p_edge_less=p_edge_less,
                 p_apply_attachment=p_apply_attachment,
+                ensure_nontrivial=ensure_nontrivial,
             )
 
             pair: TPair = {
@@ -393,10 +437,30 @@ def write_pairs_jsonl(pairs: List[TPair], out_path: str) -> None:
     """
     Schreibt die Paare als JSONL-Datei (eine Zeile pro Paar).
     """
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    out_dir = os.path.dirname(out_path) or "."
+    os.makedirs(out_dir, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         for p in pairs:
             f.write(json.dumps(p, ensure_ascii=False) + "\n")
+
+
+def _print_quick_stats(pairs: List[TPair]) -> None:
+    """
+    Kleine Konsole-Statistik, damit sofort sichtbar ist, ob Augmentations greifen.
+    """
+    pos = [p for p in pairs if p.get("label") == 1]
+    neg = [p for p in pairs if p.get("label") == 0]
+    pos_with_aug = [p for p in pos if p.get("aug")]
+    def count_aug(key: str) -> int:
+        return sum(1 for p in pos_with_aug if key in (p.get("aug") or {}))
+
+    print("Paare gesamt:", len(pairs), "| pos:", len(pos), "| neg:", len(neg))
+    print("Positive Paare mit aug:", len(pos_with_aug), f"({len(pos_with_aug)/max(1,len(pos))*100:.1f}%)")
+    print("  - attr_dropout:", count_aug("attr_dropout"))
+    print("  - edge_dropout:", count_aug("edge_dropout"))
+    print("  - edge_less:", count_aug("edge_less"))
+    print("  - attachment:", count_aug("attachment"))
+    print("  - forced:", count_aug("forced"))
 
 
 if __name__ == "__main__":
@@ -405,6 +469,7 @@ if __name__ == "__main__":
 
     base = os.path.dirname(os.path.abspath(__file__))
 
+    # Aktueller Default: pro-Templates
     templates_path = os.path.join(base, "data", "lbs_soll_graphs_pro.jsonl")
     out_path       = os.path.join(base, "data", "synthetic_training_pairs.jsonl")
 
@@ -417,8 +482,9 @@ if __name__ == "__main__":
         max_neg_pairs=200,
         p_edge_less=0.05,
         p_apply_attachment=0.70,
+        ensure_nontrivial=True,
     )
-    print("Gebildete Paare:", len(pairs))
+    _print_quick_stats(pairs)
 
     write_pairs_jsonl(pairs, out_path)
     print("JSONL geschrieben nach:", out_path)
