@@ -1,14 +1,14 @@
 {
-  "pairs_path": "C:\\Users\\jeffrey.lehmann\\PycharmProjects\\bachelor\\data\\synthetic_training_pairs.jsonl",
-  "pairs_loaded": 300,
+  "pairs_path": "C:\\Users\\jeffrey.lehmann\\PycharmProjects\\bachelor\\data\\synthetic_training_pairs50.jsonl",
+  "pairs_loaded": 750,
   "labels": {
-    "pos": 300,
+    "pos": 750,
     "neg": 0
   },
   "use_only_positive": true,
   "enforce_source_le_target": true,
   "undirected": true,
-  "swap_rate_pct": 22.67,
+  "swap_rate_pct": 19.47,
   "ns": {
     "min": 2,
     "q50": 9,
@@ -17,11 +17,16 @@
   "nt": {
     "min": 3,
     "q50": 9,
-    "max": 14
+    "max": 15
   },
   "yK": {
     "min": 2,
     "q50": 9,
     "max": 13
+  },
+  "rate_full_source": {
+    "count": 698,
+    "total_with_y": 750,
+    "pct": 93.07
   }
 }

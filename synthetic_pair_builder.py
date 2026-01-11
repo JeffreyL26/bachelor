@@ -611,8 +611,8 @@ def build_y_from_common_node_ids(g_a: TGraph, g_b: TGraph) -> List[List[int]]:
 
 def build_synthetic_pairs(
     templates: List[TGraph],
-    num_pos_per_template: int = 20,
-    max_neg_pairs: Optional[int] = 200,
+    num_pos_per_template: int = 50,
+    max_neg_pairs: Optional[int] = 500,
     # Phase-A Steuerparameter
     p_edge_less: float = 0.05,
     p_apply_attachment: float = 0.70,
@@ -783,7 +783,7 @@ if __name__ == "__main__":
 
     # Aktueller Default: pro-Templates
     templates_path = os.path.join(base, "data", "lbs_soll_graphs_pro.jsonl")
-    out_path       = os.path.join(base, "data", "synthetic_training_pairs.jsonl")
+    out_path       = os.path.join(base, "data", "synthetic_training_pairs50.jsonl")
 
     templates = load_templates_jsonl(templates_path)
     print("Geladene Template-Graphen:", len(templates))
@@ -792,7 +792,7 @@ if __name__ == "__main__":
 
     pairs = build_synthetic_pairs(
         templates,
-        num_pos_per_template=20,
+        num_pos_per_template=50,
         max_neg_pairs=200,
         p_edge_less=0.05,
         p_apply_attachment=0.70,

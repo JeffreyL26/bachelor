@@ -32,6 +32,9 @@ import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader, random_split
 
+from dgmc_training_metrics import EpochSplitMetrics
+
+
 # DGMC
 try:
     from dgmc import DGMC  # type: ignore
@@ -55,7 +58,7 @@ from dgmc_dataset import DGMCPairJsonlDataset, collate_pairs
 # =============================
 BASE_DIR = Path(__file__).resolve().parent
 
-PAIRS_PATH = str(BASE_DIR / "data" / "synthetic_training_pairs.jsonl")
+PAIRS_PATH = str(BASE_DIR / "data" / "synthetic_training_pairs50.jsonl")
 OUT_DIR = str(BASE_DIR / "runs" / "dgmc_y")
 
 SEED = 42
@@ -127,6 +130,8 @@ def train_or_eval_epoch(model: DGMC, loader: DataLoader, opt: Adam | None) -> Tu
     is_train = opt is not None
     model.train(is_train)
 
+    split = EpochSplitMetrics(num_steps=model.num_steps)
+
     total_loss = 0.0
     total_acc = 0.0
     total_y = 0
@@ -152,6 +157,7 @@ def train_or_eval_epoch(model: DGMC, loader: DataLoader, opt: Adam | None) -> Tu
         # forward: pass y only if sparse training (k>=1)
         y_for_forward = y if (model.k >= 1 and model.training) else None
         S0, SL = model(x_s, ei_s, ea_s, b_s, x_t, ei_t, ea_t, b_t, y=y_for_forward)
+        split.update(S0, SL, y, b_s)
 
         loss = model.loss(S0, y)
         if model.num_steps > 0:
@@ -168,9 +174,10 @@ def train_or_eval_epoch(model: DGMC, loader: DataLoader, opt: Adam | None) -> Tu
         total_acc += float(acc) * k
         total_y += k
 
+    split_stats = split.finalize()
     mean_loss = total_loss / max(total_y, 1)
     mean_acc = total_acc / max(total_y, 1)
-    return mean_loss, mean_acc
+    return mean_loss, mean_acc, split_stats
 
 
 def main() -> None:
@@ -224,9 +231,16 @@ def main() -> None:
 
     logs: List[EpochLog] = []
     for epoch in range(1, EPOCHS + 1):
-        tr_loss, tr_acc = train_or_eval_epoch(model, train_loader, opt)
-        va_loss, va_acc = train_or_eval_epoch(model, val_loader, None)
-        print(f"Epoch {epoch:02d} | train loss {tr_loss:.4f} acc {tr_acc:.4f} | val loss {va_loss:.4f} acc {va_acc:.4f}")
+        tr_loss, tr_acc, tr_stats = train_or_eval_epoch(model, train_loader, opt)
+        va_loss, va_acc, va_stats = train_or_eval_epoch(model, val_loader, None)
+        #print(f"Epoch {epoch:02d} | train loss {tr_loss:.4f} acc {tr_acc:.4f} | val loss {va_loss:.4f} acc {va_acc:.4f}")
+        print(
+            f"Epoch {epoch:02d} | "
+            f"train loss {tr_loss:.4f} acc {tr_acc:.4f} "
+            f"(full {tr_stats['full']['acc']:.4f}, partial {tr_stats['partial']['acc']:.4f}) | "
+            f"val loss {va_loss:.4f} acc {va_acc:.4f} "
+            f"(full {va_stats['full']['acc']:.4f}, partial {va_stats['partial']['acc']:.4f})"
+        )
         logs.append(EpochLog(epoch, "train", tr_loss, tr_acc))
         logs.append(EpochLog(epoch, "val", va_loss, va_acc))
 

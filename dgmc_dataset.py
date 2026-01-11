@@ -401,7 +401,7 @@ def collate_pairs(batch: Sequence[PairItem]) -> Dict[str, torch.Tensor]:
 # ---------------------------------------------------------------------
 if __name__ == "__main__":
     # Minimal sanity run when executing this file directly.
-    pairs = Path("data/synthetic_training_pairs.jsonl")
+    pairs = Path("data/synthetic_training_pairs50.jsonl")
     if not pairs.exists():
         print(f"[dgmc_dataset] Hinweis: Default-Pfad existiert nicht: {pairs}")
         sys.exit(0)
