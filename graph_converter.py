@@ -254,21 +254,25 @@ def canonicalize(tables: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
     t["pod_rel"] = pr
 
     # ------------------------------
-    # METER (TR pro MeLo über Serialnummer)
+    # METER (Zählerdaten / Geräte je MeLo; **keine** Technische Ressource)
     # ------------------------------
+    # Hinweis:
+    # - In unseren CSVs steht hier u.a. "Serialnummer", "Merkmal Zählertyp", "Einbaudatum" usw.
+    # - Das sind fachlich Zähler-/Geräteinformationen und nicht gleichbedeutend mit einer
+    #   "Technischen Ressource (TR)" im LBS-Sinne.
     me = tables["meter"].copy()
     me_melo_cols = [c for c in me.columns if c in ("meldepunktbez_gers", "melo", "melo_id", "messlokation")]
     me_ser_cols  = [c for c in me.columns if c in ("serialnummer", "serial", "zaehlernummer", "zaehler_id")]
     if not me_melo_cols or not me_ser_cols:
         raise ValueError("METER: Spalten für MeLo/Serialnummer nicht gefunden!")
-    me.rename(columns={me_melo_cols[0]: "melo_id", me_ser_cols[0]: "tr_id"}, inplace=True)
+    me.rename(columns={me_melo_cols[0]: "melo_id", me_ser_cols[0]: "meter_id"}, inplace=True)
 
     me["melo_id"] = _clean_id_series(me["melo_id"])
-    me["tr_id"] = _clean_id_series(me["tr_id"])
-    me = me[(me["melo_id"] != "") & (me["tr_id"] != "")]
+    me["meter_id"] = _clean_id_series(me["meter_id"])
+    me = me[(me["melo_id"] != "") & (me["meter_id"] != "")]
     t["meter"] = me
 
-    # ------------------------------
+# ------------------------------
     # TR (optional) – für Checks/Analysen (nicht zwingend für Graphbau)
     # ------------------------------
     if "tr" in tables:
@@ -461,21 +465,21 @@ def build_graphs(t: Dict[str, pd.DataFrame],
     Knoten:
       - MaLo (attrs: direction)
       - MeLo (attrs: voltage_level)
-      - TR   (attrs: direction optional, abgeleitet über die an die MeLo gekoppelten MaLo)
+      - TR   (attrs: direction optional; **nur** aus TR.csv, falls vorhanden)
 
     Kanten:
       - MEMA: MeLo -> MaLo
-      - METR: MeLo -> TR  (TR aus METER.Serialnummer pro MeLo)
+      - METR: MeLo -> TR  (TR aus TR.csv, über MaLo(Anlage) -> POD_REL -> MeLo)
 
-    WICHTIG:
-      - TR wird **nicht** an "alle MeLo" gehängt, sondern nur an die MeLo, zu der in METER
-        explizit eine Zuordnung existiert.
+    Hinweis:
+      - Die Tabellen METER/SDF_METER enthalten Zähler-/Geräteinformationen (z.B. Serialnummer).
+        Diese werden hier **nicht** als TR modelliert.
       - bundle_id wird nur als graph_id genutzt, wenn BNDL2MC für die Komponente eindeutig ist.
     """
     malo_df = t["malo"].copy()
     melo_df = t["melo"].copy()
     pr_df   = t["pod_rel"][["malo_id", "melo_id"]].dropna().astype(str).copy()
-    meter_df = t["meter"].copy()
+    tr_df = t.get("tr")  # optional
 
     bndl_df = t.get("bndl2mc")  # optional
 
@@ -485,17 +489,34 @@ def build_graphs(t: Dict[str, pd.DataFrame],
 
     # Adjazenz: MeLo -> {MaLo}
     malos_by_melo = defaultdict(set)
+    # Adjazenz: MaLo -> {MeLo}
+    melos_by_malo = defaultdict(set)
     for _, r in pr_df.iterrows():
         malos_by_melo[str(r.melo_id)].add(str(r.malo_id))
+        melos_by_malo[str(r.malo_id)].add(str(r.melo_id))
 
-    # TR je MeLo sammeln (dedupliziert)
-    meter_by_melo = defaultdict(list)
-    if "melo_id" in meter_df.columns and "tr_id" in meter_df.columns:
-        tmp = meter_df[["melo_id", "tr_id"]].dropna().astype(str)
-        for melo_id, grp in tmp.groupby("melo_id")["tr_id"]:
-            # deterministisch sortieren
+    # TR je MeLo sammeln (dedupliziert)    # TR aus TR.csv (optional): MaLo(Anlage) -> TR, und später via POD_REL auf MeLo projizieren.
+    trs_by_malo = defaultdict(list)
+    tr_rep_attrs_by_id: Dict[str, Dict[str, Any]] = {}
+    if isinstance(tr_df, pd.DataFrame) and not tr_df.empty and {"tr_id", "malo_id"}.issubset(set(tr_df.columns)):
+        tr_pairs = tr_df[["tr_id", "malo_id"]].dropna().astype(str).copy()
+        tr_pairs["tr_id"] = tr_pairs["tr_id"].astype(str).str.strip()
+        tr_pairs["malo_id"] = tr_pairs["malo_id"].astype(str).str.strip()
+        tr_pairs = tr_pairs[(tr_pairs["tr_id"] != "") & (tr_pairs["malo_id"] != "")]
+
+        # deterministisch: je MaLo die zugehörigen TR-IDs sortiert deduplizieren
+        for malo_id, grp in tr_pairs.groupby("malo_id")["tr_id"]:
             uniq = sorted({x for x in grp.tolist() if x and x.lower() != "nan"})
-            meter_by_melo[melo_id] = uniq
+            trs_by_malo[malo_id] = uniq
+
+        # optionale Zusatz-Attribute (alles außer tr_id/malo_id) pro TR-ID (first occurrence)
+        extra_cols = [c for c in tr_df.columns if c not in ("tr_id", "malo_id")]
+        if extra_cols:
+            rep = tr_df.dropna(subset=["tr_id"]).copy()
+            rep["tr_id"] = rep["tr_id"].astype(str).str.strip()
+            rep = rep[rep["tr_id"] != ""].drop_duplicates(subset=["tr_id"], keep="first")
+            # to_dict speichert NaN als nan-String teils; wir lassen downstream entscheiden
+            tr_rep_attrs_by_id = rep.set_index("tr_id")[extra_cols].to_dict(orient="index")
 
     comps = component_builder(t)
     graphs: List[Dict[str, Any]] = []
@@ -522,25 +543,39 @@ def build_graphs(t: Dict[str, pd.DataFrame],
         for mid in sorted(malos):
             nodes.append(make_node(mid, "MaLo", {"direction": malo_dir.get(mid)}))
 
-        # --- MeLo-Knoten + TR ---
+        # --- MeLo-Knoten ---
         seen_tr = set()
-        tr_direction_by_tr = {}  # last writer wins, aber wir versuchen deterministisch zu sein
+        seen_metr = set()  # dedupliziert METR-Kanten (aus TR.csv)
 
         for eid in sorted(melos):
             einfo = melo_info.get(eid, {})
             nodes.append(make_node(eid, "MeLo", {"voltage_level": einfo.get("voltage_level")}))
+# --- Zusätzliche TR aus TR.csv (via MaLo(Anlage) -> POD_REL -> MeLo) ---
+        # Semantik: TRs aus TR.csv werden als TR-Knoten modelliert und per METR
+        # an diejenigen MeLo gehängt, die zur referenzierten MaLo-Anlage verbunden sind.
+        if trs_by_malo:
+            for malo_id in sorted(malos):
+                derived_dir = malo_dir.get(malo_id)
+                for raw_tr_id in trs_by_malo.get(malo_id, []):
+                    tr_id = raw_tr_id
+                    if tr_id not in seen_tr:
+                        seen_tr.add(tr_id)
+                        attrs = {"direction": derived_dir, "source": "tr_table", "malo_ref": malo_id}
+                        # Zusatzattribute aus TR.csv (falls vorhanden) übernehmen
+                        rep_attrs = tr_rep_attrs_by_id.get(raw_tr_id, {})
+                        for k, v in rep_attrs.items():
+                            if k in ("tr_id", "malo_id"):
+                                continue
+                            attrs[k] = v
+                        nodes.append(make_node(tr_id, "TR", attrs))
 
-            # TR-direction: aus allen an diese MeLo gekoppelten MaLo ableiten
-            dirs = {malo_dir.get(mid) for mid in malos_by_melo.get(eid, set())}
-            dirs = {d for d in dirs if d is not None}
-            derived_tr_dir = list(dirs)[0] if len(dirs) == 1 else None
-
-            for tr in meter_by_melo.get(eid, []):
-                if tr not in seen_tr:
-                    seen_tr.add(tr)
-                    tr_direction_by_tr[tr] = derived_tr_dir
-                    nodes.append(make_node(tr, "TR", {"direction": derived_tr_dir}))
-                edges.append(make_edge(eid, tr, "METR"))
+                    # über POD_REL alle MeLo finden, die mit dieser MaLo verbunden sind (innerhalb der Komponente)
+                    for melo_id in sorted(melos_by_malo.get(malo_id, set())):
+                        if melo_id in melos:
+                            key = (melo_id, tr_id)
+                            if key not in seen_metr:
+                                seen_metr.add(key)
+                                edges.append(make_edge(melo_id, tr_id, "METR"))
 
         # --- MEMA-Kanten (MeLo -> MaLo) ---
         # Effizient: über die bereits aufgebaute Adjazenz (malos_by_melo) iterieren (O(E) statt O(E * #Comps))
@@ -616,11 +651,11 @@ def check_tr_only_with_malo_anlage(t: Dict[str, pd.DataFrame]) -> Dict[str, Any]
     Hintergrund:
       - In TR.csv existiert typischerweise eine Spalte wie "MaLo (Anlage)".
       - Wenn diese MaLo-IDs **nicht** in POD_REL auftauchen, sind diese TRs im aktuellen
-        Graphschema (MeLo-basierte TR über METER) *nicht* eindeutig platzierbar.
+        Graphschema (Anbindung der TR an MeLo via MaLo(Anlage) -> POD_REL) *nicht* eindeutig platzierbar.
 
     Rückgabe:
       - Counts + Beispiel-IDs, damit du entscheiden kannst, ob du zusätzlich TR-MaLo-Kanten
-        modellieren musst (oder ob alles über METER abgedeckt ist).
+        modellieren musst (oder ob die TR-Anbindung über POD_REL ausreicht).
     """
     if "tr" not in t:
         return {"available": False, "reason": "no TR table loaded"}
@@ -723,8 +758,6 @@ def relation_validation(t: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
         }
     }
 
-
-# ------------------------------
 
 # ------------------------------
 # MAIN
