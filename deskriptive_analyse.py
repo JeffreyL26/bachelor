@@ -57,16 +57,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-# Optional Dependencies
-try:
-    import pandas as pd  # type: ignore
-except Exception:
-    pd = None  # type: ignore
+import pandas as pd  # type: ignore
 
-try:
-    import matplotlib.pyplot as plt  # type: ignore
-except Exception:
-    plt = None  # type: ignore
+import matplotlib.pyplot as plt  # type: ignore
+
+#TODO: Kommentare und jeff - Done bis:
 
 # Try to import graph_pipeline to stay consistent with your model encoding.
 # Falls Import fehlschlägt (z.B. weil du das Script nicht aus dem Repo-Root startest),
@@ -87,33 +82,35 @@ except Exception:
 
 
 # -------------------------
-# Helpers: IO + Reporting
+# TODO
 # -------------------------
 
-def _read_text_with_fallback(path: Path) -> str:
+def _file_reader(pfad: Path) -> str:
     """
-    Read text with UTF-8 first, fallback to cp1252.
-    Raises with a helpful message if both fail.
+    Liest Dateien ein und probiert verschiedene Encodings.
+
+    :param pfad: Pfad zur Datei
+    :return str: Datei (richtiges Encoding)
     """
-    raw = path.read_bytes()
+    rohdaten = pfad.read_bytes()
     try:
-        return raw.decode("utf-8")
+        return rohdaten.decode("utf-8")
     except UnicodeDecodeError:
         try:
-            return raw.decode("cp1252")
+            return rohdaten.decode("cp1252")
         except UnicodeDecodeError as e:
             raise UnicodeDecodeError(
                 e.encoding,
                 e.object,
                 e.start,
                 e.end,
-                f"Kann Datei nicht als UTF-8 oder cp1252 dekodieren: {path}",
+                f"Datei scheint weder UTF-8 noch cp1252 zu sein: {pfad}",
             ) from e
 
 
 def load_jsonl(path: Path, max_graphs: Optional[int] = None) -> List[Dict[str, Any]]:
     """Load JSONL file into list of dicts. Reads ALL lines by default (no sampling)."""
-    text = _read_text_with_fallback(path)
+    text = _file_reader(path)
     graphs: List[Dict[str, Any]] = []
     for i, line in enumerate(text.splitlines(), start=1):
         if max_graphs is not None and len(graphs) >= max_graphs:
