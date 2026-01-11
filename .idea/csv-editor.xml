@@ -3,6 +3,13 @@
   <component name="CsvFileAttributes">
     <option name="attributeMap">
       <map>
+        <entry key="\analysis\descriptive\tables\attr_coverage_ist.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\analysis\descriptive\tables\ist_graph_attrs_keys.csv">
           <value>
             <Attribute>

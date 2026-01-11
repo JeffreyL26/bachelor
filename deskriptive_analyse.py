@@ -108,70 +108,117 @@ def _file_reader(pfad: Path) -> str:
             ) from e
 
 
-def load_jsonl(path: Path, max_graphs: Optional[int] = None) -> List[Dict[str, Any]]:
-    """Load JSONL file into list of dicts. Reads ALL lines by default (no sampling)."""
+def jsonl_loader(path: Path, obergrenze: Optional[int] = None) -> List[Dict[str, Any]]:
+    """
+    Load JSONL file into list of dicts. Reads ALL lines by default (no sampling).
+
+    :param path: Pfad zur Datei
+    :param obergrenze: Maximale Anzahl an Graphen, die eingelesen werden sollen (optional)
+    """
     text = _file_reader(path)
-    graphs: List[Dict[str, Any]] = []
+    # Graphen sind Dict, also für jeden Eintrag einmal eins erstellen
+    graphen: List[Dict[str, Any]] = []
     for i, line in enumerate(text.splitlines(), start=1):
-        if max_graphs is not None and len(graphs) >= max_graphs:
+        if obergrenze is not None and len(graphen) >= obergrenze:
             break
         line = line.strip()
         if not line:
             continue
+        # Zeilen parsen
         try:
-            g = json.loads(line)
+            zeilen = json.loads(line)
         except json.JSONDecodeError as e:
-            raise ValueError(f"JSON decode error in {path} at line {i}: {e}") from e
-        graphs.append(g)
-    return graphs
+            raise ValueError(f"JSON dekodieren lief schief: {path} Zeile {i}: {e}") from e
+        graphen.append(zeilen)
+    return graphen
 
 
-def ensure_dir(p: Path) -> None:
-    p.mkdir(parents=True, exist_ok=True)
+def analysis_directory(verzeichnis: Path) -> None:
+    """
+    Verzeichnis und ggf. fehlende Elternverzeichnisse erstellen
+
+    :param verzeichnis: Beschreibt VErzeichnis
+    """
+    verzeichnis.mkdir(parents=True, exist_ok=True)
 
 
-def safe_div(n: float, d: float) -> float:
-    return n / d if d else float("nan")
+def safe_div(zaehler: float, nenner: float) -> float:
+    """
+    Normale Division mit Nullfehler
+    """
+    return zaehler / nenner if nenner else float("NaN")
 
 
-def pct(n: float, d: float) -> float:
-    return 100.0 * safe_div(n, d) if d else 0.0
+def prozentrechner(z1: float, z2: float) -> float:
+    """
+    Prozentsatz ausrechnen
+    :return: Prozentsatz wenn z2 > 0, sonst 0.0
+    """
+    return 100.0 * safe_div(z1, z2) if z2 else 0.0
 
 
-def fmt_pct(n: float, d: float, digits: int = 1) -> str:
-    return f"{pct(n,d):.{digits}f}%"
+def prozent_nachkomma(z1: float, z2: float, nachkomma: int = 1) -> str:
+    """
+    Für Nachkommastelle
+    """
+    return f"{prozentrechner(z1, z2):.{nachkomma}f}%"
 
 
-def fmt_int(n: Optional[int]) -> str:
-    return "∞" if n is None else str(n)
+def infinity(z: Optional[int]) -> str:
+    """
+    0..N ist unbegrenzt, also lesbare Darstellung für die deskriptive Analyse (unendlich)
+    """
+    return "∞" if z is None else str(z)
 
 
-def quantiles(values: Sequence[float], qs: Sequence[float] = (0.0, 0.25, 0.5, 0.75, 1.0)) -> Dict[str, float]:
+def quantiles(values: Sequence[float], q_pos: Sequence[float] = (0.0, 0.25, 0.5, 0.75, 1.0)) -> Dict[str, float]:
+    """
+    Nach Quantilen analysieren, mit Median "typischer" Graph
+
+    :param values: Sequenz von Zahlen
+    :param q_pos: Quantilpositionen zwischen 0 und 1 - Minimum, Q1, Median, Q3, Maximum
+    :return: Dictionary aus besagten Quantilen
+    """
+    # Auf Werte überprüfen
     if not values:
-        return {f"q{int(q*100)}": float("nan") for q in qs}
+        return {f"q{int(q*100)}": float("NaN") for q in q_pos}
     s = sorted(values)
-    out: Dict[str, float] = {}
-    for q in qs:
-        # nearest-rank style
+    erg: Dict[str, float] = {}
+    for q in q_pos:
+        # Zum nächsten Index runden
         idx = int(round(q * (len(s) - 1)))
-        out[f"q{int(q*100)}"] = float(s[idx])
-    return out
+        erg[f"q{int(q*100)}"] = float(s[idx])
+    return erg
 
 
 @dataclass
 class Table:
-    name: str
-    rows: List[Dict[str, Any]]
+    """
+    Tabellenstruktur
+    """
+    tabelle_name: str
+    tabelle_zeilen: List[Dict[str, Any]]
 
 
 class ReportWriter:
+    """
+    Ausgabe des Berichts
+    """
     def __init__(self, out_dir: Path) -> None:
+        """
+        Initialisiert Ausgabeverzeichnis
+        :param out_dir: Pfad der Ausgabe
+        """
         self.out_dir = out_dir
-        ensure_dir(out_dir)
-        ensure_dir(out_dir / "tables")
-        ensure_dir(out_dir / "plots")
+        # Unterordner
+        analysis_directory(out_dir)
+        analysis_directory(out_dir / "tables")
+        analysis_directory(out_dir / "plots")
         self.lines: List[str] = []
 
+    """
+    Überschriften in gängigen Formaten
+    """
     def h1(self, title: str) -> None:
         self.lines.append(f"# {title}\n")
 
@@ -182,27 +229,40 @@ class ReportWriter:
         self.lines.append(f"### {title}\n")
 
     def p(self, text: str) -> None:
+        """
+        Absatz
+        """
         self.lines.append(text.strip() + "\n")
 
     def bullet(self, items: Sequence[str]) -> None:
-        for it in items:
-            self.lines.append(f"- {it}")
+        """
+        Aufzählung
+        :param items: Bullet-Strings
+        """
+        for item in items:
+            self.lines.append(f"- {item}")
         self.lines.append("")
 
     def codeblock(self, code: str, lang: str = "") -> None:
-        self.lines.append(f"```{lang}")
+        """
+        Formatierter Code
+        :param code: Code
+        :param lang: Programmiersprache
+        """
+        self.lines.append(f"```Geschrieben in: {lang}")
         self.lines.append(code.rstrip())
         self.lines.append("```")
         self.lines.append("")
 
-    def save_table_csv(self, table: Table) -> Path:
-        out = self.out_dir / "tables" / f"{table.name}.csv"
-        if not table.rows:
+    def csv_generator(self, table: Table) -> Path:
+        out = self.out_dir / "tables" / f"{table.tabelle_name}.csv"
+        if not table.tabelle_zeilen:
             out.write_text("", encoding="utf-8")
             return out
-        # Determine column order: stable (sorted), but keep common keys first if present
-        keys = set().union(*(r.keys() for r in table.rows))
-        preferred = [
+        # Spaltenreihenfolge bestimmen
+        # Schlüssel über alle Zeilen
+        schluessel = set().union(*(r.keys() for r in table.tabelle_zeilen))
+        bevorzugte_reihenfolge = [ #TODO - pct vorher umbenannt
             "key",
             "count",
             "pct",
@@ -215,37 +275,50 @@ class ReportWriter:
             "graph_id",
             "lbs_code",
         ]
-        cols = [c for c in preferred if c in keys] + sorted([c for c in keys if c not in preferred])
+        spalten = [r for r in bevorzugte_reihenfolge if r in schluessel] + sorted([s for s in schluessel if s not in bevorzugte_reihenfolge])
         with out.open("w", encoding="utf-8", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=cols)
+            w = csv.DictWriter(f, fieldnames=spalten)
             w.writeheader()
-            for r in table.rows:
-                w.writerow({c: r.get(c, "") for c in cols})
+            for r in table.tabelle_zeilen:
+                w.writerow({s: r.get(s, "") for s in spalten})
         return out
 
-    def add_table_markdown(self, table: Table, max_rows: int = 40) -> None:
-        """Add a markdown table to report. Also writes a CSV file to out_dir/tables."""
-        csv_path = self.save_table_csv(table)
-        self.p(f"Tabellen-Export: `{csv_path.as_posix()}`")
-        rows = table.rows[:max_rows]
-        if not rows:
+    def insert_table(self, table: Table, max_rows: int = 40) -> None:
+        """
+        Fügt Tabelle in den Report ein und schreibt dazu die volle CSV
+
+        :param max_rows: maximale Zeilen, die im Report sein sollen (Rest in jeweiliger CSV)
+        """
+        csv_path = self.csv_generator(table)
+        self.p(f"Vollständige Tabelle unter: `{csv_path.as_posix()}`")
+        # Eingrenzung
+        zeilen = table.tabelle_zeilen[:max_rows]
+        if not zeilen:
             self.p("_Keine Daten._")
             return
         if pd is not None:
-            df = pd.DataFrame(rows)
+            # Baut DataFrame
+            df = pd.DataFrame(zeilen)
             self.lines.append(df.to_markdown(index=False))
             self.lines.append("")
         else:
-            cols = list(rows[0].keys())
-            self.lines.append("| " + " | ".join(cols) + " |")
-            self.lines.append("| " + " | ".join(["---"] * len(cols)) + " |")
-            for r in rows:
-                self.lines.append("| " + " | ".join(str(r.get(c, "")) for c in cols) + " |")
+            spalten = list(zeilen[0].keys())
+            self.lines.append("| " + " | ".join(spalten) + " |")
+            self.lines.append("| " + " | ".join(["---"] * len(spalten)) + " |")
+            for r in zeilen:
+                self.lines.append("| " + " | ".join(str(r.get(c, "")) for c in spalten) + " |")
             self.lines.append("")
-        if len(table.rows) > max_rows:
-            self.p(f"_Hinweis: Tabelle gekürzt auf {max_rows} Zeilen (insgesamt {len(table.rows)})._")
+        if len(table.tabelle_zeilen) > max_rows:
+            self.p(f"_Hinweis: Tabelle gekürzt auf {max_rows} Zeilen (ursprünglich {len(table.tabelle_zeilen)})._")
 
     def save_plot(self, fig, filename: str) -> Optional[Path]:
+        """
+        Speichert einen Plot
+
+        :param fig: Matplotlib Figur
+        :param filename: Dateiname
+        """
+
         if plt is None:
             return None
         out = self.out_dir / "plots" / filename
@@ -254,67 +327,86 @@ class ReportWriter:
         return out
 
     def finalize(self) -> Path:
+        """
+        Schreibt den Report als Markdown ins Ausgabeverzeichnis
+        """
+
         out = self.out_dir / "report.md"
         out.write_text("\n".join(self.lines), encoding="utf-8")
         return out
 
 
 # -------------------------
-# Graph utilities
+# TODO Graphutilities
 # -------------------------
 
-def iter_nodes(g: Dict[str, Any]) -> Iterable[Dict[str, Any]]:
-    for n in g.get("nodes", []) or []:
+def get_nodes(graph: Dict[str, Any]) -> Iterable[Dict[str, Any]]:
+    """
+    Geht über alle Knoten eines Graphen und gibt sie zurück
+    """
+    for n in graph.get("nodes", []) or []:
         if isinstance(n, dict):
             yield n
 
 
-def iter_edges(g: Dict[str, Any]) -> Iterable[Dict[str, Any]]:
-    for e in g.get("edges", []) or []:
+def get_edges(graph: Dict[str, Any]) -> Iterable[Dict[str, Any]]:
+    """
+    Geht über alle Kanten eines Graphen und gibt sie zurück
+    """
+    for e in graph.get("edges", []) or []:
         if isinstance(e, dict):
             yield e
 
 
-def node_id_set(g: Dict[str, Any]) -> set:
-    # NOTE: Unique IDs; structural stats are computed on unique node ids.
-    return {str(n.get("id")) for n in iter_nodes(g) if n.get("id") is not None}
+def set_of_node_ids(graph: Dict[str, Any]) -> set:
+    """
+    Menge aller Node-IDs als String
+    """
+    # Einzigartige IDs
+    return {str(n.get("id")) for n in get_nodes(graph) if n.get("id") is not None}
 
 
-def _edge_rel_raw(e: Dict[str, Any]) -> Optional[str]:
-    # be tolerant: some generators might use other keys
-    rel = e.get("rel") or e.get("type") or e.get("edge_type") or e.get("relation")
+def _get_edge_relations(edge: Dict[str, Any]) -> Optional[str]:
+    """
+    Gibt Relationstypen einer Kante
+    """
+    # Verschiedene Key-Namen
+    rel = edge.get("rel") or edge.get("type") or edge.get("edge_type") or edge.get("relation")
     if rel is None:
         return None
     s = str(rel).strip()
     return s if s else None
 
 
-def edge_validity_summary(g: Dict[str, Any]) -> Dict[str, int]:
-    """Counts edge validity aspects (useful for Quick Win 1)."""
-    ids = node_id_set(g)
+def edge_validator(graph: Dict[str, Any]) -> Dict[str, int]:
+    """
+    Zählt valide Kanten pro Graph
+    """
+    ids = set_of_node_ids(graph)
 
-    total = 0
-    with_srcdst = 0
-    with_rel = 0
+    total = 0               # alle Kanten, auch wenn kaputt
+    with_src_and_dst = 0    # Kanten mit source und destination
+    with_rel = 0            # Kanten mit Relationstyp
 
-    valid_endpoints = 0
-    valid_typed = 0
+    valid_endpoints = 0     # Kanten, deren src und dst in ids existieren
+    valid_typed = 0         # Kanten mit valid_endpoints und Relationstyp
 
-    missing_srcdst = 0
+    # Fehlende Werte (analog)
+    missing_src_or_dst = 0
     missing_rel = 0
     missing_refs = 0
-    self_loops_valid = 0
+    self_loops_valid = 0    # valide Selfloops im src=dst Fall
 
-    for e in iter_edges(g):
+    for e in get_edges(graph):
         total += 1
         s = e.get("src")
         t = e.get("dst")
-        rel = _edge_rel_raw(e)
+        rel = _get_edge_relations(e)
 
         if s is None or t is None:
-            missing_srcdst += 1
+            missing_src_or_dst += 1
             continue
-        with_srcdst += 1
+        with_src_and_dst += 1
 
         s = str(s)
         t = str(t)
@@ -336,21 +428,23 @@ def edge_validity_summary(g: Dict[str, Any]) -> Dict[str, int]:
 
     return {
         "edges_total": total,
-        "edges_with_srcdst": with_srcdst,
+        "edges_with_srcdst": with_src_and_dst,
         "edges_with_rel": with_rel,
         "edges_valid_endpoints": valid_endpoints,
         "edges_valid_typed": valid_typed,
-        "edges_missing_srcdst": missing_srcdst,
+        "edges_missing_srcdst": missing_src_or_dst,
         "edges_missing_rel": missing_rel,
         "edges_missing_refs": missing_refs,
         "edges_self_loops_valid": self_loops_valid,
     }
 
 
-def iter_valid_struct_edges(g: Dict[str, Any]) -> Iterable[Tuple[str, str]]:
-    """Yields edges (src,dst) where src/dst exist as node ids."""
-    ids = node_id_set(g)
-    for e in iter_edges(g):
+def get_valid_structured_edges(graph: Dict[str, Any]) -> Iterable[Tuple[str, str]]:
+    """
+    Alle validen Kanten (mit src und dst)
+    """
+    ids = set_of_node_ids(graph)
+    for e in get_edges(graph):
         s = e.get("src")
         t = e.get("dst")
         if s is None or t is None:
@@ -362,15 +456,17 @@ def iter_valid_struct_edges(g: Dict[str, Any]) -> Iterable[Tuple[str, str]]:
         yield s, t
 
 
-def iter_valid_typed_edges(g: Dict[str, Any]) -> Iterable[Tuple[str, str, str]]:
-    """Yields edges (src,dst,rel) where src/dst exist and rel exists."""
-    ids = node_id_set(g)
-    for e in iter_edges(g):
+def get_valid_typed_edges(graph: Dict[str, Any]) -> Iterable[Tuple[str, str, str]]:
+    """
+    Alle validen Kanten (mit src und dst) umit rel
+    """
+    ids = set_of_node_ids(graph)
+    for e in get_edges(graph):
         s = e.get("src")
         t = e.get("dst")
         if s is None or t is None:
             continue
-        rel = _edge_rel_raw(e)
+        rel = _get_edge_relations(e)
         if rel is None:
             continue
         s = str(s)
@@ -380,156 +476,175 @@ def iter_valid_typed_edges(g: Dict[str, Any]) -> Iterable[Tuple[str, str, str]]:
         yield s, t, rel.strip().upper()
 
 
-def build_undirected_neighbors(g: Dict[str, Any]) -> Dict[str, set]:
-    """Undirected neighbor sets (unique neighbors, valid edges only). Self-loops ignored."""
-    ids = node_id_set(g)
-    nbrs: Dict[str, set] = {nid: set() for nid in ids}
-    for s, t in iter_valid_struct_edges(g):
+def undirected_neighbor_builder(graph: Dict[str, Any]) -> Dict[str, set]:
+    """
+    Baut Set aus ungerichteten, einzigartigen Nachbarn (nur valide Kanten), ohne self-loop!
+    """
+    ids = set_of_node_ids(graph)
+    nachbarn: Dict[str, set] = {nachbar_id: set() for nachbar_id in ids}
+    for s, t in get_valid_structured_edges(graph):
         if s == t:
             continue
-        nbrs[s].add(t)
-        nbrs[t].add(s)
-    return nbrs
+        nachbarn[s].add(t)
+        nachbarn[t].add(s)
+    return nachbarn
 
 
-def build_directed_neighbors(g: Dict[str, Any]) -> Tuple[Dict[str, set], Dict[str, set]]:
-    """Directed neighbor sets (unique neighbors, valid edges only). Self-loops ignored."""
-    ids = node_id_set(g)
-    out_nbrs: Dict[str, set] = {nid: set() for nid in ids}
-    in_nbrs: Dict[str, set] = {nid: set() for nid in ids}
-    for s, t in iter_valid_struct_edges(g):
+def directed_neighbor_builder(graph: Dict[str, Any]) -> Tuple[Dict[str, set], Dict[str, set]]:
+    """
+    Baut Set aus gerichteten, einzigartigen Nachbran (ohne self-loop!)
+    """
+    ids = set_of_node_ids(graph)
+    ausgehend: Dict[str, set] = {nachbar_id: set() for nachbar_id in ids}
+    eingehend: Dict[str, set] = {nachbar_id: set() for nachbar_id in ids}
+    for s, t in get_valid_structured_edges(graph):
         if s == t:
             continue
-        out_nbrs[s].add(t)
-        in_nbrs[t].add(s)
-    return out_nbrs, in_nbrs
+        ausgehend[s].add(t)
+        eingehend[t].add(s)
+    return ausgehend, eingehend
 
 
-def connected_components_sizes(g: Dict[str, Any]) -> List[int]:
-    """Connected components on undirected view (valid edges only)."""
-    nbrs = build_undirected_neighbors(g)
-    seen = set()
-    sizes: List[int] = []
-    for start in nbrs.keys():
-        if start in seen:
+def connected_components_sizes(graph: Dict[str, Any]) -> List[int]:
+    """
+    Berechnet Größe aller zusammenhängenden Komponenten (ungerichteter Graph, valide Kanten)
+    Prüft, ob Graphen in einem Stück sind
+    Wir erwarten für LBS zusammenhängende Strukturen
+    """
+    nachbarn = undirected_neighbor_builder(graph)
+    angesehen = set()
+    component_sizes: List[int] = []
+    for start in nachbarn.keys():
+        if start in angesehen:
             continue
+        # Mit Stack
         stack = [start]
-        seen.add(start)
+        angesehen.add(start)
         size = 0
         while stack:
-            u = stack.pop()
+            n1 = stack.pop()
             size += 1
-            for v in nbrs.get(u, set()):
-                if v not in seen:
-                    seen.add(v)
-                    stack.append(v)
-        sizes.append(size)
-    sizes.sort(reverse=True)
-    return sizes
+            for n2 in nachbarn.get(n1, set()):
+                if n2 not in angesehen:
+                    angesehen.add(n2)
+                    stack.append(n2)
+        component_sizes.append(size)
+    component_sizes.sort(reverse=True)
+    return component_sizes
 
 
-def strongly_connected_components_sizes(g: Dict[str, Any]) -> List[int]:
-    """SCC sizes on directed view (Kosaraju), valid edges only."""
-    out_nbrs, in_nbrs = build_directed_neighbors(g)
+def strongly_connected_components_sizes(graph: Dict[str, Any]) -> List[int]:
+    """
+    Mximale Teilmenge von Knoten in einem gerichteten Graphen, bei der jeder Knoten
+    von jedem anderen Knoten innerhalb dieser Teilmenge direkt oder indirekt über gerichtete
+    Kanten erreichbar ist
+    """
+    ausgehend, eingehend = directed_neighbor_builder(graph)
 
-    visited = set()
-    order: List[str] = []
+    besucht = set()
+    reihenfolge: List[str] = []
 
+    # Tiefensuche durchführen
     def dfs1(u: str) -> None:
-        visited.add(u)
-        for v in out_nbrs.get(u, set()):
-            if v not in visited:
+        besucht.add(u)
+        for v in ausgehend.get(u, set()):
+            if v not in besucht:
                 dfs1(v)
-        order.append(u)
+        reihenfolge.append(u)
 
-    for u in out_nbrs.keys():
-        if u not in visited:
+    for u in ausgehend.keys():
+        if u not in besucht:
             dfs1(u)
 
-    visited2 = set()
+    besucht_2 = set()
     sizes: List[int] = []
 
     def dfs2(u: str) -> int:
-        visited2.add(u)
+        besucht_2.add(u)
         size = 1
-        for v in in_nbrs.get(u, set()):
-            if v not in visited2:
+        for v in eingehend.get(u, set()):
+            if v not in besucht_2:
                 size += dfs2(v)
         return size
 
-    for u in reversed(order):
-        if u not in visited2:
+    # in umgekehrter Reihenfolge, um Prüfung zu finalisieren
+    for u in reversed(reihenfolge):
+        if u not in besucht_2:
             sizes.append(dfs2(u))
 
     sizes.sort(reverse=True)
     return sizes
 
 
-def graph_struct_metrics(g: Dict[str, Any]) -> Dict[str, Any]:
-    """Compute per-graph structural metrics (Quick Wins 1/2/4)."""
-    ids = node_id_set(g)
-    n = len(ids)
+def generate_graph_metrics(graph: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Graph-Metriken erzeugen: Valide, Größe, Komponenten, SCC, ...
+    """
+    ids = set_of_node_ids(graph)
+    nodes = len(ids)
 
-    ev = edge_validity_summary(g)
+    ev = edge_validator(graph)
 
-    # undirected degrees (unique neighbors)
-    nbrs = build_undirected_neighbors(g)
-    degrees = [len(nbrs.get(nid, set())) for nid in ids]
-    isolated = sum(1 for d in degrees if d == 0)
+    # Berechnung ungerichteter Grade
+    nachbarn = undirected_neighbor_builder(graph)
+    degrees = [len(nachbarn.get(nachbar_id, set())) for nachbar_id in ids]
+    isolierte_nodes = sum(1 for d in degrees if d == 0)
 
-    # unique undirected edges (pairs), valid only, self-loops excluded
-    und_pairs = set()
-    for s, t in iter_valid_struct_edges(g):
+    # Berechnung ungerichteter Kanten (einzigartig, valide)
+    undirected_pairs = set()
+    for s, t in get_valid_structured_edges(graph):
+        # Self-Loops
         if s == t:
             continue
-        a, b = (s, t) if s <= t else (t, s)
-        und_pairs.add((a, b))
-    m_und = len(und_pairs)
+        n1, n2 = (s, t) if s <= t else (t, s)
+        undirected_pairs.add((n1, n2))
+    ungerichtet_anzahl = len(undirected_pairs)
 
-    density = (2.0 * m_und / (n * (n - 1))) if n > 1 else 0.0
+    # Dichte ("wie voll": maximal mögliche Anzahl vs. tatsächliche Anzahl)
+    dichte = (2.0 * ungerichtet_anzahl / (nodes * (nodes - 1))) if nodes > 1 else 0.0
 
-    comps = connected_components_sizes(g)
-    sccs = strongly_connected_components_sizes(g)
+    components = connected_components_sizes(graph)
+    sc_components = strongly_connected_components_sizes(graph)
 
-    out_nbrs, in_nbrs = build_directed_neighbors(g)
-    out_degs = [len(out_nbrs.get(nid, set())) for nid in ids]
-    in_degs = [len(in_nbrs.get(nid, set())) for nid in ids]
+    ausgehend, eingehend = directed_neighbor_builder(graph)
+    ausgehend_degree = [len(ausgehend.get(nachbar_id, set())) for nachbar_id in ids]
+    eingehen_degree = [len(eingehend.get(nachbar_id, set())) for nachbar_id in ids]
 
-    deg_q = quantiles([float(d) for d in degrees])
+    ungerichtet_degree_quantile = quantiles([float(d) for d in degrees])
 
     return {
-        # quality counters
+        # Zähler direkt in die Ergebnisstruktur "entpacken"
         **ev,
-        # core sizes
-        "node_count_unique": n,
-        "edge_pairs_undirected_unique": m_und,
-        # undirected structure
-        "density_undirected_simple": density,
-        "edges_per_node_valid_endpoints": safe_div(float(ev["edges_valid_endpoints"]), float(n)),
-        "edges_per_node_valid_typed": safe_div(float(ev["edges_valid_typed"]), float(n)),
+        # Kerngrößen
+        "node_count_unique": nodes,
+        "edge_pairs_undirected_unique": ungerichtet_anzahl,
+        # Ungerichtet - Struktur
+        "density_undirected_simple": dichte,
+        "edges_per_node_valid_endpoints": safe_div(float(ev["edges_valid_endpoints"]), float(nodes)),
+        "edges_per_node_valid_typed": safe_div(float(ev["edges_valid_typed"]), float(nodes)),
         "avg_degree_undirected": float(statistics.mean(degrees)) if degrees else float("nan"),
         "deg_min_undirected": int(min(degrees)) if degrees else None,
-        "deg_med_undirected": int(deg_q["q50"]) if degrees else None,
+        "deg_med_undirected": int(ungerichtet_degree_quantile["q50"]) if degrees else None,
         "deg_max_undirected": int(max(degrees)) if degrees else None,
-        "isolated_nodes_undirected": int(isolated),
-        "isolated_pct_undirected": pct(float(isolated), float(n)),
-        "cc_count_undirected": int(len(comps)),
-        "cc_largest_undirected": int(comps[0]) if comps else 0,
-        # directed summary (unique neighbors)
-        "avg_out_degree_directed": float(statistics.mean(out_degs)) if out_degs else float("nan"),
-        "avg_in_degree_directed": float(statistics.mean(in_degs)) if in_degs else float("nan"),
-        "out_degree_max_directed": int(max(out_degs)) if out_degs else 0,
-        "in_degree_max_directed": int(max(in_degs)) if in_degs else 0,
-        "scc_count_directed": int(len(sccs)),
-        "scc_largest_directed": int(sccs[0]) if sccs else 0,
+        "isolated_nodes_undirected": int(isolierte_nodes),
+        "isolated_pct_undirected": prozentrechner(float(isolierte_nodes), float(nodes)),
+        "cc_count_undirected": int(len(components)),
+        "cc_largest_undirected": int(components[0]) if components else 0,
+        # Gerichtet
+        "avg_out_degree_directed": float(statistics.mean(ausgehend_degree)) if ausgehend_degree else float("nan"),
+        "avg_in_degree_directed": float(statistics.mean(eingehen_degree)) if eingehen_degree else float("nan"),
+        "out_degree_max_directed": int(max(ausgehend_degree)) if ausgehend_degree else 0,
+        "in_degree_max_directed": int(max(eingehen_degree)) if eingehen_degree else 0,
+        "scc_count_directed": int(len(sc_components)),
+        "scc_largest_directed": int(sc_components[0]) if sc_components else 0,
     }
 
-
+#TODO
 def degrees_by_type(g: Dict[str, Any]) -> Dict[str, List[int]]:
     """Undirected unique-neighbor degree sequence, grouped by node type."""
-    nbrs = build_undirected_neighbors(g)
+    nbrs = undirected_neighbor_builder(g)
     id_to_type: Dict[str, str] = {}
-    for n in iter_nodes(g):
+    for n in get_nodes(g):
         nid = n.get("id")
         if nid is None:
             continue
@@ -543,9 +658,9 @@ def degrees_by_type(g: Dict[str, Any]) -> Dict[str, List[int]]:
 
 def directed_degrees_by_type(g: Dict[str, Any]) -> Dict[str, Dict[str, List[int]]]:
     """Directed degrees (unique in/out neighbors), grouped by node type."""
-    out_nbrs, in_nbrs = build_directed_neighbors(g)
+    out_nbrs, in_nbrs = directed_neighbor_builder(g)
     id_to_type: Dict[str, str] = {}
-    for n in iter_nodes(g):
+    for n in get_nodes(g):
         nid = n.get("id")
         if nid is None:
             continue
@@ -562,9 +677,9 @@ def directed_degrees_by_type(g: Dict[str, Any]) -> Dict[str, Dict[str, List[int]
 def graph_signature(g: Dict[str, Any]) -> Dict[str, Any]:
     """Lightweight graph fingerprint (Nice-to-have 5)."""
     # Node types (by unique ids)
-    ids = node_id_set(g)
+    ids = set_of_node_ids(g)
     id_to_type: Dict[str, str] = {}
-    for n in iter_nodes(g):
+    for n in get_nodes(g):
         nid = n.get("id")
         if nid is None:
             continue
@@ -572,10 +687,10 @@ def graph_signature(g: Dict[str, Any]) -> Dict[str, Any]:
     nt = Counter(id_to_type.get(nid, "UNKNOWN") for nid in ids)
 
     # Edge rel types (valid typed)
-    et = Counter(rel for _, _, rel in iter_valid_typed_edges(g))
+    et = Counter(rel for _, _, rel in get_valid_typed_edges(g))
 
     # Degree summary (undirected, valid)
-    nbrs = build_undirected_neighbors(g)
+    nbrs = undirected_neighbor_builder(g)
     degrees = [len(nbrs.get(nid, set())) for nid in ids]
     dq = quantiles([float(d) for d in degrees])
     comps = connected_components_sizes(g)
@@ -621,7 +736,7 @@ def validate_graph(g: Dict[str, Any], kind: str) -> List[ValidationIssue]:
 
     # node IDs unique
     ids: List[str] = []
-    for n in iter_nodes(g):
+    for n in get_nodes(g):
         nid = n.get("id")
         if nid is None:
             issues.append(ValidationIssue("ERROR", gid, "Node without id"))
@@ -636,10 +751,10 @@ def validate_graph(g: Dict[str, Any], kind: str) -> List[ValidationIssue]:
     # edges reference existing nodes
     missing_refs = 0
     missing_fields = 0
-    for e in iter_edges(g):
+    for e in get_edges(g):
         s = e.get("src")
         t = e.get("dst")
-        rel = _edge_rel_raw(e)
+        rel = _get_edge_relations(e)
         if s is None or t is None or rel is None:
             missing_fields += 1
             continue
@@ -654,7 +769,7 @@ def validate_graph(g: Dict[str, Any], kind: str) -> List[ValidationIssue]:
     # unknown node/edge types
     known_node_types = {"MaLo", "MeLo", "TR", "NeLo"}
     unknown_nt = Counter()
-    for n in iter_nodes(g):
+    for n in get_nodes(g):
         t = str(n.get("type"))
         if t not in known_node_types:
             unknown_nt[t] += 1
@@ -663,7 +778,7 @@ def validate_graph(g: Dict[str, Any], kind: str) -> List[ValidationIssue]:
 
     known_edge_types = {"MEMA", "METR", "MENE", "MEME"}
     unknown_rel = Counter()
-    for _, _, r in iter_valid_typed_edges(g):
+    for _, _, r in get_valid_typed_edges(g):
         if r not in known_edge_types:
             unknown_rel[r] += 1
     if unknown_rel:
@@ -672,7 +787,7 @@ def validate_graph(g: Dict[str, Any], kind: str) -> List[ValidationIssue]:
     # Graph attrs count consistency (Ist only)
     ga = g.get("graph_attrs", {}) or {}
     if kind == "ist":
-        actual = Counter(str(n.get("type")) for n in iter_nodes(g))
+        actual = Counter(str(n.get("type")) for n in get_nodes(g))
         for t, key in [("MaLo", "malo_count"), ("MeLo", "melo_count"), ("TR", "tr_count"), ("NeLo", "nelo_count")]:
             if key in ga:
                 try:
@@ -719,11 +834,11 @@ def extract_global_keysets(graphs: List[Dict[str, Any]]) -> Tuple[Counter, Count
         ga = g.get("graph_attrs", {}) or {}
         for k in ga.keys():
             ga_keys[str(k)] += 1
-        for n in iter_nodes(g):
+        for n in get_nodes(g):
             attrs = n.get("attrs", {}) or {}
             for k in attrs.keys():
                 node_attr_keys[str(k)] += 1
-        for e in iter_edges(g):
+        for e in get_edges(g):
             for k in e.keys():
                 edge_keys[str(k)] += 1
     return ga_keys, node_attr_keys, edge_keys
@@ -732,7 +847,7 @@ def extract_global_keysets(graphs: List[Dict[str, Any]]) -> Tuple[Counter, Count
 def node_type_counts(graphs: List[Dict[str, Any]]) -> Counter:
     c = Counter()
     for g in graphs:
-        for n in iter_nodes(g):
+        for n in get_nodes(g):
             c[str(n.get("type"))] += 1
     return c
 
@@ -740,7 +855,7 @@ def node_type_counts(graphs: List[Dict[str, Any]]) -> Counter:
 def edge_type_counts(graphs: List[Dict[str, Any]]) -> Counter:
     c = Counter()
     for g in graphs:
-        for _, _, rel in iter_valid_typed_edges(g):
+        for _, _, rel in get_valid_typed_edges(g):
             c[str(rel)] += 1
     return c
 
@@ -751,10 +866,10 @@ def per_graph_basic_df(graphs: List[Dict[str, Any]], kind: str) -> List[Dict[str
         ga = g.get("graph_attrs", {}) or {}
 
         # keep raw sizes (backward compatible)
-        node_count_raw = len(list(iter_nodes(g)))
-        edge_count_raw = len(list(iter_edges(g)))
+        node_count_raw = len(list(get_nodes(g)))
+        edge_count_raw = len(list(get_edges(g)))
 
-        sm = graph_struct_metrics(g)
+        sm = generate_graph_metrics(g)
 
         row: Dict[str, Any] = {
             "kind": kind,
@@ -778,7 +893,7 @@ def per_graph_basic_df(graphs: List[Dict[str, Any]], kind: str) -> List[Dict[str
             row["constraints_n"] = len(ga.get("optionality_constraints") or [])
 
         # Edge type breakdown (valid typed)
-        etc = Counter(rel for _, _, rel in iter_valid_typed_edges(g))
+        etc = Counter(rel for _, _, rel in get_valid_typed_edges(g))
         for rel in ["MEMA", "METR", "MENE", "MEME"]:
             row[f"edge_{rel}"] = int(etc.get(rel, 0))
 
@@ -833,7 +948,7 @@ def encoder_alignment(graphs: List[Dict[str, Any]], kind: str) -> Dict[str, Any]
     raw_rel_vals = Counter()
 
     for g in graphs:
-        for n in iter_nodes(g):
+        for n in get_nodes(g):
             ntype = str(n.get("type"))
             raw_nt_vals[ntype] += 1
             if ntype not in NODE_TYPES:
@@ -875,7 +990,7 @@ def encoder_alignment(graphs: List[Dict[str, Any]], kind: str) -> Dict[str, Any]
                 if raw_volt is None or str(raw_volt) not in VOLTAGE_LEVELS:
                     unknown["volt_unknown"] += 1
 
-        for _, _, rel in iter_valid_typed_edges(g):
+        for _, _, rel in get_valid_typed_edges(g):
             raw_rel_vals[rel] += 1
             counts["edges_total"] += 1
 
@@ -920,7 +1035,7 @@ def ist_vs_template_coverage(ist_graphs: List[Dict[str, Any]], soll_templates: L
     ist_rows: List[Dict[str, Any]] = []
     for g in ist_graphs:
         ga = g.get("graph_attrs", {}) or {}
-        actual = Counter(str(n.get("type")) for n in iter_nodes(g))
+        actual = Counter(str(n.get("type")) for n in get_nodes(g))
         ist_rows.append(
             {
                 "graph_id": g.get("graph_id"),
@@ -984,16 +1099,16 @@ def plot_hist(values: List[int], title: str, xlabel: str, out_path: Path) -> Non
 
 
 def topology_checklist_row(g: Dict[str, Any], kind: str) -> Dict[str, Any]:
-    ids = node_id_set(g)
+    ids = set_of_node_ids(g)
     id_to_type: Dict[str, str] = {}
-    for n in iter_nodes(g):
+    for n in get_nodes(g):
         nid = n.get("id")
         if nid is None:
             continue
         id_to_type[str(nid)] = str(n.get("type"))
 
     nt = Counter(id_to_type.get(nid, "UNKNOWN") for nid in ids)
-    et = Counter(rel for _, _, rel in iter_valid_typed_edges(g))
+    et = Counter(rel for _, _, rel in get_valid_typed_edges(g))
 
     melo_n = int(nt.get("MeLo", 0))
     malo_n = int(nt.get("MaLo", 0))
@@ -1012,7 +1127,7 @@ def topology_checklist_row(g: Dict[str, Any], kind: str) -> Dict[str, Any]:
     ga = g.get("graph_attrs", {}) or {}
     lbs_code = ga.get("lbs_code") or g.get("label")
 
-    ev = edge_validity_summary(g)
+    ev = edge_validator(g)
 
     rel_set = sorted(set(et.keys()))
 
@@ -1074,8 +1189,8 @@ def run_analysis(
     )
 
     # Load
-    ist_graphs = load_jsonl(ist_path, max_graphs=max_graphs)
-    soll_graphs = load_jsonl(soll_path, max_graphs=max_graphs)
+    ist_graphs = jsonl_loader(ist_path, obergrenze=max_graphs)
+    soll_graphs = jsonl_loader(soll_path, obergrenze=max_graphs)
 
     rw.p(f"Geladen: **{len(ist_graphs)}** Ist-Graphen, **{len(soll_graphs)}** Template-Graphen.")
 
@@ -1099,12 +1214,12 @@ def run_analysis(
     top_msgs = Counter(i.message for i in all_issues)
     issue_rows = [{"message": msg, "count": int(cnt)} for msg, cnt in top_msgs.most_common(25)]
     rw.h3("Häufigste Issue-Typen")
-    rw.add_table_markdown(Table("issues_top", issue_rows))
+    rw.insert_table(Table("issues_top", issue_rows))
 
     if by_sev.get("ERROR", 0) > 0:
         sample_err = [i for i in all_issues if i.severity == "ERROR"][:30]
         rw.h3("Beispielhafte ERROR-Kontexte")
-        rw.add_table_markdown(Table("issues_error_samples", [{"graph_id": e.where, "message": e.message} for e in sample_err]))
+        rw.insert_table(Table("issues_error_samples", [{"graph_id": e.where, "message": e.message} for e in sample_err]))
 
     # Keysets
     rw.h2("Inventar: Welche Felder sind enthalten?")
@@ -1114,20 +1229,20 @@ def run_analysis(
     def top_counter_table(name: str, c: Counter, total_graphs: int) -> Table:
         rows = []
         for k, cnt in c.most_common(50):
-            rows.append({"key": k, "count": int(cnt), "pct": f"{pct(cnt,total_graphs):.1f}%"})
+            rows.append({"key": k, "count": int(cnt), "pct": f"{prozentrechner(cnt, total_graphs):.1f}%"})
         return Table(name, rows)
 
     rw.h3("Ist: graph_attrs Keys (wie oft pro Graph vorhanden)")
-    rw.add_table_markdown(top_counter_table("ist_graph_attrs_keys", ist_ga_keys, len(ist_graphs)))
+    rw.insert_table(top_counter_table("ist_graph_attrs_keys", ist_ga_keys, len(ist_graphs)))
 
     rw.h3("Soll: graph_attrs Keys (wie oft pro Graph vorhanden)")
-    rw.add_table_markdown(top_counter_table("soll_graph_attrs_keys", soll_ga_keys, len(soll_graphs)))
+    rw.insert_table(top_counter_table("soll_graph_attrs_keys", soll_ga_keys, len(soll_graphs)))
 
     rw.h3("Ist: Node-Attribute Keys (wie oft über alle Nodes)")
-    rw.add_table_markdown(Table("ist_node_attr_keys", [{"key": k, "count": int(v)} for k, v in ist_node_attr_keys.most_common(60)]))
+    rw.insert_table(Table("ist_node_attr_keys", [{"key": k, "count": int(v)} for k, v in ist_node_attr_keys.most_common(60)]))
 
     rw.h3("Soll: Node-Attribute Keys (wie oft über alle Nodes)")
-    rw.add_table_markdown(Table("soll_node_attr_keys", [{"key": k, "count": int(v)} for k, v in soll_node_attr_keys.most_common(60)]))
+    rw.insert_table(Table("soll_node_attr_keys", [{"key": k, "count": int(v)} for k, v in soll_node_attr_keys.most_common(60)]))
 
     # Node/Edge type distributions
     rw.h2("Struktur: Knotentypen & Kantentypen")
@@ -1140,13 +1255,13 @@ def run_analysis(
     rows = []
     for t in sorted(set(ist_nt.keys()) | set(soll_nt.keys())):
         rows.append({"type": t, "ist_count": int(ist_nt.get(t, 0)), "soll_count": int(soll_nt.get(t, 0))})
-    rw.add_table_markdown(Table("node_type_distribution", rows))
+    rw.insert_table(Table("node_type_distribution", rows))
 
     rw.h3("Kantentyp-Verteilung (gesamt; nur valide Kanten)")
     rows = []
     for r in sorted(set(ist_et.keys()) | set(soll_et.keys())):
         rows.append({"rel": r, "ist_count": int(ist_et.get(r, 0)), "soll_count": int(soll_et.get(r, 0))})
-    rw.add_table_markdown(Table("edge_type_distribution", rows))
+    rw.insert_table(Table("edge_type_distribution", rows))
 
     # Per-graph stats
     rw.h2("Pro-Graph Kennzahlen")
@@ -1156,8 +1271,8 @@ def run_analysis(
     # Export (sample in markdown, full in CSV)
     rw.h3("Per-Graph-Tabelle (Sample)")
     rw.p("Hinweis: Vollständige Tabellen liegen als CSV unter `tables/`.")
-    rw.add_table_markdown(Table("per_graph_ist", ist_rows), max_rows=25)
-    rw.add_table_markdown(Table("per_graph_soll", soll_rows), max_rows=25)
+    rw.insert_table(Table("per_graph_ist", ist_rows), max_rows=25)
+    rw.insert_table(Table("per_graph_soll", soll_rows), max_rows=25)
 
     # Size distributions
     ist_nodes = [int(r["node_count"]) for r in ist_rows]
@@ -1182,7 +1297,7 @@ def run_analysis(
                 "edges_max": max(edges) if edges else None,
             }
         )
-    rw.add_table_markdown(Table("size_distributions", size_rows))
+    rw.insert_table(Table("size_distributions", size_rows))
 
     if do_plots:
         plot_hist(ist_nodes, "Ist-Graphen: Node count (raw)", "node_count", rw.out_dir / "plots" / "ist_node_count.png")
@@ -1207,7 +1322,7 @@ def run_analysis(
                 "largest_cc_min": min(largest) if largest else None,
             }
         )
-    rw.add_table_markdown(Table("connectivity_summary", comp_rows))
+    rw.insert_table(Table("connectivity_summary", comp_rows))
 
     rw.h3("Dichte / E/N / Degree / Isolierte Knoten (undirected; valide Kanten)")
 
@@ -1226,7 +1341,7 @@ def run_analysis(
             "isolated_pct_mean": round(statistics.mean(iso_pct), 4) if iso_pct else None,
         }
 
-    rw.add_table_markdown(Table("struct_metrics_summary", [_struct_summary(ist_rows, "ist"), _struct_summary(soll_rows, "soll")]))
+    rw.insert_table(Table("struct_metrics_summary", [_struct_summary(ist_rows, "ist"), _struct_summary(soll_rows, "soll")]))
 
     # Degree stats per type (undirected) + directed degree stats
     rw.h3("Degree-Statistiken pro Knotentyp (undirected; unique neighbors)")
@@ -1250,8 +1365,8 @@ def run_analysis(
             )
         return out
 
-    rw.add_table_markdown(Table("degree_stats_ist", agg_degree_undirected(ist_graphs)))
-    rw.add_table_markdown(Table("degree_stats_soll", agg_degree_undirected(soll_graphs)))
+    rw.insert_table(Table("degree_stats_ist", agg_degree_undirected(ist_graphs)))
+    rw.insert_table(Table("degree_stats_soll", agg_degree_undirected(soll_graphs)))
 
     rw.h3("Degree-Statistiken pro Knotentyp (directed; in/out, unique neighbors)")
 
@@ -1279,8 +1394,8 @@ def run_analysis(
             )
         return out
 
-    rw.add_table_markdown(Table("degree_stats_directed_ist", agg_degree_directed(ist_graphs)))
-    rw.add_table_markdown(Table("degree_stats_directed_soll", agg_degree_directed(soll_graphs)))
+    rw.insert_table(Table("degree_stats_directed_ist", agg_degree_directed(ist_graphs)))
+    rw.insert_table(Table("degree_stats_directed_soll", agg_degree_directed(soll_graphs)))
 
     # Degree distributions (plots) - Quick Win 3
     rw.h3("Degree-Verteilungen (Plots; undirected, unique neighbors)")
@@ -1335,7 +1450,7 @@ def run_analysis(
                     "kind": kind,
                     "signature_id": sid,
                     "count": int(cnt),
-                    "pct": f"{pct(cnt,total):.2f}%",
+                    "pct": f"{prozentrechner(cnt, total):.2f}%",
                     "example_graph_id": sig_to_example.get(sid, ""),
                     "signature": sig_to_text.get(sid, ""),
                 }
@@ -1354,9 +1469,9 @@ def run_analysis(
         ]
     )
     rw.h3("Top Signaturen (Ist)")
-    rw.add_table_markdown(Table("signatures_top_ist", top_ist), max_rows=25)
+    rw.insert_table(Table("signatures_top_ist", top_ist), max_rows=25)
     rw.h3("Top Signaturen (Soll)")
-    rw.add_table_markdown(Table("signatures_top_soll", top_soll), max_rows=25)
+    rw.insert_table(Table("signatures_top_soll", top_soll), max_rows=25)
 
     # Attribute completeness for key attrs
     rw.h2("Attribut-Vollständigkeit & Value-Distributionen")
@@ -1371,7 +1486,7 @@ def run_analysis(
         totals = Counter()
         present = Counter()
         for g in graphs:
-            for n in iter_nodes(g):
+            for n in get_nodes(g):
                 ntype = str(n.get("type"))
                 attrs = n.get("attrs", {}) or {}
                 for a in key_attrs_by_type.get(ntype, []):
@@ -1388,21 +1503,21 @@ def run_analysis(
                     "attr": a,
                     "present": int(pre),
                     "total": int(tot),
-                    "present_pct": f"{pct(pre, tot):.1f}%",
+                    "present_pct": f"{prozentrechner(pre, tot):.1f}%",
                 }
             )
         return rows
 
     rw.h3("Coverage: zentrale Attribute (Ist)")
-    rw.add_table_markdown(Table("attr_coverage_ist", attr_coverage(ist_graphs, "ist")))
+    rw.insert_table(Table("attr_coverage_ist", attr_coverage(ist_graphs, "ist")))
 
     rw.h3("Coverage: zentrale Attribute (Soll/Templates)")
-    rw.add_table_markdown(Table("attr_coverage_soll", attr_coverage(soll_graphs, "soll")))
+    rw.insert_table(Table("attr_coverage_soll", attr_coverage(soll_graphs, "soll")))
 
     def top_values(graphs: List[Dict[str, Any]], kind: str, ntype: str, attr: str, topn: int = 20) -> Table:
         c = Counter()
         for g in graphs:
-            for n in iter_nodes(g):
+            for n in get_nodes(g):
                 if str(n.get("type")) != ntype:
                     continue
                 attrs = n.get("attrs", {}) or {}
@@ -1412,22 +1527,22 @@ def run_analysis(
         return Table(f"top_values_{kind}_{ntype}_{attr}", rows)
 
     rw.h3("Top Values: Richtung (MaLo)")
-    rw.add_table_markdown(top_values(ist_graphs, "ist", "MaLo", "direction"))
-    rw.add_table_markdown(top_values(soll_graphs, "soll", "MaLo", "direction"))
+    rw.insert_table(top_values(ist_graphs, "ist", "MaLo", "direction"))
+    rw.insert_table(top_values(soll_graphs, "soll", "MaLo", "direction"))
 
     rw.h3("Top Values: Spannungsebene (MeLo.voltage_level)")
-    rw.add_table_markdown(top_values(ist_graphs, "ist", "MeLo", "voltage_level"))
-    rw.add_table_markdown(top_values(soll_graphs, "soll", "MeLo", "voltage_level"))
+    rw.insert_table(top_values(ist_graphs, "ist", "MeLo", "voltage_level"))
+    rw.insert_table(top_values(soll_graphs, "soll", "MeLo", "voltage_level"))
 
     rw.h3("Top Values: MeLo-Funktion (Templates sollten function/melo_function tragen)")
-    rw.add_table_markdown(top_values(ist_graphs, "ist", "MeLo", "function"))
-    rw.add_table_markdown(top_values(ist_graphs, "ist", "MeLo", "melo_function"))
-    rw.add_table_markdown(top_values(soll_graphs, "soll", "MeLo", "function"))
-    rw.add_table_markdown(top_values(soll_graphs, "soll", "MeLo", "melo_function"))
+    rw.insert_table(top_values(ist_graphs, "ist", "MeLo", "function"))
+    rw.insert_table(top_values(ist_graphs, "ist", "MeLo", "melo_function"))
+    rw.insert_table(top_values(soll_graphs, "soll", "MeLo", "function"))
+    rw.insert_table(top_values(soll_graphs, "soll", "MeLo", "melo_function"))
 
     rw.h3("Top Values: TR Richtung (tr_direction)")
-    rw.add_table_markdown(top_values(ist_graphs, "ist", "TR", "tr_direction"))
-    rw.add_table_markdown(top_values(soll_graphs, "soll", "TR", "tr_direction"))
+    rw.insert_table(top_values(ist_graphs, "ist", "TR", "tr_direction"))
+    rw.insert_table(top_values(soll_graphs, "soll", "TR", "tr_direction"))
 
     # Template-specific
     rw.h2("Template-spezifische Analyse (LBS-Schema)")
@@ -1439,7 +1554,7 @@ def run_analysis(
     # sort: flagged first
     tmpl_rows.sort(key=lambda r: (not (r["missing_MEMA"] or r["missing_METR"] or r["missing_MENE"]), str(r.get("lbs_code") or "")))
 
-    rw.add_table_markdown(Table("template_topology_checklist", tmpl_rows), max_rows=60)
+    rw.insert_table(Table("template_topology_checklist", tmpl_rows), max_rows=60)
 
     def checklist_summary(rows_: List[Dict[str, Any]], kind: str) -> List[str]:
         total = len(rows_)
@@ -1472,7 +1587,7 @@ def run_analysis(
     rw.h3("Topologie-Checkliste: Ist-Anomalien (Sample)")
     rw.bullet(checklist_summary(ist_check, "Ist"))
     ist_anom.sort(key=lambda r: (not (r.get("missing_MEMA") or r.get("missing_METR")), int(r.get("edges_missing_refs", 0)), str(r.get("graph_id") or "")))
-    rw.add_table_markdown(Table("ist_topology_anomalies", ist_anom), max_rows=40)
+    rw.insert_table(Table("ist_topology_anomalies", ist_anom), max_rows=40)
 
     # Optionality summary (existing)
     opt_rows: List[Dict[str, Any]] = []
@@ -1484,7 +1599,7 @@ def run_analysis(
         min0_nodes = 0
         total_nodes = 0
         per_type = Counter()
-        for n in iter_nodes(t):
+        for n in get_nodes(t):
             total_nodes += 1
             ntype = str(n.get("type"))
             per_type[ntype] += 1
@@ -1515,13 +1630,13 @@ def run_analysis(
             }
         )
     opt_rows.sort(key=lambda r: str(r["lbs_code"]))
-    rw.add_table_markdown(Table("template_optionality_summary", opt_rows), max_rows=60)
+    rw.insert_table(Table("template_optionality_summary", opt_rows), max_rows=60)
 
     # Coverage: bounds
     rw.h2("Ist vs Soll: Bounds-Coverage (Kandidatenfilter ohne pattern)")
     cov = ist_vs_template_coverage(ist_graphs, soll_graphs)
     rw.p("Diese Tabelle zeigt pro Template, wie viele Ist-Graphen die Min/Max-Bounds erfüllen.")
-    rw.add_table_markdown(Table("template_coverage", cov), max_rows=60)
+    rw.insert_table(Table("template_coverage", cov), max_rows=60)
 
     # Encoder alignment
     rw.h2("Abgleich mit Feature-Encoding (graph_pipeline.py)")
@@ -1541,27 +1656,27 @@ def run_analysis(
             {
                 "kind": al["kind"],
                 "metric": "dir_unknown_rate",
-                "count": f"{fmt_pct(u.get('dir_unknown',0), dir_tot)} ({u.get('dir_unknown',0)}/{dir_tot})",
+                "count": f"{prozent_nachkomma(u.get('dir_unknown', 0), dir_tot)} ({u.get('dir_unknown', 0)}/{dir_tot})",
             }
         )
         rows.append(
             {
                 "kind": al["kind"],
                 "metric": "melo_fn_unknown_rate",
-                "count": f"{fmt_pct(u.get('melo_fn_unknown',0), fn_tot)} ({u.get('melo_fn_unknown',0)}/{fn_tot})",
+                "count": f"{prozent_nachkomma(u.get('melo_fn_unknown', 0), fn_tot)} ({u.get('melo_fn_unknown', 0)}/{fn_tot})",
             }
         )
         rows.append(
             {
                 "kind": al["kind"],
                 "metric": "volt_unknown_rate",
-                "count": f"{fmt_pct(u.get('volt_unknown',0), volt_tot)} ({u.get('volt_unknown',0)}/{volt_tot})",
+                "count": f"{prozent_nachkomma(u.get('volt_unknown', 0), volt_tot)} ({u.get('volt_unknown', 0)}/{volt_tot})",
             }
         )
         return rows
 
     rw.h3("Unknown-Raten für die verwendeten Feature-Blöcke")
-    rw.add_table_markdown(Table("encoder_unknown_rates", alignment_table(align_ist) + alignment_table(align_soll)))
+    rw.insert_table(Table("encoder_unknown_rates", alignment_table(align_ist) + alignment_table(align_soll)))
 
     rw.h3("Welche Felder gehen aktuell ins Modell ein?")
     rw.p(
@@ -1593,10 +1708,10 @@ def run_analysis(
         return Table(name, rows)
 
     rw.p("Ist-Graphen (Top ignorierte Keys):")
-    rw.add_table_markdown(unused_table("ist_unused_node_attrs", ist_unused, ist_node_attr_keys))
+    rw.insert_table(unused_table("ist_unused_node_attrs", ist_unused, ist_node_attr_keys))
 
     rw.p("Template-Graphen (Top ignorierte Keys):")
-    rw.add_table_markdown(unused_table("soll_unused_node_attrs", soll_unused, soll_node_attr_keys))
+    rw.insert_table(unused_table("soll_unused_node_attrs", soll_unused, soll_node_attr_keys))
 
     # Highlight key differences automatically
     rw.h2("Automatische Beobachtungen (Differenzen & mögliche Ursachen)")
@@ -1629,15 +1744,15 @@ def run_analysis(
     u_soll = align_soll["unknown"]
     c_soll = align_soll["counts"]
 
-    if c_ist.get("melo_fn_nodes_total", 0) and pct(u_ist.get("melo_fn_unknown", 0), c_ist.get("melo_fn_nodes_total", 0)) > 80:
+    if c_ist.get("melo_fn_nodes_total", 0) and prozentrechner(u_ist.get("melo_fn_unknown", 0), c_ist.get("melo_fn_nodes_total", 0)) > 80:
         observations.append(
             "MeLo-Funktion ist in Ist-Graphen fast immer 'unknown' (Feature-Block wird vom Modell kaum genutzt). Ursache: Ist-Graphen tragen i.d.R. kein function/melo_function."
         )
-    if c_soll.get("volt_nodes_total", 0) and pct(u_soll.get("volt_unknown", 0), c_soll.get("volt_nodes_total", 0)) > 80:
+    if c_soll.get("volt_nodes_total", 0) and prozentrechner(u_soll.get("volt_unknown", 0), c_soll.get("volt_nodes_total", 0)) > 80:
         observations.append(
             "Spannungsebene ist in Template-Graphen fast immer 'unknown' (Feature-Block wird vom Modell kaum genutzt). Ursache: Templates enthalten i.d.R. keine voltage_level-Angabe."
         )
-    if c_soll.get("dir_nodes_total", 0) and pct(u_soll.get("dir_unknown", 0), c_soll.get("dir_nodes_total", 0)) > 80:
+    if c_soll.get("dir_nodes_total", 0) and prozentrechner(u_soll.get("dir_unknown", 0), c_soll.get("dir_nodes_total", 0)) > 80:
         observations.append("Richtung (MaLo/TR) ist in Templates oft 'unknown' → Richtung als Feature unterscheidet Templates ggf. kaum.")
 
     # new: topology checklist highlights
