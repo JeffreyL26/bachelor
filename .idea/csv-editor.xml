@@ -10,6 +10,20 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\analysis\descriptive\tables\signatures_top_ist.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\signatures_top_soll.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\analysis\descriptive\tables\soll_graph_attrs_keys.csv">
           <value>
             <Attribute>
