@@ -1,155 +1,245 @@
+"""
+dgmc_template_training.py (y-based, no CLI)
+
+Ziel:
+- DGMC "out-of-the-box" auf synthetischen Paaren trainieren, bei denen Ground Truth als
+  y=[2,K] (Indexpaare) vorliegt und |V_s| != |V_t| erlaubt ist.
+
+Wichtig (DGMC-Implementierung):
+- DGMC.forward nutzt to_dense_batch intern. Dadurch wird die Korrespondenzmatrix S
+  pro Batch-Graph gepaddet.
+- Für sparse DGMC (k>=1) sollten Ground Truth Indizes `y` an forward(...) gegeben werden,
+  damit GT-Kanten in die Top-k Kandidaten aufgenommen werden können.
+- Für dense DGMC (k<1, z.B. -1) ist y nur für loss/metrics relevant.
+
+Ausführen:
+- Parameter im CONFIG-Block anpassen.
+- Dann einfach `python dgmc_template_training.py`.
+
+"""
+
 from __future__ import annotations
+
+import csv
+import json
 import os
 import random
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
+
 import torch
 from torch.optim import Adam
-from dgmc import DGMC
-from dgmc_dataset import TemplatePairDataset
+from torch.utils.data import DataLoader, random_split
+
+# DGMC
+try:
+    from dgmc import DGMC  # type: ignore
+except Exception:
+    try:
+        from dgmc.models import DGMC  # type: ignore
+    except Exception as e:
+        raise ImportError(
+            "Konnte DGMC nicht importieren. Stelle sicher, dass deep-graph-matching-consensus installiert ist."
+        ) from e
+
+# Encoder (edge-aware)
 from wrapper_GINE import EdgeAwareGINE
 
+# Dataset/Collate (this file)
+from dgmc_dataset import DGMCPairJsonlDataset, collate_pairs
 
-#TODO: Zum Laufen bei realistischen Abweichungen bringen - Ziel vor Weihnachten
-# Exakte Permutation zwischen zwei identischen Graphen erkennen
-# DGMC-Pretraining auf synthetischen Template-Paaren konvergiert extrem schnell (Loss gegen 0),
-# weil die Aufgabe aktuell sehr einfach ist: identische Templates, nur permutiert. Epochs = 20 oder 11 oder 15
-# DGMC kann auf synthetischen Paaren Permutation lernen - GESCHAFFT
-# Als nächstes auf realistischen Abweichungen trainieren - erste Matching-Auswertung auf Ist-Graphen
 
-# ------------------------------
-# MATCHING-ARRAYS AUFBAUEN
-# ------------------------------
+# =============================
+# CONFIG (hier editieren)
+# =============================
+BASE_DIR = Path(__file__).resolve().parent
 
-def generate_y(y_col: torch.Tensor, device: torch.device) -> torch.LongTensor:
+PAIRS_PATH = str(BASE_DIR / "data" / "synthetic_training_pairs.jsonl")
+OUT_DIR = str(BASE_DIR / "runs" / "dgmc_y")
+
+SEED = 42
+EPOCHS = 20
+BATCH_SIZE = 16
+LR = 1e-3
+WEIGHT_DECAY = 0.0
+
+# DGMC Hyperparameter
+NUM_STEPS = 10
+DGMC_K = -1          # -1 => dense (empfohlen für kleine Graphen), >=1 => sparse top-k
+DETACH = False
+
+# Dataset behavior
+UNDIRECTED = True
+ENFORCE_SOURCE_LE_TARGET = True
+REQUIRE_1TO1 = True
+REQUIRE_FULL_SOURCE_COVERAGE = False  # False = erlaubt partial supervision (K < |V_s|)
+
+# Split
+VAL_FRACTION = 0.2
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+# =============================
+# Helpers
+# =============================
+def seed_everything(seed: int) -> None:
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+
+@dataclass
+class EpochLog:
+    epoch: int
+    split: str
+    loss: float
+    acc: float
+
+
+class ResettableEdgeAwareGINE(torch.nn.Module):
     """
-    Wandelt einen Vektor [num_nodes] in ein Matching-Array [2, num_nodes] um:
-
-    y[0, k] = Index im Source-Graph,
-    y[1, k] = Index im Target-Graph.
-
-    Bsp.:
-    y_col = tensor([2, 0, 1])
-
-    Source-Knoten 0 entspricht Target-Knoten 2, 1 entspricht Target-Knoten 0, 2 entspricht Target-Knoten 1
-
-    :param y_col: Tensor der Länge num_nodes, der für jeden Source-Knoten den Index des zugehörigen Target-Knotens enthält
-    :param device: Gerät, auf dem berechnet wird
+    DGMC ruft reset_parameters() auf psi_1/psi_2 in DGMC.reset_parameters().
+    EdgeAwareGINE hat keine reset_parameters-Methode, daher Wrapper.
     """
-    y_col = y_col.to(device)                                        # Target-Indizes (z.B. [0, 2, 1, ...])
-    y_row = torch.arange(y_col.size(0), device=device)              # Source-Indizes (z.B. [0, 1, 2, ...])
-    return torch.stack([y_row, y_col], dim=0)               # Aus beiden Torch-Vektoren eine 2xN-Matrix
+    def __init__(self, base: EdgeAwareGINE) -> None:
+        super().__init__()
+        self.base = base
+        # required by DGMC for psi_2:
+        self.in_channels = getattr(base, "in_channels", None)
+        self.out_channels = getattr(base, "out_channels", None)
+
+    def reset_parameters(self) -> None:
+        # best-effort: reset all submodules that implement reset_parameters
+        for m in self.modules():
+            if m is self:
+                continue
+            rp = getattr(m, "reset_parameters", None)
+            if callable(rp):
+                rp()
+
+    def forward(self, x, edge_index, edge_attr=None, batch=None):
+        return self.base(x, edge_index, edge_attr, batch=batch)
 
 
-# ------------------------------
-# TRAINING
-# ------------------------------
+def train_or_eval_epoch(model: DGMC, loader: DataLoader, opt: Adam | None) -> Tuple[float, float]:
+    is_train = opt is not None
+    model.train(is_train)
 
-def train_epoch(model: DGMC,
-                dataset: TemplatePairDataset,
-                optimizer: Adam,
-                device: torch.device) -> float:
-    """
-    Trainiert eine einzelne DGMC-Epoche unter Verwendung eines Datensatzes.
-    Durchläuft alle Samples im Datensatz, berechnet Vorwärtsdurchlauf für jedes Paar von Eingaben,
-    bewertet auch Verlust anhand der Ground-Truth-Übereinstimmung.
-
-    :param model: DGMC-Modell
-    :param dataset: Datensatz mit Quell- und Zielgraph
-    :param optimizer: Optimierer, der Parameter während des Trainings optimiert
-    :type optimizer: Adam
-    :param device: Gerät, auf dem berechnet wird
-    :return: Durchschnittlicher Loss pro Epoche
-    """
-
-    model.train()
     total_loss = 0.0
+    total_acc = 0.0
+    total_y = 0
 
-    # Vor Training Shuffling für Zufälligkeit
-    indices = list(range(len(dataset)))
-    random.shuffle(indices)
+    for batch in loader:
+        x_s = batch["x_s"].to(DEVICE)
+        ei_s = batch["edge_index_s"].to(DEVICE)
+        ea_s = batch["edge_attr_s"]
+        ea_s = ea_s.to(DEVICE) if ea_s is not None else None
+        b_s = batch["batch_s"].to(DEVICE)
 
-    # Über alle Paare iterieren
-    for idx in indices:
-        data = dataset[idx]                                             # Dataset mit Quell- und Zielgraph
-        data = data.to(device)
+        x_t = batch["x_t"].to(DEVICE)
+        ei_t = batch["edge_index_t"].to(DEVICE)
+        ea_t = batch["edge_attr_t"]
+        ea_t = ea_t.to(DEVICE) if ea_t is not None else None
+        b_t = batch["batch_t"].to(DEVICE)
 
-        # Gradienten auf Null setzen, vor neuer Loss-Berechnung
-        optimizer.zero_grad()
+        y = batch["y"].to(DEVICE)
 
-        # INFO: DGMC rechnet erst Knotenembeddings mit GNN, baut daraus Knoten-Ähnlichkeitsmatrix und verbessert diese iterativ
+        if is_train:
+            opt.zero_grad()
 
-        # Single-Pair-Forward (Vorwärtsdurchlauf), wie im test() der DGMC-Beispiele:
-        # Batch-Argumente sind None, weil wir nicht batchen
-        # S0: Anfängliche Affinitäts-Matrix zwischen Knoten
-        # SL: Similarity-Matrix nach num_steps Matchingschritten
-        S0, SL = model(
-            # Source
-            data.x_s, data.edge_index_s, data.edge_attr_s, None,
-            # Target
-            data.x_t, data.edge_index_t, data.edge_attr_t, None,
-        )
+        # forward: pass y only if sparse training (k>=1)
+        y_for_forward = y if (model.k >= 1 and model.training) else None
+        S0, SL = model(x_s, ei_s, ea_s, b_s, x_t, ei_t, ea_t, b_t, y=y_for_forward)
 
-        # Ground Truth Matching aufbauen aus Permutationsvektor (Source-Index mit passendem Target-Index) und Matching-Tensor generate_y
-        y = generate_y(data.y, device)
-
-        # Matching-Loss (Initial + verfeinertes Matching)
         loss = model.loss(S0, y)
         if model.num_steps > 0:
             loss = loss + model.loss(SL, y)
 
-        loss.backward()                                                 # Gradient
-        optimizer.step()                                                # Adam-Gradientenupdate für alle Modellparameter
+        acc = model.acc(SL if model.num_steps > 0 else S0, y, reduction="mean")
 
-        total_loss += float(loss.item())
+        if is_train:
+            loss.backward()
+            opt.step()
 
-    return total_loss / max(len(dataset), 1)
+        k = int(y.size(1))
+        total_loss += float(loss.item()) * k
+        total_acc += float(acc) * k
+        total_y += k
+
+    mean_loss = total_loss / max(total_y, 1)
+    mean_acc = total_acc / max(total_y, 1)
+    return mean_loss, mean_acc
 
 
-def main():
-    """
-    Konfiguriert das Training und startet es.
-    """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def main() -> None:
+    seed_everything(SEED)
+    os.makedirs(OUT_DIR, exist_ok=True)
 
-    # (Synthetische Trainingspaar-) Daten laden
-    base = os.path.dirname(os.path.abspath(__file__))
-    pairs_path = os.path.join(base, "data", "synthetic_training_pairs.jsonl")
+    ds = DGMCPairJsonlDataset(
+        pairs_path=PAIRS_PATH,
+        use_only_positive=True,          # supervised training needs y
+        undirected=UNDIRECTED,
+        enforce_source_le_target=ENFORCE_SOURCE_LE_TARGET,
+        require_1to1=REQUIRE_1TO1,
+        require_full_source_coverage=REQUIRE_FULL_SOURCE_COVERAGE,
+        allow_pairs_without_y=False,
+    )
 
-    # Erzeugt Dataset aus JSONL
-    dataset = TemplatePairDataset(pairs_path, use_only_positive=True, undirected=True)
+    # Split train/val
+    n_total = len(ds)
+    n_val = max(1, int(round(VAL_FRACTION * n_total)))
+    n_train = n_total - n_val
+    train_ds, val_ds = random_split(ds, [n_train, n_val], generator=torch.Generator().manual_seed(SEED))
 
-    # Beispiel aus Dataset holen, um herauszufinden, ob Feature-Tensor = Source-Knoten
-    sample = dataset[0]
-    # Knotenfeatures des Source-Graphen sample.x_s (Matrix)
-    # Größe der letzten Dimension = Feature-Dimension
-    # in_channels entspricht der Anzahll der Features pro Knoten
-    in_channels = sample.x_s.size(-1)
-    edge_dim = sample.edge_attr_s.size(-1)
-    # Jeder Knoten in n-dimensionalen Vektor, aus dem Similarity berechnet wird
-    hidden_dim = 64
+    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_pairs)
+    val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_pairs)
 
-    # Knoten-Encoder-Netze (Graph Isomorphism Networks)
-    # Feature-Extraktor für Knoten, damit DGMC Graph-Struktur und Attribute vergleichen kann
-    # Ohne gäbe es nur rohe, flache One-Hot-Features, DGMC bekommt sie übergeben
-    # Ermöglicht struktur-sensitive Embeddings
-    psi_1 = EdgeAwareGINE(in_channels, hidden_dim, edge_dim, num_layers=3, dropout=0.0, batch_norm=True, cat=True, lin=True)                  # Für Source-Graphen
-    psi_2 = EdgeAwareGINE(in_channels, hidden_dim, edge_dim, num_layers=3, dropout=0.0, batch_norm=True, cat=True, lin=True)                  # Für Target-Graphen
+    # infer dimensions from one sample
+    sample = ds[0]
+    in_dim = int(sample.data_s.x.size(-1))
+    edge_dim = int(sample.data_s.edge_attr.size(-1)) if getattr(sample.data_s, "edge_attr", None) is not None else 0
+    if edge_dim == 0:
+        # still allow edge-less mode
+        edge_dim = 1
 
-    # DGMC-Modell (für 2 GIN gebaut)
-    # 10 Matching-Refinement-Schritte
-    # k=-1 bedeutet alle Knoten berücksichtigen
-    model = DGMC(psi_1, psi_2, num_steps=10, k=-1).to(device)
-    # Adam-Optimizer über alle trainierbaren Parameter
-    optimizer = Adam(model.parameters(), lr=1e-3)
+    hidden = 64
 
-    epochs = 15
-    for epoch in range(1, epochs + 1):
-        loss = train_epoch(model, dataset, optimizer, device)
-        print(f"Epoch {epoch:02d} | loss = {loss:.4f}")
+    psi_1 = ResettableEdgeAwareGINE(EdgeAwareGINE(in_dim, hidden, edge_dim=edge_dim, num_layers=3, dropout=0.0, batch_norm=True, cat=False, lin=True))
+    # psi_2 operates on random indicator functions of dimension R_in; DGMC requires in_channels/out_channels
+    R_in = 16
+    R_out = 16
+    psi_2 = ResettableEdgeAwareGINE(EdgeAwareGINE(R_in, R_out, edge_dim=edge_dim, num_layers=2, dropout=0.0, batch_norm=True, cat=False, lin=True))
 
-    # Modell speichern
-    out_path = os.path.join(base, "data", "dgmc_templates.pt")
-    torch.save(model.state_dict(), out_path)
-    print("DGMC-Template-Modell gespeichert unter:", out_path)
+    model = DGMC(psi_1, psi_2, num_steps=NUM_STEPS, k=DGMC_K, detach=DETACH).to(DEVICE)
+    opt = Adam(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
+
+    print(f"[DGMC] device={DEVICE} | train={n_train} | val={n_val}")
+    print(f"[DGMC] x_dim={in_dim}, edge_dim={edge_dim}, k={DGMC_K}, steps={NUM_STEPS}")
+
+    # store dataset sanity
+    with open(os.path.join(OUT_DIR, "pairs_sanity.json"), "w", encoding="utf-8") as f:
+        json.dump(ds.describe(), f, indent=2, ensure_ascii=False)
+
+    logs: List[EpochLog] = []
+    for epoch in range(1, EPOCHS + 1):
+        tr_loss, tr_acc = train_or_eval_epoch(model, train_loader, opt)
+        va_loss, va_acc = train_or_eval_epoch(model, val_loader, None)
+        print(f"Epoch {epoch:02d} | train loss {tr_loss:.4f} acc {tr_acc:.4f} | val loss {va_loss:.4f} acc {va_acc:.4f}")
+        logs.append(EpochLog(epoch, "train", tr_loss, tr_acc))
+        logs.append(EpochLog(epoch, "val", va_loss, va_acc))
+
+    # write csv log
+    with open(os.path.join(OUT_DIR, "train_log.csv"), "w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["epoch", "split", "loss", "acc"])
+        w.writeheader()
+        for r in logs:
+            w.writerow(asdict(r))
+
+    # save model
+    torch.save(model.state_dict(), os.path.join(OUT_DIR, "model.pt"))
+    print("[DGMC] saved:", os.path.join(OUT_DIR, "model.pt"))
 
 
 if __name__ == "__main__":
