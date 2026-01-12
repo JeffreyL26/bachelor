@@ -1,4 +1,4 @@
-kind,type,attr,present,present_pct,total
+kind,type,attr,present,present %,total
 soll,MaLo,direction,37,97.4%,38
 soll,MaLo,direction_hint,0,0.0%,38
 soll,MeLo,direction_hint,28,100.0%,28

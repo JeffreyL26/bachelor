@@ -10,7 +10,42 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\analysis\descriptive\tables\attr_coverage_soll.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\connectivity_summary.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\encoder_unknown_rates.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\analysis\descriptive\tables\ist_graph_attrs_keys.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\per_graph_ist.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\per_graph_soll.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
@@ -31,7 +66,63 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\analysis\descriptive\tables\size_distributions.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\analysis\descriptive\tables\soll_graph_attrs_keys.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\struct_metrics_summary.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\template_topology_checklist.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\top_values_ist_MaLo_direction.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\top_values_ist_MeLo_voltage_level.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\top_values_soll_MaLo_direction.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\top_values_soll_MeLo_function.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\top_values_soll_TR_tr_direction.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />

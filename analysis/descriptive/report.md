@@ -1,36 +1,44 @@
-# Deskriptive Analyse: Ist-Graphen vs. LBS-Soll-Templates
+# DESCRIPTIVE ANALYSIS
 
 ## Inputs
 
-- Ist-Graphs: `data\ist_graphs_all.jsonl`
-- Soll-Templates: `data\lbs_soll_graphs_pro.jsonl`
-- Max graphs: _alle_
-- Plots: an (matplotlib gefunden)
-- pandas: gefunden
+- Instance-Graphs: `data\ist_graphs_all.jsonl`
+- Graph-Templates: `data\lbs_soll_graphs_pro.jsonl`
+- Graphs covered: _all_
+- Plots: created (matplotlib installed)
+- pandas: installed
 - graph_pipeline Import: ok
-- Strukturmetriken: nur valide Kanten (src/dst referenzieren existierende Nodes).
+- Structural metrics: only _valid_ edges (src/dst reference existing nodes).
 
-Geladen: **2521** Ist-Graphen, **15** Template-Graphen.
+Loaded: **2521** Instance-Graphs, **15** Graph-Templates.
 
-## Schema- & Qualitätschecks
+## Quality-Check
 
 - Issues total: 0
-- ERROR: 0
-- WARN: 0
+- ERRORS: 0
+- WARNINGS: 0
 
-### Häufigste Issue-Typen
+Errors would include missing node/edge keys, nodes without ID, duplicate IDs, edges referencing non-existent nodes.
 
-Tabellen-Export: `analysis/descriptive/tables/issues_top.csv`
+Warnings would include unknown node types/edge relations or wrong node counts.
 
-_Keine Daten._
+### Most common issues
 
-## Inventar: Welche Felder sind enthalten?
+Full table stored in: `analysis/descriptive/tables/issues_top.csv`
 
-### Ist: graph_attrs Keys (wie oft pro Graph vorhanden)
+_No data._
 
-Tabellen-Export: `analysis/descriptive/tables/ist_graph_attrs_keys.csv`
+## Fields present in Instance-Graphs
 
-| key              |   count | pct    |
+Metadata fields that are consistently available across Instance-Graphs.
+
+### Instances: graph_attrs Keys (How often per Graph?)
+
+graph_attr is a metadata dictionary.
+
+Full table stored in: `analysis/descriptive/tables/ist_graph_attrs_keys.csv`
+
+| KEY              |   COUNT | %      |
 |:-----------------|--------:|:-------|
 | malo_count       |    2521 | 100.0% |
 | melo_count       |    2521 | 100.0% |
@@ -40,11 +48,13 @@ Tabellen-Export: `analysis/descriptive/tables/ist_graph_attrs_keys.csv`
 | dataset          |    2521 | 100.0% |
 | bundle_id        |      48 | 1.9%   |
 
-### Soll: graph_attrs Keys (wie oft pro Graph vorhanden)
+### Templates: graph_attrs Keys (How often per Graph?)
 
-Tabellen-Export: `analysis/descriptive/tables/soll_graph_attrs_keys.csv`
+graph_attr is a metadata dictionary.
 
-| key                     |   count | pct    |
+Full table stored in: `analysis/descriptive/tables/soll_graph_attrs_keys.csv`
+
+| KEY                     |   COUNT | %      |
 |:------------------------|--------:|:-------|
 | malo_min                |      15 | 100.0% |
 | melo_min                |      15 | 100.0% |
@@ -63,11 +73,11 @@ Tabellen-Export: `analysis/descriptive/tables/soll_graph_attrs_keys.csv`
 | optionality_constraints |      15 | 100.0% |
 | attachment_rules        |      15 | 100.0% |
 
-### Ist: Node-Attribute Keys (wie oft über alle Nodes)
+### Instances: Node-Attribute Keys (How often per Node?)
 
-Tabellen-Export: `analysis/descriptive/tables/ist_node_attr_keys.csv`
+Full table stored in: `analysis/descriptive/tables/ist_node_attr_keys.csv`
 
-| key                           |   count |
+| KEY                           |   COUNT |
 |:------------------------------|--------:|
 | direction                     |    2797 |
 | voltage_level                 |    2624 |
@@ -81,11 +91,11 @@ Tabellen-Export: `analysis/descriptive/tables/ist_node_attr_keys.csv`
 | wrmenutzung                   |      36 |
 | ref_zur_tr                    |      36 |
 
-### Soll: Node-Attribute Keys (wie oft über alle Nodes)
+### Templates: Node-Attribute Keys (How often per Node?)
 
-Tabellen-Export: `analysis/descriptive/tables/soll_node_attr_keys.csv`
+Full table stored in: `analysis/descriptive/tables/soll_node_attr_keys.csv`
 
-| key            |   count |
+| KEY            |   COUNT |
 |:---------------|--------:|
 | level          |     127 |
 | object_code    |     127 |
@@ -99,36 +109,38 @@ Tabellen-Export: `analysis/descriptive/tables/soll_node_attr_keys.csv`
 | dynamic        |      28 |
 | direction_hint |      28 |
 
-## Struktur: Knotentypen & Kantentypen
+## Structure: Node Types & Edge Types
 
-### Knotentyp-Verteilung (gesamt)
+### Node Types in Dataset (Full)
 
-Tabellen-Export: `analysis/descriptive/tables/node_type_distribution.csv`
+Full table stored in: `analysis/descriptive/tables/node_type_distribution.csv`
 
-| type   |   ist_count |   soll_count |
-|:-------|------------:|-------------:|
-| MaLo   |        2761 |           38 |
-| MeLo   |        2624 |           28 |
-| NeLo   |           0 |           15 |
-| TR     |          36 |           46 |
+| TYPE   |   IN INSTANCES |   IN TEMPLATES |
+|:-------|---------------:|---------------:|
+| MaLo   |           2761 |             38 |
+| MeLo   |           2624 |             28 |
+| NeLo   |              0 |             15 |
+| TR     |             36 |             46 |
 
-### Kantentyp-Verteilung (gesamt; nur valide Kanten)
+### Edge Types in Dataset (Full)
 
-Tabellen-Export: `analysis/descriptive/tables/edge_type_distribution.csv`
+Only valid edges are considered. Edges are considered valid, when they have a valid source and a valid destination.
 
-| rel   |   ist_count |   soll_count |
-|:------|------------:|-------------:|
-| MEMA  |        2864 |           31 |
-| MENE  |           0 |           12 |
-| METR  |          47 |           35 |
+Full table stored in: `analysis/descriptive/tables/edge_type_distribution.csv`
 
-## Pro-Graph Kennzahlen
+| RELATION   |   IN INSTANCES |   IN TEMPLATES |
+|:-----------|---------------:|---------------:|
+| MEMA       |           2864 |             31 |
+| MENE       |              0 |             12 |
+| METR       |             47 |             35 |
 
-### Per-Graph-Tabelle (Sample)
+## Metrics per Graph
 
-Hinweis: Vollständige Tabellen liegen als CSV unter `tables/`.
+### Per-Graph-Table (Sample)
 
-Tabellen-Export: `analysis/descriptive/tables/per_graph_ist.csv`
+Full table is stored in `tables/`.
+
+Full table stored in: `analysis/descriptive/tables/per_graph_ist.csv`
 
 | kind   | graph_id                                                                                                       |   node_count |   edge_count |   edges_total |   edges_with_srcdst |   edges_with_rel |   edges_valid_endpoints |   edges_valid_typed |   edges_missing_srcdst |   edges_missing_rel |   edges_missing_refs |   edges_self_loops_valid |   node_count_unique |   edge_pairs_undirected_unique |   density_undirected_simple |   edges_per_node_valid_endpoints |   edges_per_node_valid_typed |   avg_degree_undirected |   deg_min_undirected |   deg_med_undirected |   deg_max_undirected |   isolated_nodes_undirected |   isolated_pct_undirected |   cc_count_undirected |   cc_largest_undirected |   avg_out_degree_directed |   avg_in_degree_directed |   out_degree_max_directed |   in_degree_max_directed |   scc_count_directed |   scc_largest_directed | dataset   |   malo_count |   melo_count |   tr_count |   nelo_count |   edge_MEMA |   edge_METR |   edge_MENE |   edge_MEME |
 |:-------|:---------------------------------------------------------------------------------------------------------------|-------------:|-------------:|--------------:|--------------------:|-----------------:|------------------------:|--------------------:|-----------------------:|--------------------:|---------------------:|-------------------------:|--------------------:|-------------------------------:|----------------------------:|---------------------------------:|-----------------------------:|------------------------:|---------------------:|---------------------:|---------------------:|----------------------------:|--------------------------:|----------------------:|------------------------:|--------------------------:|-------------------------:|--------------------------:|-------------------------:|---------------------:|-----------------------:|:----------|-------------:|-------------:|-----------:|-------------:|------------:|------------:|------------:|------------:|
@@ -158,9 +170,9 @@ Tabellen-Export: `analysis/descriptive/tables/per_graph_ist.csv`
 | ist    | comp:['50415608204', '50415654158']|['DE0003967684600000000000053032357']                                      |            3 |            2 |             2 |                   2 |                2 |                       2 |                   2 |                      0 |                   0 |                    0 |                        0 |                   3 |                              2 |                    0.666667 |                         0.666667 |                     0.666667 |                 1.33333 |                    1 |                    1 |                    2 |                           0 |                         0 |                     1 |                       3 |                  0.666667 |                 0.666667 |                         2 |                        1 |                    3 |                      1 | sdf       |            2 |            1 |          0 |            0 |           2 |           0 |           0 |           0 |
 | ist    | comp:['50414807758']|['DE0071947684600000000000000000887']                                                     |            2 |            1 |             1 |                   1 |                1 |                       1 |                   1 |                      0 |                   0 |                    0 |                        0 |                   2 |                              1 |                    1        |                         0.5      |                     0.5      |                 1       |                    1 |                    1 |                    1 |                           0 |                         0 |                     1 |                       2 |                  0.5      |                 0.5      |                         1 |                        1 |                    2 |                      1 | sdf       |            1 |            1 |          0 |            0 |           1 |           0 |           0 |           0 |
 
-_Hinweis: Tabelle gekürzt auf 25 Zeilen (insgesamt 2521)._
+_Table has been shortened to 25 rows (originally 2521)._
 
-Tabellen-Export: `analysis/descriptive/tables/per_graph_soll.csv`
+Full table stored in: `analysis/descriptive/tables/per_graph_soll.csv`
 
 | kind   | graph_id              |   node_count |   edge_count |   edges_total |   edges_with_srcdst |   edges_with_rel |   edges_valid_endpoints |   edges_valid_typed |   edges_missing_srcdst |   edges_missing_rel |   edges_missing_refs |   edges_self_loops_valid |   node_count_unique |   edge_pairs_undirected_unique |   density_undirected_simple |   edges_per_node_valid_endpoints |   edges_per_node_valid_typed |   avg_degree_undirected |   deg_min_undirected |   deg_med_undirected |   deg_max_undirected |   isolated_nodes_undirected |   isolated_pct_undirected |   cc_count_undirected |   cc_largest_undirected |   avg_out_degree_directed |   avg_in_degree_directed |   out_degree_max_directed |   in_degree_max_directed |   scc_count_directed |   scc_largest_directed |      lbs_code |   malo_min |   malo_max |   malo_node_types |   melo_min |   melo_max |   melo_node_types |   tr_min | tr_max   |   tr_node_types |   nelo_min |   nelo_max |   nelo_node_types |   attachment_rules_n |   constraints_n |   edge_MEMA |   edge_METR |   edge_MENE |   edge_MEME |
 |:-------|:----------------------|-------------:|-------------:|--------------:|--------------------:|-----------------:|------------------------:|--------------------:|-----------------------:|--------------------:|---------------------:|-------------------------:|--------------------:|-------------------------------:|----------------------------:|---------------------------------:|-----------------------------:|------------------------:|---------------------:|---------------------:|---------------------:|----------------------------:|--------------------------:|----------------------:|------------------------:|--------------------------:|-------------------------:|--------------------------:|-------------------------:|---------------------:|-----------------------:|--------------:|-----------:|-----------:|------------------:|-----------:|-----------:|------------------:|---------:|:---------|----------------:|-----------:|-----------:|------------------:|---------------------:|----------------:|------------:|------------:|------------:|------------:|
@@ -180,38 +192,50 @@ Tabellen-Export: `analysis/descriptive/tables/per_graph_soll.csv`
 | soll   | catalog-9992000000175 |           10 |            8 |             8 |                   8 |                8 |                       8 |                   8 |                      0 |                   0 |                    0 |                        0 |                  10 |                              8 |                   0.177778  |                         0.8      |                     0.8      |                1.6      |                    1 |                    1 |                    5 |                           0 |                   0       |                     2 |                       6 |                  0.8      |                 0.8      |                         5 |                        1 |                   10 |                      1 | 9992000000175 |          3 |          3 |                 3 |          2 |          2 |                 2 |        0 |          |               4 |          0 |          1 |                 1 |                    0 |               0 |           3 |           4 |           1 |           0 |
 | soll   | catalog-9992000000183 |           12 |            9 |             9 |                   9 |                9 |                       9 |                   9 |                      0 |                   0 |                    0 |                        0 |                  12 |                              9 |                   0.136364  |                         0.75     |                     0.75     |                1.5      |                    1 |                    1 |                    4 |                           0 |                   0       |                     3 |                       5 |                  0.75     |                 0.75     |                         4 |                        1 |                   12 |                      1 | 9992000000183 |          3 |          4 |                 4 |          3 |          3 |                 3 |        0 |          |               4 |          0 |          1 |                 1 |                    0 |               1 |           4 |           4 |           1 |           0 |
 
-### Größenverteilungen (Nodes/Edges, raw)
+### Dimensions (Nodes/Edges)
 
-Tabellen-Export: `analysis/descriptive/tables/size_distributions.csv`
+Full table stored in: `analysis/descriptive/tables/size_distributions.csv`
 
 | kind   |   graphs |   nodes_min |   nodes_med |   nodes_max |   edges_min |   edges_med |   edges_max |
 |:-------|---------:|------------:|------------:|------------:|------------:|------------:|------------:|
 | ist    |     2521 |           2 |           2 |           8 |           1 |           1 |           9 |
 | soll   |       15 |           3 |           9 |          13 |           0 |           5 |           9 |
 
-Plots gespeichert unter `plots/` (siehe Dateien).
+Plots saved in `plots/` (siehe Dateien).
 
-### Connectedness / Komponenten (undirected; valide Kanten)
+### Number and Size of Connected Components
 
-Tabellen-Export: `analysis/descriptive/tables/connectivity_summary.csv`
+This considers valid and undirected connections only to approximate message-parsing reachability.
+
+Full table stored in: `analysis/descriptive/tables/connectivity_summary.csv`
 
 | kind   |   graphs |   cc_count_mean |   cc_count_max |   largest_cc_mean |   largest_cc_min |
 |:-------|---------:|----------------:|---------------:|------------------:|-----------------:|
 | ist    |     2521 |           1     |              1 |             2.15  |                2 |
 | soll   |       15 |           3.267 |              9 |             4.667 |                1 |
 
-### Dichte / E/N / Degree / Isolierte Knoten (undirected; valide Kanten)
+### Density, Edges per Node, Degree and Isolated Nodes
 
-Tabellen-Export: `analysis/descriptive/tables/struct_metrics_summary.csv`
+Insights on how structurally rich the given dataset is.
+
+Density shows how many edges the graph has, compared to the maximum possible amount.
+
+Edges per Node shows structural repetition.
+
+Degree shows the number of nodes connected to a node.
+
+Isolated nodes are nodes with degree 0.
+
+Full table stored in: `analysis/descriptive/tables/struct_metrics_summary.csv`
 
 | kind   |   graphs |   density_mean |   density_med |   E_per_N_mean |   avg_deg_mean |   isolated_pct_mean |
 |:-------|---------:|---------------:|--------------:|---------------:|---------------:|--------------------:|
 | ist    |     2521 |       0.961373 |      1        |       0.520101 |        1.0402  |              0      |
 | soll   |       15 |       0.19842  |      0.177778 |       0.612962 |        1.22592 |             21.4608 |
 
-### Degree-Statistiken pro Knotentyp (undirected; unique neighbors)
+### Degree Statistics per Node Type - Undirected
 
-Tabellen-Export: `analysis/descriptive/tables/degree_stats_ist.csv`
+Full table stored in: `analysis/descriptive/tables/degree_stats_ist.csv`
 
 | type   |   count |   deg_mean |   deg_min |   deg_max |
 |:-------|--------:|-----------:|----------:|----------:|
@@ -219,7 +243,7 @@ Tabellen-Export: `analysis/descriptive/tables/degree_stats_ist.csv`
 | MeLo   |    2624 |      1.109 |         1 |         5 |
 | TR     |      36 |      1.306 |         1 |         2 |
 
-Tabellen-Export: `analysis/descriptive/tables/degree_stats_soll.csv`
+Full table stored in: `analysis/descriptive/tables/degree_stats_soll.csv`
 
 | type   |   count |   deg_mean |   deg_min |   deg_max |
 |:-------|--------:|-----------:|----------:|----------:|
@@ -228,9 +252,9 @@ Tabellen-Export: `analysis/descriptive/tables/degree_stats_soll.csv`
 | NeLo   |      15 |      0.8   |         0 |         1 |
 | TR     |      46 |      0.761 |         0 |         1 |
 
-### Degree-Statistiken pro Knotentyp (directed; in/out, unique neighbors)
+### Degree Statistics per Node Type - Directed
 
-Tabellen-Export: `analysis/descriptive/tables/degree_stats_directed_ist.csv`
+Full table stored in: `analysis/descriptive/tables/degree_stats_directed_ist.csv`
 
 | type   |   count |   out_mean |   out_max |   in_mean |   in_max |
 |:-------|--------:|-----------:|----------:|----------:|---------:|
@@ -238,7 +262,7 @@ Tabellen-Export: `analysis/descriptive/tables/degree_stats_directed_ist.csv`
 | MeLo   |    2624 |      1.109 |         5 |     0     |        0 |
 | TR     |      36 |      0     |         0 |     1.306 |        2 |
 
-Tabellen-Export: `analysis/descriptive/tables/degree_stats_directed_soll.csv`
+Full table stored in: `analysis/descriptive/tables/degree_stats_directed_soll.csv`
 
 | type   |   count |   out_mean |   out_max |   in_mean |   in_max |
 |:-------|--------:|-----------:|----------:|----------:|---------:|
@@ -247,21 +271,22 @@ Tabellen-Export: `analysis/descriptive/tables/degree_stats_directed_soll.csv`
 | NeLo   |      15 |      0     |         0 |     0.8   |        1 |
 | TR     |      46 |      0     |         0 |     0.761 |        1 |
 
-### Degree-Verteilungen (Plots; undirected, unique neighbors)
+### Degree-Distribution (Plots; undirected, unique neighbors)
 
-Degree-Plots gespeichert unter `plots/` (ist_degree_*.png, soll_degree_*.png).
+Degree-Plots saved in `plots/` (ist_degree_*.png, soll_degree_*.png).
 
-## Graph-Signaturen (Struktur-Fingerprints)
+## Graph Signatures - Structural Diversity in the Dataset
 
-- Ist: 2521 Graphen, 15 einzigartige Signaturen
-- Soll: 15 Graphen, 13 einzigartige Signaturen
-- Signaturen basieren auf Node-Typ-Counts, Edge-Rel-Counts, CC-Anzahl und Degree-Min/Median/Max.
+- Instances: 2521 Graphs, 15 unique signatures
+- Templates: 15 Graphs, 13 uniwue signatures
+- Signatures are based on node type counts, edge relation counts, number of connected components and degree-Min/Median/Max. 
+Connected Components are a great indicator, whether the structure forms a single coherent graph or splits into disconnected subgraphs.
 
-### Top Signaturen (Ist)
+### Top Signatures (Instances)
 
-Tabellen-Export: `analysis/descriptive/tables/signatures_top_ist.csv`
+Full table stored in: `analysis/descriptive/tables/signatures_top_ist.csv`
 
-| kind   | signature_id   |   count | pct    | example_graph_id                                                                                                                                                                                        | signature                                                                  |
+| kind   | signature_id   |   count | %      | example_graph_id                                                                                                                                                                                        | signature                                                                  |
 |:-------|:---------------|--------:|:-------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:---------------------------------------------------------------------------|
 | ist    | 6efad90624     |    2293 | 90.96% | comp:['50414974078']|['DE0071947684600000000000000000341']                                                                                                                                              | NT:MaLo=1,MeLo=1,TR=0,NeLo=0|ET:MEMA=1,METR=0,MENE=0,MEME=0|CC:1|DEG:1,1,1 |
 | ist    | 623cabe978     |     106 | 4.20%  | comp:['50414794286', '50415648028']|['DE0071947684600000000000000000738']                                                                                                                               | NT:MaLo=2,MeLo=1,TR=0,NeLo=0|ET:MEMA=2,METR=0,MENE=0,MEME=0|CC:1|DEG:1,1,2 |
@@ -279,11 +304,11 @@ Tabellen-Export: `analysis/descriptive/tables/signatures_top_ist.csv`
 | ist    | c0dc24afe2     |       1 | 0.04%  | bundle:100002627035                                                                                                                                                                                     | NT:MaLo=2,MeLo=1,TR=2,NeLo=0|ET:MEMA=2,METR=2,MENE=0,MEME=0|CC:1|DEG:1,1,4 |
 | ist    | c508c43a0c     |       1 | 0.04%  | bundle:100003120593                                                                                                                                                                                     | NT:MaLo=3,MeLo=2,TR=2,NeLo=0|ET:MEMA=4,METR=4,MENE=0,MEME=0|CC:1|DEG:1,2,4 |
 
-### Top Signaturen (Soll)
+### Top Signatures (Templates)
 
-Tabellen-Export: `analysis/descriptive/tables/signatures_top_soll.csv`
+Full table stored in: `analysis/descriptive/tables/signatures_top_soll.csv`
 
-| kind   | signature_id   |   count | pct    | example_graph_id      | signature                                                                  |
+| kind   | signature_id   |   count | %      | example_graph_id      | signature                                                                  |
 |:-------|:---------------|--------:|:-------|:----------------------|:---------------------------------------------------------------------------|
 | soll   | 8239ada13d     |       2 | 13.33% | catalog-9992000000026 | NT:MaLo=1,MeLo=1,TR=1,NeLo=1|ET:MEMA=1,METR=1,MENE=1,MEME=0|CC:1|DEG:1,1,3 |
 | soll   | 5004182594     |       2 | 13.33% | catalog-9992000000159 | NT:MaLo=3,MeLo=2,TR=4,NeLo=1|ET:MEMA=3,METR=4,MENE=1,MEME=0|CC:2|DEG:1,1,5 |
@@ -299,59 +324,59 @@ Tabellen-Export: `analysis/descriptive/tables/signatures_top_soll.csv`
 | soll   | 83bdb66257     |       1 | 6.67%  | catalog-9992000000167 | NT:MaLo=4,MeLo=3,TR=5,NeLo=1|ET:MEMA=2,METR=2,MENE=1,MEME=0|CC:8|DEG:0,1,4 |
 | soll   | 115b288ed9     |       1 | 6.67%  | catalog-9992000000183 | NT:MaLo=4,MeLo=3,TR=4,NeLo=1|ET:MEMA=4,METR=4,MENE=1,MEME=0|CC:3|DEG:1,1,4 |
 
-## Attribut-Vollständigkeit & Value-Distributionen
+## Attributes & Value-Distribution
 
-### Coverage: zentrale Attribute (Ist)
+### Coverage: Main Attributes (Instances)
 
-Tabellen-Export: `analysis/descriptive/tables/attr_coverage_ist.csv`
+Full table stored in: `analysis/descriptive/tables/attr_coverage_ist.csv`
 
-| kind   | type   | attr           |   present |   total | present_pct   |
-|:-------|:-------|:---------------|----------:|--------:|:--------------|
-| ist    | MaLo   | direction      |      2657 |    2761 | 96.2%         |
-| ist    | MaLo   | direction_hint |         0 |    2761 | 0.0%          |
-| ist    | MeLo   | direction_hint |         0 |    2624 | 0.0%          |
-| ist    | MeLo   | dynamic        |         0 |    2624 | 0.0%          |
-| ist    | MeLo   | function       |         0 |    2624 | 0.0%          |
-| ist    | MeLo   | melo_function  |         0 |    2624 | 0.0%          |
-| ist    | MeLo   | voltage_level  |      2624 |    2624 | 100.0%        |
-| ist    | TR     | direction      |         0 |      36 | 0.0%          |
-| ist    | TR     | tr_direction   |         0 |      36 | 0.0%          |
+| kind   | type   | attr           |   present |   total | present %   |
+|:-------|:-------|:---------------|----------:|--------:|:------------|
+| ist    | MaLo   | direction      |      2657 |    2761 | 96.2%       |
+| ist    | MaLo   | direction_hint |         0 |    2761 | 0.0%        |
+| ist    | MeLo   | direction_hint |         0 |    2624 | 0.0%        |
+| ist    | MeLo   | dynamic        |         0 |    2624 | 0.0%        |
+| ist    | MeLo   | function       |         0 |    2624 | 0.0%        |
+| ist    | MeLo   | melo_function  |         0 |    2624 | 0.0%        |
+| ist    | MeLo   | voltage_level  |      2624 |    2624 | 100.0%      |
+| ist    | TR     | direction      |         0 |      36 | 0.0%        |
+| ist    | TR     | tr_direction   |         0 |      36 | 0.0%        |
 
-### Coverage: zentrale Attribute (Soll/Templates)
+### Coverage: Main Attributes (Templates)
 
-Tabellen-Export: `analysis/descriptive/tables/attr_coverage_soll.csv`
+Full table stored in: `analysis/descriptive/tables/attr_coverage_soll.csv`
 
-| kind   | type   | attr           |   present |   total | present_pct   |
-|:-------|:-------|:---------------|----------:|--------:|:--------------|
-| soll   | MaLo   | direction      |        37 |      38 | 97.4%         |
-| soll   | MaLo   | direction_hint |         0 |      38 | 0.0%          |
-| soll   | MeLo   | direction_hint |        28 |      28 | 100.0%        |
-| soll   | MeLo   | dynamic        |        28 |      28 | 100.0%        |
-| soll   | MeLo   | function       |        28 |      28 | 100.0%        |
-| soll   | MeLo   | melo_function  |         0 |      28 | 0.0%          |
-| soll   | MeLo   | voltage_level  |         0 |      28 | 0.0%          |
-| soll   | TR     | direction      |        38 |      46 | 82.6%         |
-| soll   | TR     | tr_direction   |        38 |      46 | 82.6%         |
+| kind   | type   | attr           |   present |   total | present %   |
+|:-------|:-------|:---------------|----------:|--------:|:------------|
+| soll   | MaLo   | direction      |        37 |      38 | 97.4%       |
+| soll   | MaLo   | direction_hint |         0 |      38 | 0.0%        |
+| soll   | MeLo   | direction_hint |        28 |      28 | 100.0%      |
+| soll   | MeLo   | dynamic        |        28 |      28 | 100.0%      |
+| soll   | MeLo   | function       |        28 |      28 | 100.0%      |
+| soll   | MeLo   | melo_function  |         0 |      28 | 0.0%        |
+| soll   | MeLo   | voltage_level  |         0 |      28 | 0.0%        |
+| soll   | TR     | direction      |        38 |      46 | 82.6%       |
+| soll   | TR     | tr_direction   |        38 |      46 | 82.6%       |
 
-### Top Values: Richtung (MaLo)
+### Top Values: Direction (MaLo)
 
-Tabellen-Export: `analysis/descriptive/tables/top_values_ist_MaLo_direction.csv`
+Full table stored in: `analysis/descriptive/tables/top_values_ist_MaLo_direction.csv`
 
 | kind   | type   | attr      | value       |   count |
 |:-------|:-------|:----------|:------------|--------:|
 | ist    | MaLo   | direction | consumption |    2390 |
 | ist    | MaLo   | direction | generation  |     267 |
 
-Tabellen-Export: `analysis/descriptive/tables/top_values_soll_MaLo_direction.csv`
+Full table stored in: `analysis/descriptive/tables/top_values_soll_MaLo_direction.csv`
 
 | kind   | type   | attr      | value       |   count |
 |:-------|:-------|:----------|:------------|--------:|
 | soll   | MaLo   | direction | consumption |      24 |
 | soll   | MaLo   | direction | generation  |      13 |
 
-### Top Values: Spannungsebene (MeLo.voltage_level)
+### Top Values: Voltage Level (MeLo.voltage_level)
 
-Tabellen-Export: `analysis/descriptive/tables/top_values_ist_MeLo_voltage_level.csv`
+Full table stored in: `analysis/descriptive/tables/top_values_ist_MeLo_voltage_level.csv`
 
 | kind   | type   | attr          | value   |   count |
 |:-------|:-------|:--------------|:--------|--------:|
@@ -359,21 +384,21 @@ Tabellen-Export: `analysis/descriptive/tables/top_values_ist_MeLo_voltage_level.
 | ist    | MeLo   | voltage_level | 41      |      66 |
 | ist    | MeLo   | voltage_level | E05     |       6 |
 
-Tabellen-Export: `analysis/descriptive/tables/top_values_soll_MeLo_voltage_level.csv`
+Full table stored in: `analysis/descriptive/tables/top_values_soll_MeLo_voltage_level.csv`
 
-_Keine Daten._
+_No data._
 
-### Top Values: MeLo-Funktion (Templates sollten function/melo_function tragen)
+### Top Values: MeLo-Function (Templates should have function/melo_function)
 
-Tabellen-Export: `analysis/descriptive/tables/top_values_ist_MeLo_function.csv`
+Full table stored in: `analysis/descriptive/tables/top_values_ist_MeLo_function.csv`
 
-_Keine Daten._
+_No data._
 
-Tabellen-Export: `analysis/descriptive/tables/top_values_ist_MeLo_melo_function.csv`
+Full table stored in: `analysis/descriptive/tables/top_values_ist_MeLo_melo_function.csv`
 
-_Keine Daten._
+_No data._
 
-Tabellen-Export: `analysis/descriptive/tables/top_values_soll_MeLo_function.csv`
+Full table stored in: `analysis/descriptive/tables/top_values_soll_MeLo_function.csv`
 
 | kind   | type   | attr     | value   |   count |
 |:-------|:-------|:---------|:--------|--------:|
@@ -381,17 +406,17 @@ Tabellen-Export: `analysis/descriptive/tables/top_values_soll_MeLo_function.csv`
 | soll   | MeLo   | function | H       |       8 |
 | soll   | MeLo   | function | D       |       4 |
 
-Tabellen-Export: `analysis/descriptive/tables/top_values_soll_MeLo_melo_function.csv`
+Full table stored in: `analysis/descriptive/tables/top_values_soll_MeLo_melo_function.csv`
 
-_Keine Daten._
+_No data._
 
 ### Top Values: TR Richtung (tr_direction)
 
-Tabellen-Export: `analysis/descriptive/tables/top_values_ist_TR_tr_direction.csv`
+Full table stored in: `analysis/descriptive/tables/top_values_ist_TR_tr_direction.csv`
 
-_Keine Daten._
+_No data._
 
-Tabellen-Export: `analysis/descriptive/tables/top_values_soll_TR_tr_direction.csv`
+Full table stored in: `analysis/descriptive/tables/top_values_soll_TR_tr_direction.csv`
 
 | kind   | type   | attr         | value                           |   count |
 |:-------|:-------|:-------------|:--------------------------------|--------:|
@@ -399,11 +424,11 @@ Tabellen-Export: `analysis/descriptive/tables/top_values_soll_TR_tr_direction.cs
 | soll   | TR     | tr_direction | generation                      |      11 |
 | soll   | TR     | tr_direction | consumption+generation(storage) |      10 |
 
-## Template-spezifische Analyse (LBS-Schema)
+## Template-specific Analysis (LBS-Scheme)
 
-### Topologie-Checkliste: erwartete vs vorhandene Relationen
+### Topology Checklist: Expected vs. Existing Relations
 
-Tabellen-Export: `analysis/descriptive/tables/template_topology_checklist.csv`
+Full table stored in: `analysis/descriptive/tables/template_topology_checklist.csv`
 
 | kind   | graph_id              |      lbs_code |   MaLo |   MeLo |   TR |   NeLo |   edge_MEMA |   edge_METR |   edge_MENE |   edge_MEME | rel_types_present   | expects_MEMA   | missing_MEMA   | expects_METR   | missing_METR   | expects_MENE   | missing_MENE   | multi_MeLo   | has_MEME   |   attachment_rules_n |   edges_missing_refs |   edges_missing_srcdst |   edges_missing_rel |
 |:-------|:----------------------|--------------:|-------:|-------:|-----:|-------:|------------:|------------:|------------:|------------:|:--------------------|:---------------|:---------------|:---------------|:---------------|:---------------|:---------------|:-------------|:-----------|---------------------:|---------------------:|-----------------------:|--------------------:|
@@ -424,24 +449,24 @@ Tabellen-Export: `analysis/descriptive/tables/template_topology_checklist.csv`
 | soll   | catalog-9992000000183 | 9992000000183 |      4 |      3 |    4 |      1 |           4 |           4 |           1 |           0 | MEMA,MENE,METR      | True           | False          | True           | False          | True           | False          | True         | False      |                    0 |                    0 |                      0 |                   0 |
 
 - Templates: total=15
-- Templates: missing_MEMA=1 (nur wenn MeLo+MaLo vorhanden)
-- Templates: missing_METR=1 (nur wenn MeLo+TR vorhanden)
-- Templates: missing_MENE=2 (nur wenn MeLo+NeLo vorhanden)
+- Templates: missing_MEMA=1 (only when MeLo+MaLo exists)
+- Templates: missing_METR=1 (only when MeLo+TR exists)
+- Templates: missing_MENE=2 (only when MeLo+NeLo exists)
 - Templates: graphs_with_invalid_edge_refs=0
 
-### Topologie-Checkliste: Ist-Anomalien (Sample)
+### Topology Checklist: Instance-Anomalies (Sample)
 
 - Ist: total=2521
-- Ist: missing_MEMA=0 (nur wenn MeLo+MaLo vorhanden)
-- Ist: missing_METR=0 (nur wenn MeLo+TR vorhanden)
-- Ist: missing_MENE=0 (nur wenn MeLo+NeLo vorhanden)
+- Ist: missing_MEMA=0 (only when MeLo+MaLo exists)
+- Ist: missing_METR=0 (only when MeLo+TR exists)
+- Ist: missing_MENE=0 (only when MeLo+NeLo exists)
 - Ist: graphs_with_invalid_edge_refs=0
 
-Tabellen-Export: `analysis/descriptive/tables/ist_topology_anomalies.csv`
+Full table stored in: `analysis/descriptive/tables/ist_topology_anomalies.csv`
 
-_Keine Daten._
+_No data._
 
-Tabellen-Export: `analysis/descriptive/tables/template_optionality_summary.csv`
+Full table stored in: `analysis/descriptive/tables/template_optionality_summary.csv`
 
 |      lbs_code | graph_id              |   nodes_total |   MaLo_nodes |   MeLo_nodes |   TR_nodes |   NeLo_nodes |   optional_nodes |   min0_nodes |   flexible_nodes |   attachment_rules_n |   constraints_n |
 |--------------:|:----------------------|--------------:|-------------:|-------------:|-----------:|-------------:|-----------------:|-------------:|-----------------:|---------------------:|----------------:|
@@ -461,11 +486,11 @@ Tabellen-Export: `analysis/descriptive/tables/template_optionality_summary.csv`
 | 9992000000175 | catalog-9992000000175 |            10 |            3 |            2 |          4 |            1 |                5 |            5 |                0 |                    0 |               0 |
 | 9992000000183 | catalog-9992000000183 |            12 |            4 |            3 |          4 |            1 |                6 |            6 |                0 |                    0 |               1 |
 
-## Ist vs Soll: Bounds-Coverage (Kandidatenfilter ohne pattern)
+## Instances vs. Templates: Flexibility Compliance
 
-Diese Tabelle zeigt pro Template, wie viele Ist-Graphen die Min/Max-Bounds erfüllen.
+Shows how many Instance-Graphs comply to the min/max-bounds given by the governing body BDEW (per Template).
 
-Tabellen-Export: `analysis/descriptive/tables/template_coverage.csv`
+Full table stored in: `analysis/descriptive/tables/template_coverage.csv`
 
 |      lbs_code | templates_graph_id    |   malo_min |   malo_max |   melo_min |   melo_max |   tr_min | tr_max   |   nelo_min |   nelo_max |   ist_graphs_fitting_total |   ist_fitting_sdf |   ist_fitting_new |
 |--------------:|:----------------------|-----------:|-----------:|-----------:|-----------:|---------:|:---------|-----------:|-----------:|---------------------------:|------------------:|------------------:|
@@ -485,11 +510,11 @@ Tabellen-Export: `analysis/descriptive/tables/template_coverage.csv`
 | 9992000000109 | catalog-9992000000109 |          1 |          1 |          2 |        nan |        0 |          |          0 |        nan |                          0 |               nan |               nan |
 | 9992000000183 | catalog-9992000000183 |          3 |          4 |          3 |          3 |        0 |          |          0 |          1 |                          0 |               nan |               nan |
 
-## Abgleich mit Feature-Encoding (graph_pipeline.py)
+## Feature Encoding Alignment (graph_pipeline.py)
 
-### Unknown-Raten für die verwendeten Feature-Blöcke
+### Unknown-rates for used features
 
-Tabellen-Export: `analysis/descriptive/tables/encoder_unknown_rates.csv`
+Full table stored in: `analysis/descriptive/tables/encoder_unknown_rates.csv`
 
 | kind   | metric                   | count              |
 |:-------|:-------------------------|:-------------------|
@@ -504,9 +529,9 @@ Tabellen-Export: `analysis/descriptive/tables/encoder_unknown_rates.csv`
 | soll   | melo_fn_unknown_rate     | 0.0% (0/28)        |
 | soll   | volt_unknown_rate        | 100.0% (28/28)     |
 
-### Welche Felder gehen aktuell ins Modell ein?
+### Which Features are Considered for DGMC?
 
-Der aktuelle Feature-Encoder (graph_pipeline.py) reduziert die reichhaltigen Node-Attrs auf wenige One-Hot-Blöcke. Das ist wichtig, um zu beurteilen, ob im Graph unnötige Daten mitgeschleppt werden oder ob entscheidende Informationen fehlen.
+The feature encoder (graph_pipeline.py) reduces node attributes to one-hot-blocks. This helps to check, whether the graphs use unnecessary attributes or if important data misses.
 
 - **Knotentyp**: `node['type']` → One-Hot über {MaLo, MeLo, TR, NeLo}
 - **Richtung** (nur MaLo/TR): `attrs['direction']` bzw. TR: `attrs['tr_direction']`; Fallback MaLo: `attrs['direction_hint']` → {consumption, generation, both, unknown}
@@ -515,11 +540,11 @@ Der aktuelle Feature-Encoder (graph_pipeline.py) reduziert die reichhaltigen Nod
 - **Kantentyp**: `edge['rel']` → One-Hot über {MEMA, METR, MENE, MEME, unknown}
 - Alle anderen Node-Attribute (z.B. `min_occurs/max_occurs/flexibility/optional/object_code/level/dynamic/attachment_rules`) werden aktuell **nicht** als ML-Feature kodiert.
 
-### Welche Node-Attribute sind im Datensatz vorhanden, werden aber vom Encoder ignoriert?
+### Which Node-Attributes are within the Dataset, however unused in Encoding?
 
-Ist-Graphen (Top ignorierte Keys):
+Instance-Graphs (Top unused Keys):
 
-Tabellen-Export: `analysis/descriptive/tables/ist_unused_node_attrs.csv`
+Full table stored in: `analysis/descriptive/tables/ist_unused_node_attrs.csv`
 
 | key                           |   count |
 |:------------------------------|--------:|
@@ -533,9 +558,9 @@ Tabellen-Export: `analysis/descriptive/tables/ist_unused_node_attrs.csv`
 | wrmenutzung                   |      36 |
 | ref_zur_tr                    |      36 |
 
-Template-Graphen (Top ignorierte Keys):
+Template-Graphs (Top unused Keys):
 
-Tabellen-Export: `analysis/descriptive/tables/soll_unused_node_attrs.csv`
+Full table stored in: `analysis/descriptive/tables/soll_unused_node_attrs.csv`
 
 | key         |   count |
 |:------------|--------:|
@@ -547,10 +572,10 @@ Tabellen-Export: `analysis/descriptive/tables/soll_unused_node_attrs.csv`
 | optional    |     127 |
 | dynamic     |      28 |
 
-## Automatische Beobachtungen (Differenzen & mögliche Ursachen)
+## Observations (Automatic) and Possible Causes
 
-- Templates enthalten Knotentyp(e) ['NeLo'], die in Ist-Graphen nicht vorkommen (typisch: NeLo). Ursache: Ist-Converter modelliert diese Relationen/Knoten derzeit nicht.
-- Templates enthalten Kanten-Typ(e) ['MENE'], die in Ist-Graphen fehlen. Ursache: Ist-Converter baut aktuell nur MEMA/METR.
-- MeLo-Funktion ist in Ist-Graphen fast immer 'unknown' (Feature-Block wird vom Modell kaum genutzt). Ursache: Ist-Graphen tragen i.d.R. kein function/melo_function.
-- Spannungsebene ist in Template-Graphen fast immer 'unknown' (Feature-Block wird vom Modell kaum genutzt). Ursache: Templates enthalten i.d.R. keine voltage_level-Angabe.
-- Topologie-Check: 1 Templates fehlen MEMA obwohl MeLo+MaLo vorhanden, 1 Templates fehlen METR obwohl MeLo+TR vorhanden. Prüfen: Absicht (attachment_rules/Unklarheit) vs. Mapping-Lücke.
+- Templates have node type(s) ['NeLo'], that are not in Instance-Graphs. Possible reason: Instance-Converter currently doesn't model this type.
+- Templates have node type(s) ['MENE'], that Instance-Graphs are missing. Possible reason: Instance-Converter currently doesn't model this type.
+- MeLo-function in Instance-Graphs almost always 'unknown' (feature not being used). Possible reason: Instance-Graphs don't have function/melo_function.
+- Voltage Level in Template-Graphs almost always 'unknown' (feature not being used). Possible reason: Template-Graphs don't have voltage_level.
+- Topology-Check: 1 Template(s) don't have MEMA although MeLo+MaLo exists, 1 Template(s) miss METR although MeLo+TR exists. Check if: Model choice (attachment_rules) vs. mapping-gap.

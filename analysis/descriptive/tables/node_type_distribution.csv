@@ -1,5 +1,5 @@
-type,ist_count,soll_count
-MaLo,2761,38
-MeLo,2624,28
-NeLo,0,15
-TR,36,46
+IN INSTANCES,IN TEMPLATES,TYPE
+2761,38,MaLo
+2624,28,MeLo
+0,15,NeLo
+36,46,TR

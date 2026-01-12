@@ -1,8 +1,8 @@
-key,count,pct
-malo_count,2521,100.0%
-melo_count,2521,100.0%
-tr_count,2521,100.0%
-nelo_count,2521,100.0%
-edge_type_counts,2521,100.0%
-dataset,2521,100.0%
-bundle_id,48,1.9%
+%,COUNT,KEY
+100.0%,2521,malo_count
+100.0%,2521,melo_count
+100.0%,2521,tr_count
+100.0%,2521,nelo_count
+100.0%,2521,edge_type_counts
+100.0%,2521,dataset
+1.9%,48,bundle_id

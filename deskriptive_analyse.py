@@ -228,7 +228,7 @@ class ReportWriter:
     def h3(self, title: str) -> None:
         self.lines.append(f"### {title}\n")
 
-    def p(self, text: str) -> None:
+    def text(self, text: str) -> None:
         """
         Absatz
         """
@@ -290,11 +290,11 @@ class ReportWriter:
         :param max_rows: maximale Zeilen, die im Report sein sollen (Rest in jeweiliger CSV)
         """
         csv_path = self.csv_generator(table)
-        self.p(f"Vollständige Tabelle unter: `{csv_path.as_posix()}`")
+        self.text(f"Full table stored in: `{csv_path.as_posix()}`")
         # Eingrenzung
         zeilen = table.tabelle_zeilen[:max_rows]
         if not zeilen:
-            self.p("_Keine Daten._")
+            self.text("_No data._")
             return
         if pd is not None:
             # Baut DataFrame
@@ -309,7 +309,7 @@ class ReportWriter:
                 self.lines.append("| " + " | ".join(str(r.get(c, "")) for c in spalten) + " |")
             self.lines.append("")
         if len(table.tabelle_zeilen) > max_rows:
-            self.p(f"_Hinweis: Tabelle gekürzt auf {max_rows} Zeilen (ursprünglich {len(table.tabelle_zeilen)})._")
+            self.text(f"_Table has been shortened to {max_rows} rows (originally {len(table.tabelle_zeilen)})._")
 
     def save_plot(self, fig, filename: str) -> Optional[Path]:
         """
@@ -1161,126 +1161,131 @@ def topology_checklist_row(g: Dict[str, Any], kind: str) -> Dict[str, Any]:
 
 
 # -------------------------
-# Main analysis routine
+# TODO MAIN REPORT
 # -------------------------
 
 
 def run_analysis(
     ist_path: Path,
     soll_path: Path,
-    out_dir: Path,
+    ausgabe_path: Path,
     max_graphs: Optional[int] = None,
-    do_plots: bool = True,
+    create_plots: bool = True,
 ) -> Path:
-    rw = ReportWriter(out_dir)
-    rw.h1("Deskriptive Analyse: Ist-Graphen vs. LBS-Soll-Templates")
+    rw = ReportWriter(ausgabe_path)
+    rw.h1("DESCRIPTIVE ANALYSIS")
 
     rw.h2("Inputs")
     rw.bullet(
         [
-            f"Ist-Graphs: `{ist_path}`",
-            f"Soll-Templates: `{soll_path}`",
-            f"Max graphs (debug): `{max_graphs}`" if max_graphs is not None else "Max graphs: _alle_",
-            f"Plots: {'an' if do_plots else 'aus'} (matplotlib {'gefunden' if plt is not None else 'nicht installiert'})",
-            f"pandas: {'gefunden' if pd is not None else 'nicht installiert'}",
-            f"graph_pipeline Import: {'ok' if gp is not None else 'nicht verfügbar (Fallback-Mappings)'}",
-            "Strukturmetriken: nur valide Kanten (src/dst referenzieren existierende Nodes).",
+            f"Instance-Graphs: `{ist_path}`",
+            f"Graph-Templates: `{soll_path}`",
+            f"Graphs covered (debug): `{max_graphs}`" if max_graphs is not None else "Graphs covered: _all_",
+            f"Plots: {'created' if create_plots else 'not created'} (matplotlib {'installed' if plt is not None else 'matplotlib not found'})",
+            f"pandas: {'installed' if pd is not None else 'not installed'}",
+            f"graph_pipeline Import: {'ok' if gp is not None else 'not available (fallback-mappings used)'}",
+            "Structural metrics: only _valid_ edges (src/dst reference existing nodes).",
         ]
     )
 
-    # Load
-    ist_graphs = jsonl_loader(ist_path, obergrenze=max_graphs)
-    soll_graphs = jsonl_loader(soll_path, obergrenze=max_graphs)
+    # Laden
+    ist_graphen = jsonl_loader(ist_path, obergrenze=max_graphs)
+    soll_graphen = jsonl_loader(soll_path, obergrenze=max_graphs)
+    rw.text(f"Loaded: **{len(ist_graphen)}** Instance-Graphs, **{len(soll_graphen)}** Graph-Templates.")
 
-    rw.p(f"Geladen: **{len(ist_graphs)}** Ist-Graphen, **{len(soll_graphs)}** Template-Graphen.")
-
-    # Validate
-    rw.h2("Schema- & Qualitätschecks")
+    # Validierung
+    rw.h2("Quality-Check")
     all_issues: List[ValidationIssue] = []
-    for g in ist_graphs:
+    for g in ist_graphen:
         all_issues.extend(validate_graph(g, "ist"))
-    for g in soll_graphs:
+    for g in soll_graphen:
         all_issues.extend(validate_graph(g, "soll"))
 
     by_sev = Counter(i.severity for i in all_issues)
     rw.bullet(
         [
             f"Issues total: {len(all_issues)}",
-            f"ERROR: {by_sev.get('ERROR',0)}",
-            f"WARN: {by_sev.get('WARN',0)}",
+            f"ERRORS: {by_sev.get('ERROR',0)}",
+            f"WARNINGS: {by_sev.get('WARN',0)}",
         ]
     )
 
+    rw.text(f"Errors would include missing node/edge keys, nodes without ID, duplicate IDs, edges referencing non-existent nodes.")
+    rw.text(f"Warnings would include unknown node types/edge relations or wrong node counts.")
+
     top_msgs = Counter(i.message for i in all_issues)
     issue_rows = [{"message": msg, "count": int(cnt)} for msg, cnt in top_msgs.most_common(25)]
-    rw.h3("Häufigste Issue-Typen")
+    rw.h3("Most common issues")
     rw.insert_table(Table("issues_top", issue_rows))
 
     if by_sev.get("ERROR", 0) > 0:
         sample_err = [i for i in all_issues if i.severity == "ERROR"][:30]
-        rw.h3("Beispielhafte ERROR-Kontexte")
+        rw.h3("ERROR contexts")
         rw.insert_table(Table("issues_error_samples", [{"graph_id": e.where, "message": e.message} for e in sample_err]))
 
     # Keysets
-    rw.h2("Inventar: Welche Felder sind enthalten?")
-    ist_ga_keys, ist_node_attr_keys, ist_edge_keys = extract_global_keysets(ist_graphs)
-    soll_ga_keys, soll_node_attr_keys, soll_edge_keys = extract_global_keysets(soll_graphs)
+    rw.h2("Fields present in Instance-Graphs")
+    rw.text(f"Metadata fields that are consistently available across Instance-Graphs.")
+    ist_ga_keys, ist_node_attr_keys, ist_edge_keys = extract_global_keysets(ist_graphen)
+    soll_ga_keys, soll_node_attr_keys, soll_edge_keys = extract_global_keysets(soll_graphen)
 
     def top_counter_table(name: str, c: Counter, total_graphs: int) -> Table:
         rows = []
         for k, cnt in c.most_common(50):
-            rows.append({"key": k, "count": int(cnt), "pct": f"{prozentrechner(cnt, total_graphs):.1f}%"})
+            rows.append({"KEY": k, "COUNT": int(cnt), "%": f"{prozentrechner(cnt, total_graphs):.1f}%"})
         return Table(name, rows)
 
-    rw.h3("Ist: graph_attrs Keys (wie oft pro Graph vorhanden)")
-    rw.insert_table(top_counter_table("ist_graph_attrs_keys", ist_ga_keys, len(ist_graphs)))
+    rw.h3("Instances: graph_attrs Keys (How often per Graph?)")
+    rw.text(f"graph_attr is a metadata dictionary.")
+    rw.insert_table(top_counter_table("ist_graph_attrs_keys", ist_ga_keys, len(ist_graphen)))
 
-    rw.h3("Soll: graph_attrs Keys (wie oft pro Graph vorhanden)")
-    rw.insert_table(top_counter_table("soll_graph_attrs_keys", soll_ga_keys, len(soll_graphs)))
+    rw.h3("Templates: graph_attrs Keys (How often per Graph?)")
+    rw.text(f"graph_attr is a metadata dictionary.")
+    rw.insert_table(top_counter_table("soll_graph_attrs_keys", soll_ga_keys, len(soll_graphen)))
 
-    rw.h3("Ist: Node-Attribute Keys (wie oft über alle Nodes)")
-    rw.insert_table(Table("ist_node_attr_keys", [{"key": k, "count": int(v)} for k, v in ist_node_attr_keys.most_common(60)]))
+    rw.h3("Instances: Node-Attribute Keys (How often per Node?)")
+    rw.insert_table(Table("ist_node_attr_keys", [{"KEY": k, "COUNT": int(v)} for k, v in ist_node_attr_keys.most_common(60)]))
 
-    rw.h3("Soll: Node-Attribute Keys (wie oft über alle Nodes)")
-    rw.insert_table(Table("soll_node_attr_keys", [{"key": k, "count": int(v)} for k, v in soll_node_attr_keys.most_common(60)]))
+    rw.h3("Templates: Node-Attribute Keys (How often per Node?)")
+    rw.insert_table(Table("soll_node_attr_keys", [{"KEY": k, "COUNT": int(v)} for k, v in soll_node_attr_keys.most_common(60)]))
 
-    # Node/Edge type distributions
-    rw.h2("Struktur: Knotentypen & Kantentypen")
-    ist_nt = node_type_counts(ist_graphs)
-    soll_nt = node_type_counts(soll_graphs)
-    ist_et = edge_type_counts(ist_graphs)
-    soll_et = edge_type_counts(soll_graphs)
+    # Node/Edge-Typ-Verteilung
+    rw.h2("Structure: Node Types & Edge Types")
+    ist_nt = node_type_counts(ist_graphen)
+    soll_nt = node_type_counts(soll_graphen)
+    ist_et = edge_type_counts(ist_graphen)
+    soll_et = edge_type_counts(soll_graphen)
 
-    rw.h3("Knotentyp-Verteilung (gesamt)")
+    rw.h3("Node Types in Dataset (Full)")
     rows = []
     for t in sorted(set(ist_nt.keys()) | set(soll_nt.keys())):
-        rows.append({"type": t, "ist_count": int(ist_nt.get(t, 0)), "soll_count": int(soll_nt.get(t, 0))})
+        rows.append({"TYPE": t, "IN INSTANCES": int(ist_nt.get(t, 0)), "IN TEMPLATES": int(soll_nt.get(t, 0))})
     rw.insert_table(Table("node_type_distribution", rows))
 
-    rw.h3("Kantentyp-Verteilung (gesamt; nur valide Kanten)")
+    rw.h3("Edge Types in Dataset (Full)")
+    rw.text("Only valid edges are considered. Edges are considered valid, when they have a valid source and a valid destination.")
     rows = []
     for r in sorted(set(ist_et.keys()) | set(soll_et.keys())):
-        rows.append({"rel": r, "ist_count": int(ist_et.get(r, 0)), "soll_count": int(soll_et.get(r, 0))})
+        rows.append({"RELATION": r, "IN INSTANCES": int(ist_et.get(r, 0)), "IN TEMPLATES": int(soll_et.get(r, 0))})
     rw.insert_table(Table("edge_type_distribution", rows))
 
-    # Per-graph stats
-    rw.h2("Pro-Graph Kennzahlen")
-    ist_rows = per_graph_basic_df(ist_graphs, "ist")
-    soll_rows = per_graph_basic_df(soll_graphs, "soll")
+    # Statistik pro Graph
+    rw.h2("Metrics per Graph")
+    ist_rows = per_graph_basic_df(ist_graphen, "ist")
+    soll_rows = per_graph_basic_df(soll_graphen, "soll")
 
-    # Export (sample in markdown, full in CSV)
-    rw.h3("Per-Graph-Tabelle (Sample)")
-    rw.p("Hinweis: Vollständige Tabellen liegen als CSV unter `tables/`.")
+    rw.h3("Per-Graph-Table (Sample)")
+    rw.text("Full table is stored in `tables/`.")
     rw.insert_table(Table("per_graph_ist", ist_rows), max_rows=25)
     rw.insert_table(Table("per_graph_soll", soll_rows), max_rows=25)
 
-    # Size distributions
+    # Größenverteilung
     ist_nodes = [int(r["node_count"]) for r in ist_rows]
     ist_edges = [int(r["edge_count"]) for r in ist_rows]
     soll_nodes = [int(r["node_count"]) for r in soll_rows]
     soll_edges = [int(r["edge_count"]) for r in soll_rows]
 
-    rw.h3("Größenverteilungen (Nodes/Edges, raw)")
+    rw.h3("Dimensions (Nodes/Edges)")
     size_rows = []
     for kind, nodes, edges in [("ist", ist_nodes, ist_edges), ("soll", soll_nodes, soll_edges)]:
         qn = quantiles([float(x) for x in nodes])
@@ -1299,15 +1304,16 @@ def run_analysis(
         )
     rw.insert_table(Table("size_distributions", size_rows))
 
-    if do_plots:
-        plot_hist(ist_nodes, "Ist-Graphen: Node count (raw)", "node_count", rw.out_dir / "plots" / "ist_node_count.png")
-        plot_hist(ist_edges, "Ist-Graphen: Edge count (raw)", "edge_count", rw.out_dir / "plots" / "ist_edge_count.png")
-        plot_hist(soll_nodes, "Templates: Node count (raw)", "node_count", rw.out_dir / "plots" / "soll_node_count.png")
-        plot_hist(soll_edges, "Templates: Edge count (raw)", "edge_count", rw.out_dir / "plots" / "soll_edge_count.png")
-        rw.p("Plots gespeichert unter `plots/` (siehe Dateien).")
+    if create_plots:
+        plot_hist(ist_nodes, "Instance-Graphs: Node count ", "node_count", rw.out_dir / "plots" / "ist_node_count.png")
+        plot_hist(ist_edges, "Instance-Graphs: Edge count ", "edge_count", rw.out_dir / "plots" / "ist_edge_count.png")
+        plot_hist(soll_nodes, "Templates: Node count ", "node_count", rw.out_dir / "plots" / "soll_node_count.png")
+        plot_hist(soll_edges, "Templates: Edge count ", "edge_count", rw.out_dir / "plots" / "soll_edge_count.png")
+        rw.text("Plots saved in `plots/` (siehe Dateien).")
 
     # Connectivity + new structural stats
-    rw.h3("Connectedness / Komponenten (undirected; valide Kanten)")
+    rw.h3("Number and Size of Connected Components")
+    rw.text("This considers valid and undirected connections only to approximate message-parsing reachability.")
     comp_rows = []
     for kind, rows_ in [("ist", ist_rows), ("soll", soll_rows)]:
         cc_counts = [int(r["cc_count_undirected"]) for r in rows_]
@@ -1324,7 +1330,12 @@ def run_analysis(
         )
     rw.insert_table(Table("connectivity_summary", comp_rows))
 
-    rw.h3("Dichte / E/N / Degree / Isolierte Knoten (undirected; valide Kanten)")
+    rw.h3("Density, Edges per Node, Degree and Isolated Nodes")
+    rw.text(f"Insights on how structurally rich the given dataset is.")
+    rw.text(f"Density shows how many edges the graph has, compared to the maximum possible amount.")
+    rw.text(f"Edges per Node shows structural repetition.")
+    rw.text(f"Degree shows the number of nodes connected to a node.")
+    rw.text(f"Isolated nodes are nodes with degree 0.")
 
     def _struct_summary(rows_: List[Dict[str, Any]], kind: str) -> Dict[str, Any]:
         dens = [float(r["density_undirected_simple"]) for r in rows_]
@@ -1343,8 +1354,8 @@ def run_analysis(
 
     rw.insert_table(Table("struct_metrics_summary", [_struct_summary(ist_rows, "ist"), _struct_summary(soll_rows, "soll")]))
 
-    # Degree stats per type (undirected) + directed degree stats
-    rw.h3("Degree-Statistiken pro Knotentyp (undirected; unique neighbors)")
+    # Grad pro Knotentyp
+    rw.h3("Degree Statistics per Node Type - Undirected")
 
     def agg_degree_undirected(graphs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         acc: Dict[str, List[int]] = defaultdict(list)
@@ -1365,10 +1376,10 @@ def run_analysis(
             )
         return out
 
-    rw.insert_table(Table("degree_stats_ist", agg_degree_undirected(ist_graphs)))
-    rw.insert_table(Table("degree_stats_soll", agg_degree_undirected(soll_graphs)))
+    rw.insert_table(Table("degree_stats_ist", agg_degree_undirected(ist_graphen)))
+    rw.insert_table(Table("degree_stats_soll", agg_degree_undirected(soll_graphen)))
 
-    rw.h3("Degree-Statistiken pro Knotentyp (directed; in/out, unique neighbors)")
+    rw.h3("Degree Statistics per Node Type - Directed")
 
     def agg_degree_directed(graphs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         acc_out: Dict[str, List[int]] = defaultdict(list)
@@ -1394,12 +1405,12 @@ def run_analysis(
             )
         return out
 
-    rw.insert_table(Table("degree_stats_directed_ist", agg_degree_directed(ist_graphs)))
-    rw.insert_table(Table("degree_stats_directed_soll", agg_degree_directed(soll_graphs)))
+    rw.insert_table(Table("degree_stats_directed_ist", agg_degree_directed(ist_graphen)))
+    rw.insert_table(Table("degree_stats_directed_soll", agg_degree_directed(soll_graphen)))
 
-    # Degree distributions (plots) - Quick Win 3
-    rw.h3("Degree-Verteilungen (Plots; undirected, unique neighbors)")
-    if do_plots:
+    # Grad-Verteilung
+    rw.h3("Degree-Distribution (Plots; undirected, unique neighbors)")
+    if create_plots:
         def collect_all_degrees(graphs: List[Dict[str, Any]]) -> Dict[str, List[int]]:
             acc: Dict[str, List[int]] = defaultdict(list)
             for g in graphs:
@@ -1410,8 +1421,8 @@ def run_analysis(
                     acc[t].extend(vals)
             return acc
 
-        ist_deg = collect_all_degrees(ist_graphs)
-        soll_deg = collect_all_degrees(soll_graphs)
+        ist_deg = collect_all_degrees(ist_graphen)
+        soll_deg = collect_all_degrees(soll_graphen)
 
         # overall
         plot_hist(ist_deg.get("ALL", []), "Ist: Degree distribution (undirected)", "degree", rw.out_dir / "plots" / "ist_degree_all.png")
@@ -1424,12 +1435,12 @@ def run_analysis(
             if soll_deg.get(t):
                 plot_hist(soll_deg[t], f"Soll: Degree ({t}, undirected)", "degree", rw.out_dir / "plots" / f"soll_degree_{t}.png")
 
-        rw.p("Degree-Plots gespeichert unter `plots/` (ist_degree_*.png, soll_degree_*.png).")
+        rw.text("Degree-Plots saved in `plots/` (ist_degree_*.png, soll_degree_*.png).")
     else:
-        rw.p("Plots sind deaktiviert (--no-plots).")
+        rw.text("Plots are deactivated (no-plots should be turned true, if you want otherwise).")
 
-    # Graph signatures (Nice-to-have 5)
-    rw.h2("Graph-Signaturen (Struktur-Fingerprints)")
+    # Graph-Signaturen
+    rw.h2("Graph Signatures - Structural Diversity in the Dataset")
 
     def signatures_table(graphs: List[Dict[str, Any]], kind: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         sig_counter = Counter()
@@ -1450,7 +1461,7 @@ def run_analysis(
                     "kind": kind,
                     "signature_id": sid,
                     "count": int(cnt),
-                    "pct": f"{prozentrechner(cnt, total):.2f}%",
+                    "%": f"{prozentrechner(cnt, total):.2f}%",
                     "example_graph_id": sig_to_example.get(sid, ""),
                     "signature": sig_to_text.get(sid, ""),
                 }
@@ -1458,23 +1469,24 @@ def run_analysis(
         meta = {"kind": kind, "unique_signatures": len(sig_counter), "graphs": total}
         return top, meta
 
-    top_ist, meta_ist = signatures_table(ist_graphs, "ist")
-    top_soll, meta_soll = signatures_table(soll_graphs, "soll")
+    top_ist, meta_ist = signatures_table(ist_graphen, "ist")
+    top_soll, meta_soll = signatures_table(soll_graphen, "soll")
 
     rw.bullet(
         [
-            f"Ist: {meta_ist['graphs']} Graphen, {meta_ist['unique_signatures']} einzigartige Signaturen",
-            f"Soll: {meta_soll['graphs']} Graphen, {meta_soll['unique_signatures']} einzigartige Signaturen",
-            "Signaturen basieren auf Node-Typ-Counts, Edge-Rel-Counts, CC-Anzahl und Degree-Min/Median/Max.",
+            f"Instances: {meta_ist['graphs']} Graphs, {meta_ist['unique_signatures']} unique signatures",
+            f"Templates: {meta_soll['graphs']} Graphs, {meta_soll['unique_signatures']} uniwue signatures",
+            f"Signatures are based on node type counts, edge relation counts, number of connected components and degree-Min/Median/Max. \n"
+            f"Connected Components are a great indicator, whether the structure forms a single coherent graph or splits into disconnected subgraphs.",
         ]
     )
-    rw.h3("Top Signaturen (Ist)")
+    rw.h3("Top Signatures (Instances)")
     rw.insert_table(Table("signatures_top_ist", top_ist), max_rows=25)
-    rw.h3("Top Signaturen (Soll)")
+    rw.h3("Top Signatures (Templates)")
     rw.insert_table(Table("signatures_top_soll", top_soll), max_rows=25)
 
-    # Attribute completeness for key attrs
-    rw.h2("Attribut-Vollständigkeit & Value-Distributionen")
+    # Attribut-Vollständigkeit und values Verteilung
+    rw.h2("Attributes & Value-Distribution")
     key_attrs_by_type = {
         "MaLo": ["direction", "direction_hint"],
         "MeLo": ["voltage_level", "function", "melo_function", "dynamic", "direction_hint"],
@@ -1503,16 +1515,16 @@ def run_analysis(
                     "attr": a,
                     "present": int(pre),
                     "total": int(tot),
-                    "present_pct": f"{prozentrechner(pre, tot):.1f}%",
+                    "present %": f"{prozentrechner(pre, tot):.1f}%",
                 }
             )
         return rows
 
-    rw.h3("Coverage: zentrale Attribute (Ist)")
-    rw.insert_table(Table("attr_coverage_ist", attr_coverage(ist_graphs, "ist")))
+    rw.h3("Coverage: Main Attributes (Instances)")
+    rw.insert_table(Table("attr_coverage_ist", attr_coverage(ist_graphen, "ist")))
 
-    rw.h3("Coverage: zentrale Attribute (Soll/Templates)")
-    rw.insert_table(Table("attr_coverage_soll", attr_coverage(soll_graphs, "soll")))
+    rw.h3("Coverage: Main Attributes (Templates)")
+    rw.insert_table(Table("attr_coverage_soll", attr_coverage(soll_graphen, "soll")))
 
     def top_values(graphs: List[Dict[str, Any]], kind: str, ntype: str, attr: str, topn: int = 20) -> Table:
         c = Counter()
@@ -1526,32 +1538,31 @@ def run_analysis(
         rows = [{"kind": kind, "type": ntype, "attr": attr, "value": v, "count": int(cnt)} for v, cnt in c.most_common(topn)]
         return Table(f"top_values_{kind}_{ntype}_{attr}", rows)
 
-    rw.h3("Top Values: Richtung (MaLo)")
-    rw.insert_table(top_values(ist_graphs, "ist", "MaLo", "direction"))
-    rw.insert_table(top_values(soll_graphs, "soll", "MaLo", "direction"))
+    rw.h3("Top Values: Direction (MaLo)")
+    rw.insert_table(top_values(ist_graphen, "ist", "MaLo", "direction"))
+    rw.insert_table(top_values(soll_graphen, "soll", "MaLo", "direction"))
 
-    rw.h3("Top Values: Spannungsebene (MeLo.voltage_level)")
-    rw.insert_table(top_values(ist_graphs, "ist", "MeLo", "voltage_level"))
-    rw.insert_table(top_values(soll_graphs, "soll", "MeLo", "voltage_level"))
+    rw.h3("Top Values: Voltage Level (MeLo.voltage_level)")
+    rw.insert_table(top_values(ist_graphen, "ist", "MeLo", "voltage_level"))
+    rw.insert_table(top_values(soll_graphen, "soll", "MeLo", "voltage_level"))
 
-    rw.h3("Top Values: MeLo-Funktion (Templates sollten function/melo_function tragen)")
-    rw.insert_table(top_values(ist_graphs, "ist", "MeLo", "function"))
-    rw.insert_table(top_values(ist_graphs, "ist", "MeLo", "melo_function"))
-    rw.insert_table(top_values(soll_graphs, "soll", "MeLo", "function"))
-    rw.insert_table(top_values(soll_graphs, "soll", "MeLo", "melo_function"))
+    rw.h3("Top Values: MeLo-Function (Templates should have function/melo_function)")
+    rw.insert_table(top_values(ist_graphen, "ist", "MeLo", "function"))
+    rw.insert_table(top_values(ist_graphen, "ist", "MeLo", "melo_function"))
+    rw.insert_table(top_values(soll_graphen, "soll", "MeLo", "function"))
+    rw.insert_table(top_values(soll_graphen, "soll", "MeLo", "melo_function"))
 
     rw.h3("Top Values: TR Richtung (tr_direction)")
-    rw.insert_table(top_values(ist_graphs, "ist", "TR", "tr_direction"))
-    rw.insert_table(top_values(soll_graphs, "soll", "TR", "tr_direction"))
+    rw.insert_table(top_values(ist_graphen, "ist", "TR", "tr_direction"))
+    rw.insert_table(top_values(soll_graphen, "soll", "TR", "tr_direction"))
 
-    # Template-specific
-    rw.h2("Template-spezifische Analyse (LBS-Schema)")
+    # Template spezifisch
+    rw.h2("Template-specific Analysis (LBS-Scheme)")
 
-    # Topology checklist (Nice-to-have 6)
-    rw.h3("Topologie-Checkliste: erwartete vs vorhandene Relationen")
+    # Topologie-Checkliste
+    rw.h3("Topology Checklist: Expected vs. Existing Relations")
 
-    tmpl_rows = [topology_checklist_row(t, "soll") for t in soll_graphs]
-    # sort: flagged first
+    tmpl_rows = [topology_checklist_row(t, "soll") for t in soll_graphen]
     tmpl_rows.sort(key=lambda r: (not (r["missing_MEMA"] or r["missing_METR"] or r["missing_MENE"]), str(r.get("lbs_code") or "")))
 
     rw.insert_table(Table("template_topology_checklist", tmpl_rows), max_rows=60)
@@ -1564,16 +1575,16 @@ def run_analysis(
         invalid_refs = sum(1 for r in rows_ if int(r.get("edges_missing_refs", 0)) > 0)
         return [
             f"{kind}: total={total}",
-            f"{kind}: missing_MEMA={m_mema} (nur wenn MeLo+MaLo vorhanden)",
-            f"{kind}: missing_METR={m_metr} (nur wenn MeLo+TR vorhanden)",
-            f"{kind}: missing_MENE={m_mene} (nur wenn MeLo+NeLo vorhanden)",
+            f"{kind}: missing_MEMA={m_mema} (only when MeLo+MaLo exists)",
+            f"{kind}: missing_METR={m_metr} (only when MeLo+TR exists)",
+            f"{kind}: missing_MENE={m_mene} (only when MeLo+NeLo exists)",
             f"{kind}: graphs_with_invalid_edge_refs={invalid_refs}",
         ]
 
     rw.bullet(checklist_summary(tmpl_rows, "Templates"))
 
     # Ist: show only anomalies to keep report small
-    ist_check = [topology_checklist_row(g, "ist") for g in ist_graphs]
+    ist_check = [topology_checklist_row(g, "ist") for g in ist_graphen]
     ist_anom = [
         r
         for r in ist_check
@@ -1584,14 +1595,14 @@ def run_analysis(
         or r.get("edges_missing_rel", 0)
     ]
 
-    rw.h3("Topologie-Checkliste: Ist-Anomalien (Sample)")
+    rw.h3("Topology Checklist: Instance-Anomalies (Sample)")
     rw.bullet(checklist_summary(ist_check, "Ist"))
     ist_anom.sort(key=lambda r: (not (r.get("missing_MEMA") or r.get("missing_METR")), int(r.get("edges_missing_refs", 0)), str(r.get("graph_id") or "")))
     rw.insert_table(Table("ist_topology_anomalies", ist_anom), max_rows=40)
 
-    # Optionality summary (existing)
+    # Optionalität
     opt_rows: List[Dict[str, Any]] = []
-    for t in soll_graphs:
+    for t in soll_graphen:
         ga = t.get("graph_attrs", {}) or {}
         code = ga.get("lbs_code") or t.get("label") or t.get("graph_id")
         optional_nodes = 0
@@ -1632,16 +1643,16 @@ def run_analysis(
     opt_rows.sort(key=lambda r: str(r["lbs_code"]))
     rw.insert_table(Table("template_optionality_summary", opt_rows), max_rows=60)
 
-    # Coverage: bounds
-    rw.h2("Ist vs Soll: Bounds-Coverage (Kandidatenfilter ohne pattern)")
-    cov = ist_vs_template_coverage(ist_graphs, soll_graphs)
-    rw.p("Diese Tabelle zeigt pro Template, wie viele Ist-Graphen die Min/Max-Bounds erfüllen.")
+    # Min/Max Infos
+    rw.h2("Instances vs. Templates: Flexibility Compliance")
+    cov = ist_vs_template_coverage(ist_graphen, soll_graphen)
+    rw.text("Shows how many Instance-Graphs comply to the min/max-bounds given by the governing body BDEW (per Template).")
     rw.insert_table(Table("template_coverage", cov), max_rows=60)
 
-    # Encoder alignment
-    rw.h2("Abgleich mit Feature-Encoding (graph_pipeline.py)")
-    align_ist = encoder_alignment(ist_graphs, "ist")
-    align_soll = encoder_alignment(soll_graphs, "soll")
+    # Pipeline Abgleich
+    rw.h2("Feature Encoding Alignment (graph_pipeline.py)")
+    align_ist = encoder_alignment(ist_graphen, "ist")
+    align_soll = encoder_alignment(soll_graphen, "soll")
 
     def alignment_table(al: Dict[str, Any]) -> List[Dict[str, Any]]:
         c = al["counts"]
@@ -1675,15 +1686,15 @@ def run_analysis(
         )
         return rows
 
-    rw.h3("Unknown-Raten für die verwendeten Feature-Blöcke")
+    rw.h3("Unknown-rates for used features")
     rw.insert_table(Table("encoder_unknown_rates", alignment_table(align_ist) + alignment_table(align_soll)))
 
-    rw.h3("Welche Felder gehen aktuell ins Modell ein?")
-    rw.p(
-        "Der aktuelle Feature-Encoder (graph_pipeline.py) reduziert die reichhaltigen Node-Attrs "
-        "auf wenige One-Hot-Blöcke. Das ist wichtig, um zu beurteilen, ob im Graph unnötige Daten "
-        "mitgeschleppt werden oder ob entscheidende Informationen fehlen."
+    rw.h3("Which Features are Considered for DGMC?")
+    rw.text(
+        "The feature encoder (graph_pipeline.py) reduces node attributes to one-hot-blocks. "
+        "This helps to check, whether the graphs use unnecessary attributes or if important data misses."
     )
+    #TODO
     rw.bullet(
         [
             "**Knotentyp**: `node['type']` → One-Hot über {MaLo, MeLo, TR, NeLo}",
@@ -1694,12 +1705,13 @@ def run_analysis(
             "Alle anderen Node-Attribute (z.B. `min_occurs/max_occurs/flexibility/optional/object_code/level/dynamic/attachment_rules`) werden aktuell **nicht** als ML-Feature kodiert.",
         ]
     )
+    #TODO done
 
     used_attr_keys = {"direction", "tr_direction", "direction_hint", "function", "melo_function", "voltage_level"}
     ist_unused = [k for k, _ in ist_node_attr_keys.most_common() if k not in used_attr_keys]
     soll_unused = [k for k, _ in soll_node_attr_keys.most_common() if k not in used_attr_keys]
 
-    rw.h3("Welche Node-Attribute sind im Datensatz vorhanden, werden aber vom Encoder ignoriert?")
+    rw.h3("Which Node-Attributes are within the Dataset, however unused in Encoding?")
 
     def unused_table(name: str, keys: List[str], counter: Counter) -> Table:
         rows = []
@@ -1707,14 +1719,14 @@ def run_analysis(
             rows.append({"key": k, "count": int(counter.get(k, 0))})
         return Table(name, rows)
 
-    rw.p("Ist-Graphen (Top ignorierte Keys):")
+    rw.text("Instance-Graphs (Top unused Keys):")
     rw.insert_table(unused_table("ist_unused_node_attrs", ist_unused, ist_node_attr_keys))
 
-    rw.p("Template-Graphen (Top ignorierte Keys):")
+    rw.text("Template-Graphs (Top unused Keys):")
     rw.insert_table(unused_table("soll_unused_node_attrs", soll_unused, soll_node_attr_keys))
 
-    # Highlight key differences automatically
-    rw.h2("Automatische Beobachtungen (Differenzen & mögliche Ursachen)")
+    # Automatische Beobachtungen
+    rw.h2("Observations (Automatic) and Possible Causes")
     observations: List[str] = []
 
     ist_types = set(ist_nt.keys())
@@ -1723,21 +1735,21 @@ def run_analysis(
     only_in_ist = sorted(ist_types - soll_types)
     if only_in_soll:
         observations.append(
-            f"Templates enthalten Knotentyp(e) {only_in_soll}, die in Ist-Graphen nicht vorkommen (typisch: NeLo). Ursache: Ist-Converter modelliert diese Relationen/Knoten derzeit nicht."
+            f"Templates have node type(s) {only_in_soll}, that are not in Instance-Graphs. Possible reason: Instance-Converter currently doesn't model this type."
         )
     if only_in_ist:
         observations.append(
-            f"Ist-Graphen enthalten Knotentyp(e) {only_in_ist}, die in Templates nicht vorkommen (prüfen: SAP-Artefakte oder Export-Drift)."
+            f"Instances have node type(s) {only_in_ist}, that are not in Template-Graphs. Possible reason: SAP-Export incomplete or customized templates inaccurate."
         )
 
     ist_rels = set(ist_et.keys())
     soll_rels = set(soll_et.keys())
     rel_only_soll = sorted((soll_rels - ist_rels) & {"MENE", "MEME"})
     if rel_only_soll:
-        observations.append(f"Templates enthalten Kanten-Typ(e) {rel_only_soll}, die in Ist-Graphen fehlen. Ursache: Ist-Converter baut aktuell nur MEMA/METR.")
+        observations.append(f"Templates have node type(s) {rel_only_soll}, that Instance-Graphs are missing. Possible reason: Instance-Converter currently doesn't model this type.")
     rel_only_ist = sorted(ist_rels - soll_rels)
     if rel_only_ist:
-        observations.append(f"Ist-Graphen enthalten Kanten-Typ(e) {rel_only_ist}, die Templates nicht enthalten (prüfen, ob diese in Soll bewusst weggelassen wurden).")
+        observations.append(f"Instances have node type(s) {rel_only_ist}, that are not in Template-Graphs (check if model choice).")
 
     u_ist = align_ist["unknown"]
     c_ist = align_ist["counts"]
@@ -1746,27 +1758,27 @@ def run_analysis(
 
     if c_ist.get("melo_fn_nodes_total", 0) and prozentrechner(u_ist.get("melo_fn_unknown", 0), c_ist.get("melo_fn_nodes_total", 0)) > 80:
         observations.append(
-            "MeLo-Funktion ist in Ist-Graphen fast immer 'unknown' (Feature-Block wird vom Modell kaum genutzt). Ursache: Ist-Graphen tragen i.d.R. kein function/melo_function."
+            "MeLo-function in Instance-Graphs almost always 'unknown' (feature not being used). Possible reason: Instance-Graphs don't have function/melo_function."
         )
     if c_soll.get("volt_nodes_total", 0) and prozentrechner(u_soll.get("volt_unknown", 0), c_soll.get("volt_nodes_total", 0)) > 80:
         observations.append(
-            "Spannungsebene ist in Template-Graphen fast immer 'unknown' (Feature-Block wird vom Modell kaum genutzt). Ursache: Templates enthalten i.d.R. keine voltage_level-Angabe."
+            "Voltage Level in Template-Graphs almost always 'unknown' (feature not being used). Possible reason: Template-Graphs don't have voltage_level."
         )
     if c_soll.get("dir_nodes_total", 0) and prozentrechner(u_soll.get("dir_unknown", 0), c_soll.get("dir_nodes_total", 0)) > 80:
-        observations.append("Richtung (MaLo/TR) ist in Templates oft 'unknown' → Richtung als Feature unterscheidet Templates ggf. kaum.")
+        observations.append("Direction (MaLo/TR) in Template-Graphs often 'unknown' → Direction as feature hardly differentiates Templates.")
 
     # new: topology checklist highlights
     tmpl_missing_mema = sum(1 for r in tmpl_rows if r.get("missing_MEMA"))
     tmpl_missing_metr = sum(1 for r in tmpl_rows if r.get("missing_METR"))
     if tmpl_missing_mema or tmpl_missing_metr:
         observations.append(
-            f"Topologie-Check: {tmpl_missing_mema} Templates fehlen MEMA obwohl MeLo+MaLo vorhanden, {tmpl_missing_metr} Templates fehlen METR obwohl MeLo+TR vorhanden. Prüfen: Absicht (attachment_rules/Unklarheit) vs. Mapping-Lücke."
+            f"Topology-Check: {tmpl_missing_mema} Template(s) don't have MEMA although MeLo+MaLo exists, {tmpl_missing_metr} Template(s) miss METR although MeLo+TR exists. Check if: Model choice (attachment_rules) vs. mapping-gap."
         )
 
     if observations:
         rw.bullet(observations)
     else:
-        rw.p("_Keine auffälligen Differenzen automatisch erkannt (ungewöhnlich)._")
+        rw.text("_No noticeable observations._")
 
     report_path = rw.finalize()
     return report_path
@@ -1787,9 +1799,9 @@ if __name__ == "__main__":
     report = run_analysis(
         ist_path=Path(args.ist),
         soll_path=Path(args.soll),
-        out_dir=Path(args.out_dir),
+        ausgabe_path=Path(args.out_dir),
         max_graphs=args.max_graphs,
-        do_plots=not args.no_plots,
+        create_plots=not args.no_plots,
     )
 
-    print(f"[OK] Report geschrieben: {report}")
+    print(f"Deskriptive Analyse geschrieben: {report}")
