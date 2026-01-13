@@ -227,12 +227,6 @@ def canonicalize(tables: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
         raise ValueError("MELO: keine Spalte für MeLo-ID gefunden!")
     melo.rename(columns={melo_id_cols[0]: "melo_id"}, inplace=True)
 
-    volt_cols = [c for c in melo.columns if "spannungsebene" in c or c == "voltage_level"]
-    if volt_cols:
-        melo.rename(columns={volt_cols[0]: "voltage_level"}, inplace=True)
-    else:
-        melo["voltage_level"] = None
-
     melo["melo_id"] = _clean_id_series(melo["melo_id"])
     melo = melo[melo["melo_id"] != ""]
     melo = melo.drop_duplicates(subset=["melo_id"], keep="last")
@@ -266,6 +260,14 @@ def canonicalize(tables: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
     if not me_melo_cols or not me_ser_cols:
         raise ValueError("METER: Spalten für MeLo/Serialnummer nicht gefunden!")
     me.rename(columns={me_melo_cols[0]: "melo_id", me_ser_cols[0]: "meter_id"}, inplace=True)
+
+    # Richtung/Art des Zählers (falls vorhanden): z.B. ERZ (Einrichtungszähler), ZRZ (Zweirichtungszähler)
+    # In manchen Exports steht hier "Energierichtung".
+    meter_dir_cols = [c for c in me.columns if ("energierichtung" in c) or ("energy" in c and "direction" in c)]
+    if meter_dir_cols:
+        me.rename(columns={meter_dir_cols[0]: "meter_direction_code"}, inplace=True)
+    else:
+        me["meter_direction_code"] = None
 
     me["melo_id"] = _clean_id_series(me["melo_id"])
     me["meter_id"] = _clean_id_series(me["meter_id"])
@@ -352,11 +354,23 @@ def map_direction(direction_code: Any) -> str:
     """
     if direction_code is None:
         return None
-    s = str(direction_code).strip().upper()             # Standardisieren
+
+    # Standardisieren
+    s = str(direction_code).strip().upper()
+    if not s or s == "NAN":
+        return None
+
+    # SDF / Standard-Codes
     if s in ("Z07", "BEZUG", "VERBRAUCH", "V"):
         return "consumption"
     if s in ("Z06", "EINSPEISUNG", "ERZEUGUNG", "E"):
         return "generation"
+
+    # Neuer Datensatz: booleanartige Markierung ("X" in 'Ausspeisung')
+    # Laut Datenlieferung bedeutet "X" hier: generation.
+    if s in ("X", "JA", "TRUE", "1"):
+        return "generation"
+
     return None
 
 
@@ -464,7 +478,7 @@ def build_graphs(t: Dict[str, pd.DataFrame],
 
     Knoten:
       - MaLo (attrs: direction)
-      - MeLo (attrs: voltage_level)
+      - MeLo (attrs: direction)
       - TR   (attrs: direction optional; **nur** aus TR.csv, falls vorhanden)
 
     Kanten:
@@ -473,11 +487,11 @@ def build_graphs(t: Dict[str, pd.DataFrame],
 
     Hinweis:
       - Die Tabellen METER/SDF_METER enthalten Zähler-/Geräteinformationen (z.B. Serialnummer).
-        Diese werden hier **nicht** als TR modelliert.
+        Diese werden hier **nicht** als TR modelliert, aber sie werden (falls vorhanden) genutzt,
+        um die MeLo-Richtung (z.B. ERZ/ZRZ) plausibel abzuleiten.
       - bundle_id wird nur als graph_id genutzt, wenn BNDL2MC für die Komponente eindeutig ist.
     """
     malo_df = t["malo"].copy()
-    melo_df = t["melo"].copy()
     pr_df   = t["pod_rel"][["malo_id", "melo_id"]].dropna().astype(str).copy()
     tr_df = t.get("tr")  # optional
 
@@ -485,7 +499,6 @@ def build_graphs(t: Dict[str, pd.DataFrame],
 
     # Index-Infos
     malo_info = malo_df.set_index("malo_id").to_dict(orient="index")
-    melo_info = melo_df.set_index("melo_id").to_dict(orient="index")
 
     # Adjazenz: MeLo -> {MaLo}
     malos_by_melo = defaultdict(set)
@@ -494,6 +507,21 @@ def build_graphs(t: Dict[str, pd.DataFrame],
     for _, r in pr_df.iterrows():
         malos_by_melo[str(r.melo_id)].add(str(r.malo_id))
         melos_by_malo[str(r.malo_id)].add(str(r.melo_id))
+
+    # METER: Zähler-Richtung pro MeLo (falls vorhanden)
+    # - SDF: "meter_direction_code" ist typischerweise ERZ oder ZRZ
+    # - NEW: Spalte kann leer sein, dann ignorieren
+    meter_codes_by_melo: Dict[str, set] = defaultdict(set)
+    meter_df = t.get("meter")
+    if isinstance(meter_df, pd.DataFrame) and not meter_df.empty and "melo_id" in meter_df.columns:
+        dir_col = "meter_direction_code" if "meter_direction_code" in meter_df.columns else None
+        if dir_col is not None:
+            tmp = meter_df[["melo_id", dir_col]].copy()
+            tmp["melo_id"] = tmp["melo_id"].astype(str).str.strip()
+            tmp[dir_col] = tmp[dir_col].astype(str).str.strip().str.upper()
+            tmp = tmp[(tmp["melo_id"] != "") & (tmp[dir_col] != "") & (tmp[dir_col] != "NAN")]
+            for melo_id, grp in tmp.groupby("melo_id")[dir_col]:
+                meter_codes_by_melo[melo_id] = set(grp.tolist())
 
     # TR je MeLo sammeln (dedupliziert)    # TR aus TR.csv (optional): MaLo(Anlage) -> TR, und später via POD_REL auf MeLo projizieren.
     trs_by_malo = defaultdict(list)
@@ -537,7 +565,14 @@ def build_graphs(t: Dict[str, pd.DataFrame],
         malo_dir = {}
         for mid in malos:
             dinfo = malo_info.get(mid, {})
-            malo_dir[mid] = map_direction(dinfo.get("direction_code"))
+            d = map_direction(dinfo.get("direction_code"))
+
+            # Neuer Datensatz: in MALO.csv ist häufig nur "X" (Ausspeisung) gesetzt;
+            # der Rest ist leer. Laut Vorgabe interpretieren wir "leer" als consumption.
+            if d is None and (dataset_tag or "").lower() == "new":
+                d = "consumption"
+
+            malo_dir[mid] = d
 
         # --- MaLo-Knoten ---
         for mid in sorted(malos):
@@ -548,9 +583,31 @@ def build_graphs(t: Dict[str, pd.DataFrame],
         seen_metr = set()  # dedupliziert METR-Kanten (aus TR.csv)
 
         for eid in sorted(melos):
-            einfo = melo_info.get(eid, {})
-            nodes.append(make_node(eid, "MeLo", {"voltage_level": einfo.get("voltage_level")}))
-# --- Zusätzliche TR aus TR.csv (via MaLo(Anlage) -> POD_REL -> MeLo) ---
+            # 1) Primär: Richtung über verbundene MaLo(s) ableiten
+            dir_set = set()
+            for mid in malos_by_melo.get(eid, set()):
+                if mid in malos:
+                    d = malo_dir.get(mid)
+                    if d:
+                        dir_set.add(d)
+
+            if len(dir_set) == 1:
+                melo_direction = next(iter(dir_set))
+            elif len(dir_set) > 1:
+                melo_direction = "both"
+            else:
+                melo_direction = None
+
+            # 2) Optional: Zähler-Richtung aus METER (v.a. SDF: ERZ/ZRZ)
+            #    - ZRZ (oder ZWR): bidirektional → both
+            #    - ERZ: einrichtungszähler → Richtung bleibt wie aus MaLo abgeleitet
+            m_codes = meter_codes_by_melo.get(eid, set())
+            if m_codes:
+                if any(c in ("ZRZ", "ZWR") for c in m_codes):
+                    melo_direction = "both"
+
+            nodes.append(make_node(eid, "MeLo", {"direction": melo_direction}))
+#Zusätzliche TR aus TR.csv (via MaLo(Anlage) -> POD_REL -> MeLo)
         # Semantik: TRs aus TR.csv werden als TR-Knoten modelliert und per METR
         # an diejenigen MeLo gehängt, die zur referenzierten MaLo-Anlage verbunden sind.
         if trs_by_malo:

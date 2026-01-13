@@ -1,6 +1,4 @@
 ﻿ID der Marktlokation / Tranche;Meldepunkttyp;Sparte;Spannungsebene der MaLo;Druckebene;Ausspeisung / Einspeisung (Lieferrichtung);Messtechnische Einordnung der Marktlokation;Wahlrecht des Bilanzierungsverfahrens;Messwertübermittlungsfall der MALO;Gruppenzuordnung nach ENWG/Fallgruppenzuordnung nach Gabi Gas ;Gruppenzuuordnung nach GABI;Gasqualität;Art der erzeugenden Marktlokation;Status der erzeugenden Marktlokation;Land der Förderung;Status der Fernsteuerbarkeit;Lieferanschrift Straße (vollständig) ;Lieferanschrift Hausnummer incl. Zusatz;Lieferanschrift Ortsteil;Lieferanschrift Ort;Lieferanschrift PLZ;Verbrauchsstellenhinweis;Bilanzierungsgebiet (Netzgebiet);Temperaturmesstelle;Gemeinderabatt;Geplante Turnusablesung;Abrechnungsmonat;Turnus Abrechnung;Verlustfaktor;Gemessene Maximalleistung in kW;;;
-50414789667;Z30;1;E06;;Z07;Z53;;;Z18;;;;;;;Pirmasenser Str.;1;Hauenstein;Hauenstein;76846;Penny-Markt;10YDE-RWENET---I;;0;20221130;11;1;;;;;
-50414789758;Z30;1;E06;;Z07;Z53;;;Z15;;;;;;;Felsenstr.;24;Hauenstein;Hauenstein;76846;;10YDE-RWENET---I;;0;20221130;11;12;;;;;
 50802494844;;41;N;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 50802891735;;41;N;;X;;;;;;;;;;;;;;;;;;;;;;;;;;;
 50808737016;;41;N;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

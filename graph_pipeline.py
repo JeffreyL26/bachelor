@@ -12,7 +12,7 @@ JSON-Graph hat die Form:
 {
   "nodes": [
     {"id": "12345678", "type": "MaLo", "attrs": {"direction": "consumption"}},
-    {"id": "DE00...", "type": "MeLo", "attrs": {"voltage_level": "E06"}},
+    {"id": "DE00...", "type": "MeLo", "attrs": {"direction": "generation"}},
     {"id": "1ABC...", "type": "TR", "attrs": {}}
   ],
   "edges": [
@@ -32,7 +32,7 @@ NODE_TYPES = {
 }
 NUM_NODE_TYPES = len(NODE_TYPES)
 
-# Richtung (MaLo/TR): Verbrauch/Einspeisung/Bidirektional (z.B. Speicher-TR)
+# Richtung (MaLo/TR/MeLo): Verbrauch/Einspeisung/Bidirektional (z.B. Speicher-TR)
 # Hinweis: In den Templates taucht für TR u.a. "consumption+generation(storage)" auf.
 # Wir normalisieren verschiedene Schreibweisen auf {consumption, generation, both}.
 DIRECTIONS = {
@@ -43,25 +43,6 @@ DIRECTIONS = {
 }
 DIR_UNKNOWN_INDEX = len(DIRECTIONS)
 NUM_DIRECTIONS = len(DIRECTIONS) + 1  # + unknown
-
-# MeLo-Funktion für Templates
-MELO_FUNCTIONS = {
-    "N": 0,
-    "H": 1,
-    "D": 2,
-    "S": 3,
-    # → unknown
-}
-MELO_FUNC_UNKNOWN_INDEX = len(MELO_FUNCTIONS)
-NUM_MELO_FUNCTIONS = len(MELO_FUNCTIONS) + 1
-
-# Spannungsebene
-VOLTAGE_LEVELS = {
-    "E05": 0,
-    "E06": 1,
-}
-VOLT_UNKNOWN_INDEX = len(VOLTAGE_LEVELS)
-NUM_VOLTAGE_LEVELS = len(VOLTAGE_LEVELS) + 1
 
 # Kanten-Typen
 EDGE_TYPES = {
@@ -151,32 +132,23 @@ def _encode_node_features(node: Dict[str, Any]) -> List[float]:
     else:
         type_vec = _one_hot(type_idx, NUM_NODE_TYPES)
 
-    # Richtung (MaLo/TR): kann je nach Quelle unter verschiedenen Keys liegen.
+    # Richtung (MaLo/TR/MeLo): kann je nach Quelle unter verschiedenen Keys liegen.
     raw_dir = attrs.get("direction")
     if raw_dir is None and ntype == "TR":
         raw_dir = attrs.get("tr_direction")
-    if raw_dir is None and ntype == "MaLo":
+    if raw_dir is None and ntype in ("MaLo", "MeLo"):
         raw_dir = attrs.get("direction_hint")
 
     canon_dir = _normalize_direction(raw_dir)
     dir_idx = DIRECTIONS.get(canon_dir, DIR_UNKNOWN_INDEX)
     dir_vec = _one_hot(dir_idx, NUM_DIRECTIONS)
 
-    # MeLo-Funktion
-    raw_fn = (attrs.get("function") or attrs.get("melo_function")) if ntype == "MeLo" else None
-    fn_idx = MELO_FUNCTIONS.get(raw_fn, MELO_FUNC_UNKNOWN_INDEX)
-    fn_vec = _one_hot(fn_idx, NUM_MELO_FUNCTIONS)
-
-    # Spannungsebene
-    raw_volt = attrs.get("voltage_level") if ntype == "MeLo" else None
-    volt_idx = VOLTAGE_LEVELS.get(raw_volt, VOLT_UNKNOWN_INDEX)
-    volt_vec = _one_hot(volt_idx, NUM_VOLTAGE_LEVELS)
-
     # LBS_OBJECT_LEVEL für Template-Graphen, einfache Zahl (bei Ist-Konstrukte default 0.0)
     #level = float(attrs.get("level", 0.0))
 
-    # Konkatenation aller Feature-Blöcke: 4 Knotentypen + 4 Richtungen + 5 MeLo-Funktionen + 3 Spannungsebenen = 16
-    return type_vec + dir_vec + fn_vec + volt_vec
+    # Konkatenation aller Feature-Blöcke:
+    # 4 Knotentypen + 4 Richtungen = 8
+    return type_vec + dir_vec
 
 
 def _encode_edge_attr(rel: str) -> List[float]:
@@ -218,7 +190,7 @@ def json_graph_to_pyg(
 
     Erwartete Rückgabe:
     Data(
-        x=[num_nodes, 16],
+        x=[num_nodes, 8],
         edge_index=[2, num_edges],
         edge_attr=[num_edges, 5],
         graph_id=...,
@@ -241,13 +213,13 @@ def json_graph_to_pyg(
     node_ids = [n.get("id") for n in nodes]
     node_types = [n.get("type") for n in nodes]
 
-    # Node-Features x = [num_nodes, 16]
+    # Node-Features x = [num_nodes, 8]
     # Liste von Listen
     # Beispiel:
     # x_list = [
-    #     [... 16 floats für Node 0...],
-    #     [... 16 floats für Node 1...],
-    #     [... 16 floats für Node 2...],]
+    #     [... 8 floats für Node 0...],
+    #     [... 8 floats für Node 1...],
+    #     [... 8 floats für Node 2...],]
     x_list: List[List[float]] = [_encode_node_features(n) for n in nodes]
 
     # Daraus ein Tensor → Knoten-Feature-Matrix
