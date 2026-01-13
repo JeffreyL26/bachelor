@@ -14,7 +14,7 @@ if __name__ == "__main__":
     BASE = os.path.dirname(os.path.abspath(__file__))
 
     ist_path = os.path.join(BASE, "data", "ist_graphs_all.jsonl")
-    soll_path = os.path.join(BASE, "data", "lbs_soll_graphs_pro.jsonl")
+    soll_path = os.path.join(BASE, "data", "lbs_soll_graphs.jsonl")
 
     print("Ist-Pfad:", ist_path)
     ist_graphs = load_jsonl_as_pyg(ist_path, undirected=True)  # symmetrische Verbindungen

@@ -237,20 +237,19 @@ def _build_nodes_from_optionality(opt: Dict[str, Any]) -> Tuple[List[Dict[str, A
         # Domain-Features
         if obj_type == "MaLo":
             # bevorzugt aus _lbs_optionality; fallback auf direction_hint
-            direction = obj.get("direction") or obj.get("direction_hint")
+            direction = obj.get("direction")
             if direction:
                 attrs["direction"] = direction
         elif obj_type == "MeLo":
             fn = obj.get("melo_function") or "N"
             attrs["function"] = fn
             attrs["dynamic"] = 1 if fn == "H" else 0
-            # direction_hint kann in Templates vorkommen; optional speichern
-            if obj.get("direction_hint"):
-                attrs["direction_hint"] = obj.get("direction_hint")
+            direction = obj.get("direction")
+            if direction:
+                attrs["direction"] = direction
         elif obj_type == "TR":
-            tr_dir = obj.get("tr_direction")
+            tr_dir = obj.get("direction")
             if tr_dir:
-                attrs["tr_direction"] = tr_dir
                 # Für einheitliche Feature-Kodierung: direction als Alias
                 attrs["direction"] = tr_dir
         # NeLo: keine zusätzlichen Features
