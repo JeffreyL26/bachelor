@@ -242,9 +242,22 @@ def canonicalize(tables: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
         raise ValueError("POD_REL: Spalten für MaLo/MeLo nicht gefunden!")
     pr.rename(columns={pr_malo_cols[0]: "malo_id", pr_melo_cols[0]: "melo_id"}, inplace=True)
 
+    # Optional: NeLo-Spalte (Netzlokation) – in manchen PODREL-Exports vorhanden (z.B. Spalte "NELO")
+    pr_nelo_cols = [c for c in pr.columns if c in ("nelo", "nelo_id") or ("nelo" in c)]
+    if pr_nelo_cols:
+        pr.rename(columns={pr_nelo_cols[0]: "nelo_id"}, inplace=True)
+        pr["nelo_id"] = _clean_id_series(pr["nelo_id"])
+
     pr["malo_id"] = _clean_id_series(pr["malo_id"])
     pr["melo_id"] = _clean_id_series(pr["melo_id"])
-    pr = pr[(pr["malo_id"] != "") & (pr["melo_id"] != "")]
+    # POD_REL kann zwei Arten von Beziehungen enthalten:
+    #   (1) MaLo <-> MeLo  (für Bündel/Komponenten)
+    #   (2) MeLo <-> NeLo  (Spalte "NELO" kann befüllt sein, MaLo ggf. leer)
+    # Für (1) brauchen wir MaLo+MeLo, für (2) mindestens MeLo+NeLo.
+    if "nelo_id" in pr.columns:
+        pr = pr[(pr["melo_id"] != "") & ((pr["malo_id"] != "") | (pr["nelo_id"] != ""))]
+    else:
+        pr = pr[(pr["malo_id"] != "") & (pr["melo_id"] != "")]
     t["pod_rel"] = pr
 
     # ------------------------------
@@ -400,6 +413,12 @@ def component_builder(dataframe_dict: Dict[str, pd.DataFrame]) -> List[Tuple[set
     # Spalten MaLo und MeLo
     pr = dataframe_dict["pod_rel"][["malo_id", "melo_id"]].dropna().astype(str)
 
+    # Durch NeLo-Relationen können in POD_REL Zeilen ohne MaLo vorkommen.
+    # Für die Komponentenbildung (Bündel) berücksichtigen wir **nur** echte MaLo–MeLo-Kanten.
+    pr["malo_id"] = pr["malo_id"].astype(str).str.strip()
+    pr["melo_id"] = pr["melo_id"].astype(str).str.strip()
+    pr = pr[(pr["malo_id"] != "") & (pr["melo_id"] != "") & (pr["malo_id"].str.lower() != "nan") & (pr["melo_id"].str.lower() != "nan")]
+
     # Ungerichteter Graph, wir prüfen erst auf allgemeine Verbundenheit
     G = nx.Graph()
     for _, row in pr.iterrows():
@@ -493,6 +512,12 @@ def build_graphs(t: Dict[str, pd.DataFrame],
     """
     malo_df = t["malo"].copy()
     pr_df   = t["pod_rel"][["malo_id", "melo_id"]].dropna().astype(str).copy()
+
+    # Durch NeLo-Relationen können in POD_REL Zeilen ohne MaLo vorkommen.
+    # Für MaLo–MeLo-Adjazenz und MEMA-Kanten nutzen wir nur Zeilen mit beiden IDs.
+    pr_df["malo_id"] = pr_df["malo_id"].astype(str).str.strip()
+    pr_df["melo_id"] = pr_df["melo_id"].astype(str).str.strip()
+    pr_df = pr_df[(pr_df["malo_id"] != "") & (pr_df["melo_id"] != "") & (pr_df["malo_id"].str.lower() != "nan") & (pr_df["melo_id"].str.lower() != "nan")]
     tr_df = t.get("tr")  # optional
 
     bndl_df = t.get("bndl2mc")  # optional
@@ -507,6 +532,18 @@ def build_graphs(t: Dict[str, pd.DataFrame],
     for _, r in pr_df.iterrows():
         malos_by_melo[str(r.melo_id)].add(str(r.malo_id))
         melos_by_malo[str(r.malo_id)].add(str(r.melo_id))
+
+
+    # Adjazenz: MeLo -> {NeLo} (nur falls POD_REL eine NeLo-Spalte hat)
+    nelos_by_melo = defaultdict(set)
+    if "nelo_id" in t["pod_rel"].columns:
+        pr_nelo_df = t["pod_rel"][["melo_id", "nelo_id"]].dropna().astype(str).copy()
+        pr_nelo_df["melo_id"] = pr_nelo_df["melo_id"].astype(str).str.strip()
+        pr_nelo_df["nelo_id"] = pr_nelo_df["nelo_id"].astype(str).str.strip()
+        pr_nelo_df = pr_nelo_df[(pr_nelo_df["melo_id"] != "") & (pr_nelo_df["nelo_id"] != "") & (pr_nelo_df["nelo_id"].str.lower() != "nan")]
+
+        for melo_id, grp in pr_nelo_df.groupby("melo_id")["nelo_id"]:
+            nelos_by_melo[melo_id] = set(grp.tolist())
 
     # METER: Zähler-Richtung pro MeLo (falls vorhanden)
     # - SDF: "meter_direction_code" ist typischerweise ERZ oder ZRZ
@@ -560,6 +597,8 @@ def build_graphs(t: Dict[str, pd.DataFrame],
 
         nodes: List[Dict[str, Any]] = []
         edges: List[Dict[str, Any]] = []
+        comp_nelos: set = set()  # NeLo-IDs innerhalb dieser Komponente
+
 
         # Richtung pro MaLo (für Ableitung TR-direction)
         malo_dir = {}
@@ -634,6 +673,25 @@ def build_graphs(t: Dict[str, pd.DataFrame],
                                 seen_metr.add(key)
                                 edges.append(make_edge(melo_id, tr_id, "METR"))
 
+
+        # --- NeLo-Knoten + MENE-Kanten (MeLo -> NeLo) ---
+        # Zuordnung NeLo -> MeLo erfolgt über die Spalte "NELO" in PODREL (falls vorhanden).
+        # NeLo besitzt im Ist-Datensatz keine weiteren Attribute (nur ID).
+        seen_mene = set()
+        if nelos_by_melo:
+            for melo_id in sorted(melos):
+                for nelo_id in sorted(nelos_by_melo.get(melo_id, set())):
+                    if not nelo_id:
+                        continue
+                    comp_nelos.add(nelo_id)
+                    key = (melo_id, nelo_id)
+                    if key not in seen_mene:
+                        seen_mene.add(key)
+                        edges.append(make_edge(melo_id, nelo_id, "MENE"))
+
+        for nelo_id in sorted(comp_nelos):
+            nodes.append(make_node(nelo_id, "NeLo", {}))
+
         # --- MEMA-Kanten (MeLo -> MaLo) ---
         # Effizient: über die bereits aufgebaute Adjazenz (malos_by_melo) iterieren (O(E) statt O(E * #Comps))
         seen_mema = set()
@@ -671,7 +729,7 @@ def build_graphs(t: Dict[str, pd.DataFrame],
         # --- Graph-Metadaten / Graph-Features ---
 
         tr_count = len(seen_tr)
-        nelo_count = 0  # Relations fehlen derzeit
+        nelo_count = len(comp_nelos)
 
         edge_type_counts = defaultdict(int)
         for e in edges:
@@ -782,6 +840,11 @@ def relation_validation(t: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
     :rtype: Dict[str, Any]
     """
     pr = t["pod_rel"][["malo_id", "melo_id"]].dropna().astype(str)          # Relationstabelle ohne Zeilen, in denen eine der beiden IDs fehlt
+    # Durch NeLo-Relationen können in POD_REL Zeilen ohne MaLo vorkommen.
+    # Für diese Validierung betrachten wir nur echte MaLo–MeLo-Kanten.
+    pr["malo_id"] = pr["malo_id"].astype(str).str.strip()
+    pr["melo_id"] = pr["melo_id"].astype(str).str.strip()
+    pr = pr[(pr["malo_id"] != "") & (pr["melo_id"] != "") & (pr["malo_id"].str.lower() != "nan") & (pr["melo_id"].str.lower() != "nan")]
     malo_ids = set(t["malo"]["malo_id"].astype(str))
     melo_ids = set(t["melo"]["melo_id"].astype(str))
     missing_malo = [(r.malo_id, r.melo_id) for _, r in pr.iterrows() if r.malo_id not in malo_ids]
@@ -844,7 +907,7 @@ if __name__ == "__main__":
         all_graphs.extend(graphs)
 
         from collections import Counter
-        print(f"[{tag}] Gebaut: {len(graphs)} Graphen (Pattern-Counts):")
+        print(f"[{tag}] Gebaut: {len(graphs)} Graphen")
 
         # Dataset-spezifischer Export
         #out_name = "ist_graphs.jsonl" if tag == "sdf" else "ist_graphs_pro.jsonl"
