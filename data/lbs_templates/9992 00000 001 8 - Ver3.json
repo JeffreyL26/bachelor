@@ -142,8 +142,7 @@
         "level": 1,
         "min_occurs": 0,
         "max_occurs": "N",
-        "flexibility": "flexibel",
-        "comment": "Optional/repeatable Net location according to BDEW depiction."
+        "flexibility": "flexibel"
       },
       {
         "object_code": "9992000001024",
@@ -152,8 +151,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "tr_direction": "consumption",
-        "comment": "Optional/repeatable technical resource according to BDEW depiction."
+        "direction": "consumption"
       },
       {
         "object_code": "9992000001016",
@@ -162,7 +160,7 @@
         "min_occurs": 1,
         "max_occurs": 1,
         "flexibility": "starr",
-        "comment": "Mandatory market location according to BDEW depiction; already present as role MA_BZG in SAP export."
+        "direction": "consumption"
       }
     ],
     "known_gap_vs_bdew": [

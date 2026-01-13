@@ -1828,7 +1828,7 @@
         "max_occurs": 1,
         "flexibility": "starr",
         "melo_function": "N",
-        "direction_hint": "consumption+generation (Netzübergabe)"
+        "direction": "both"
       },
       {
         "object_code": "9992000001230",
@@ -1838,7 +1838,7 @@
         "max_occurs": 1,
         "flexibility": "starr",
         "melo_function": "D",
-        "direction_hint": "generation (Differenzmessung)"
+        "direction": "generation"
       },
       {
         "object_code": "9992000001090",
@@ -1848,7 +1848,7 @@
         "max_occurs": "N",
         "flexibility": "flexibel",
         "melo_function": "H",
-        "direction_hint": "generation (Hinterschaltung)"
+        "direction": "generation"
       },
       {
         "object_code": "9992000001149",
@@ -1857,7 +1857,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "tr_direction": "consumption"
+        "direction": "consumption"
       },
       {
         "object_code": "9992000001165",
@@ -1866,7 +1866,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "tr_direction": "consumption+generation(storage)"
+        "direction": "both"
       },
       {
         "object_code": "9992000001157",
@@ -1875,7 +1875,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "tr_direction": "generation"
+        "direction": "generation"
       },
       {
         "object_code": "9992000001313",
@@ -1884,7 +1884,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "tr_direction": "consumption+generation(storage)",
+        "direction": "both",
         "reference_to_melo": "9992000001090"
       },
       {
@@ -1894,7 +1894,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "tr_direction": "generation",
+        "direction": "generation",
         "reference_to_melo": "9992000001090"
       },
       {

@@ -929,7 +929,7 @@
         "max_occurs": 1,
         "flexibility": "starr",
         "melo_function": "N",
-        "direction_hint": "consumption+generation (Netzübergabe)"
+        "direction": "both"
       },
       {
         "object_code": "9992000001024",
@@ -938,7 +938,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "tr_direction": "consumption"
+        "direction": "consumption"
       },
       {
         "object_code": "9992000001058",
@@ -947,7 +947,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "tr_direction": "generation"
+        "direction": "generation"
       },
       {
         "object_code": "9992000001074",
@@ -956,7 +956,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "tr_direction": "consumption+generation(storage)"
+        "direction": "both"
       },
       {
         "object_code": "9992000001016",

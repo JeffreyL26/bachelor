@@ -590,7 +590,7 @@
         "min_occurs": 1,
         "max_occurs": 1,
         "flexibility": "starr",
-        "direction_hint": "consumption+generation (Netzübergabe)",
+        "direction": "both",
         "melo_function": "N"
       },
       {
@@ -600,7 +600,7 @@
         "min_occurs": 1,
         "max_occurs": 1,
         "flexibility": "starr",
-        "direction_hint": "consumption (Differenzmessung)",
+        "direction": "consumption",
         "melo_function": "D"
       },
       {
@@ -610,7 +610,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "direction_hint": "consumption"
+        "direction": "consumption"
       },
       {
         "object_code": "9992000001149",
@@ -619,7 +619,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "direction_hint": "consumption"
+        "direction": "consumption"
       },
       {
         "object_code": "9992000001165",
@@ -628,7 +628,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "direction_hint": "consumption+generation(storage)"
+        "direction": "both"
       },
       {
         "object_code": "9992000001157",
@@ -637,7 +637,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "direction_hint": "generation"
+        "direction": "generation"
       },
       {
         "object_code": "9992000001016",
@@ -646,7 +646,7 @@
         "min_occurs": 1,
         "max_occurs": 1,
         "flexibility": "starr",
-        "direction_hint": "consumption"
+        "direction": "consumption"
       },
       {
         "object_code": "9992000001107",
@@ -655,7 +655,7 @@
         "min_occurs": 1,
         "max_occurs": 1,
         "flexibility": "starr",
-        "direction_hint": "consumption"
+        "direction": "consumption"
       },
       {
         "object_code": "9992000001115",
@@ -664,7 +664,7 @@
         "min_occurs": 1,
         "max_occurs": 1,
         "flexibility": "starr",
-        "direction_hint": "generation"
+        "direction": "generation"
       }
     ],
     "constraints": []

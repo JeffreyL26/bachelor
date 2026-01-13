@@ -709,7 +709,7 @@
         "max_occurs": 1,
         "flexibility": "starr",
         "melo_function": "N",
-        "direction_hint": "consumption+generation (Netzübergabe)"
+        "direction": "both"
       },
       {
         "object_code": "9992000001222",
@@ -719,7 +719,7 @@
         "max_occurs": 1,
         "flexibility": "starr",
         "melo_function": "D",
-        "direction_hint": "consumption (Differenzmessung)"
+        "direction": "consumption"
       },
       {
         "object_code": "9992000001206",
@@ -729,7 +729,7 @@
         "max_occurs": 1,
         "flexibility": "starr",
         "melo_function": "H",
-        "direction_hint": "generation (Hinterschaltung)"
+        "direction": "generation"
       },
       {
         "object_code": "9992000001024",
@@ -765,7 +765,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "direction": "consumption+generation(storage)"
+        "direction": "both"
       },
       {
         "object_code": "9992000001016",
@@ -813,11 +813,7 @@
       }
     ],
     "constraints": {
-      "reference_rules": [],
-      "notes": [
-        "Für 9992 00000 018 3 wurden in den bereitgestellten Ausschnitten keine zusätzlichen Referenz-/Disambiguierungsregeln (occurs>1) angegeben; daher bleibt reference_rules leer.",
-        "Kantenmodell: MeLo→NeLo=MENE, MeLo→MeLo=MEME, MeLo→MaLo=MEMA, MeLo→TR=METR. Keine reference_to_* Felder im Template."
-      ]
+      "reference_rules": []
     },
     "known_tension_with_sap_export": [
       "graph_templates.py wertet aktuell genau eine Variante pro Datei aus; mehrere Varianten innerhalb einer Datei würden ignoriert.",

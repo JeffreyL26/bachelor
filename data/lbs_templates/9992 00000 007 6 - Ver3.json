@@ -1,26 +1,12 @@
 {
   "T_ROLE": [
     {
-      "ID": "ANE_BEZUG",
-      "CATEGORY": "01",
-      "T_DESCR": [
-        {
-          "LANG": "D",
-          "DESCR": "Anlage Netzlokation"
-        }
-      ],
-      "T_ATTR": [],
-      "ROLE_TYPE": 2,
-      "LBS_OBJECT_CODE": 0,
-      "LBS_OBJECT_LEVEL": 0
-    },
-    {
       "ID": "AMA_BZG",
       "CATEGORY": "01",
       "T_DESCR": [
         {
           "LANG": "D",
-          "DESCR": "Anlage MaLo Bezug"
+          "DESCR": "Anlage Malo Bezug"
         }
       ],
       "T_ATTR": [
@@ -30,9 +16,44 @@
           "ATTR_VALUE": "0001"
         },
         {
-          "ATTR_CATEGORY": "UISTRUTYP",
+          "ATTR_CATEGORY": "BEZUG",
           "DIVISION": "",
-          "ATTR_VALUE": "MA"
+          "ATTR_VALUE": ""
+        },
+        {
+          "ATTR_CATEGORY": "SERVICE",
+          "DIVISION": "",
+          "ATTR_VALUE": "E011"
+        },
+        {
+          "ATTR_CATEGORY": "SPEBENE",
+          "DIVISION": "",
+          "ATTR_VALUE": "NS/MS/HS"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "AMA_EIN",
+      "CATEGORY": "01",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage Malo Einspeisung"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "BEZUG",
+          "DIVISION": "",
+          "ATTR_VALUE": "X"
+        },
+        {
+          "ATTR_CATEGORY": "SERVICE",
+          "DIVISION": "",
+          "ATTR_VALUE": "E113/E015"
         }
       ],
       "ROLE_TYPE": 0,
@@ -45,69 +66,14 @@
       "T_DESCR": [
         {
           "LANG": "D",
-          "DESCR": "Anlage MaLo hinterschalteter Verbraucher"
+          "DESCR": "Anlage Malo hinterschalteter Verbraucher"
         }
       ],
       "T_ATTR": [
         {
-          "ATTR_CATEGORY": "AKLASSE",
+          "ATTR_CATEGORY": "BEZUG",
           "DIVISION": "",
-          "ATTR_VALUE": "0001"
-        },
-        {
-          "ATTR_CATEGORY": "UISTRUTYP",
-          "DIVISION": "",
-          "ATTR_VALUE": "MA"
-        }
-      ],
-      "ROLE_TYPE": 0,
-      "LBS_OBJECT_CODE": 0,
-      "LBS_OBJECT_LEVEL": 0
-    },
-    {
-      "ID": "AMA_VBR_2",
-      "CATEGORY": "01",
-      "T_DESCR": [
-        {
-          "LANG": "D",
-          "DESCR": "Anlage MaLo Bezug (zu Erzeugung)"
-        }
-      ],
-      "T_ATTR": [
-        {
-          "ATTR_CATEGORY": "AKLASSE",
-          "DIVISION": "",
-          "ATTR_VALUE": "0001"
-        },
-        {
-          "ATTR_CATEGORY": "UISTRUTYP",
-          "DIVISION": "",
-          "ATTR_VALUE": "MA"
-        }
-      ],
-      "ROLE_TYPE": 0,
-      "LBS_OBJECT_CODE": 0,
-      "LBS_OBJECT_LEVEL": 0
-    },
-    {
-      "ID": "AMA_EIN_2",
-      "CATEGORY": "01",
-      "T_DESCR": [
-        {
-          "LANG": "D",
-          "DESCR": "Anlage MaLo Einspeisung"
-        }
-      ],
-      "T_ATTR": [
-        {
-          "ATTR_CATEGORY": "AKLASSE",
-          "DIVISION": "",
-          "ATTR_VALUE": "0001"
-        },
-        {
-          "ATTR_CATEGORY": "UISTRUTYP",
-          "DIVISION": "",
-          "ATTR_VALUE": "MA"
+          "ATTR_VALUE": ""
         }
       ],
       "ROLE_TYPE": 0,
@@ -120,14 +86,29 @@
       "T_DESCR": [
         {
           "LANG": "D",
-          "DESCR": "Anlage MeLo Netzübergabe (Einspeisung und Bezug)"
+          "DESCR": "Anlage Melo Einspeisung+Bezug"
         }
       ],
       "T_ATTR": [
         {
-          "ATTR_CATEGORY": "UISTRUTYP",
+          "ATTR_CATEGORY": "AKLASSE",
           "DIVISION": "",
-          "ATTR_VALUE": "ME"
+          "ATTR_VALUE": "0001"
+        },
+        {
+          "ATTR_CATEGORY": "SERVICE",
+          "DIVISION": "",
+          "ATTR_VALUE": "E011"
+        },
+        {
+          "ATTR_CATEGORY": "SPEBENE",
+          "DIVISION": "",
+          "ATTR_VALUE": "NS/MS/HS"
+        },
+        {
+          "ATTR_CATEGORY": "TARIFTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "MELO_DMY"
         }
       ],
       "ROLE_TYPE": 0,
@@ -140,14 +121,28 @@
       "T_DESCR": [
         {
           "LANG": "D",
-          "DESCR": "Anlage MeLo Hinterschaltung Bezug"
+          "DESCR": "Anlage Melo hinterschalteter Verbraucher"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "ERZE_SOLGEB",
+      "CATEGORY": "16",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Erzeugungseinheit Solar Gebäude"
         }
       ],
       "T_ATTR": [
         {
-          "ATTR_CATEGORY": "UISTRUTYP",
+          "ATTR_CATEGORY": "GEN_ENERGY_TYPE",
           "DIVISION": "",
-          "ATTR_VALUE": "ME"
+          "ATTR_VALUE": "SOLARGEB"
         }
       ],
       "ROLE_TYPE": 0,
@@ -155,84 +150,32 @@
       "LBS_OBJECT_LEVEL": 0
     },
     {
-      "ID": "AME_ERZ",
-      "CATEGORY": "01",
+      "ID": "G_BZGEIN",
+      "CATEGORY": "04",
       "T_DESCR": [
         {
           "LANG": "D",
-          "DESCR": "Anlage MeLo Hinterschaltung Erzeugung"
+          "DESCR": "2-Richtungszähler Einspeisung und Bezug"
         }
       ],
-      "T_ATTR": [
-        {
-          "ATTR_CATEGORY": "UISTRUTYP",
-          "DIVISION": "",
-          "ATTR_VALUE": "ME"
-        }
-      ],
+      "T_ATTR": [],
       "ROLE_TYPE": 0,
       "LBS_OBJECT_CODE": 0,
       "LBS_OBJECT_LEVEL": 0
     },
     {
-      "ID": "ME_BZGEIN",
-      "CATEGORY": "03",
+      "ID": "G_HS_BZG",
+      "CATEGORY": "04",
       "T_DESCR": [
         {
           "LANG": "D",
-          "DESCR": "MeLo Netzübergabe (Einspeisung und Bezug)"
+          "DESCR": "Gerät hinterschalteter Verbraucher"
         }
       ],
-      "T_ATTR": [
-        {
-          "ATTR_CATEGORY": "UISTRUTYP",
-          "DIVISION": "",
-          "ATTR_VALUE": "ME"
-        }
-      ],
+      "T_ATTR": [],
       "ROLE_TYPE": 0,
-      "LBS_OBJECT_CODE": 9992000001214,
-      "LBS_OBJECT_LEVEL": 1
-    },
-    {
-      "ID": "ME_HS_BZG",
-      "CATEGORY": "03",
-      "T_DESCR": [
-        {
-          "LANG": "D",
-          "DESCR": "MeLo Hinterschaltung Bezug"
-        }
-      ],
-      "T_ATTR": [
-        {
-          "ATTR_CATEGORY": "UISTRUTYP",
-          "DIVISION": "",
-          "ATTR_VALUE": "ME"
-        }
-      ],
-      "ROLE_TYPE": 0,
-      "LBS_OBJECT_CODE": 9992000001082,
-      "LBS_OBJECT_LEVEL": 2
-    },
-    {
-      "ID": "ME_ERZ",
-      "CATEGORY": "03",
-      "T_DESCR": [
-        {
-          "LANG": "D",
-          "DESCR": "MeLo Hinterschaltung Erzeugung"
-        }
-      ],
-      "T_ATTR": [
-        {
-          "ATTR_CATEGORY": "UISTRUTYP",
-          "DIVISION": "",
-          "ATTR_VALUE": "ME"
-        }
-      ],
-      "ROLE_TYPE": 0,
-      "LBS_OBJECT_CODE": 9992000001090,
-      "LBS_OBJECT_LEVEL": 2
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
     },
     {
       "ID": "MA_BZG",
@@ -240,18 +183,58 @@
       "T_DESCR": [
         {
           "LANG": "D",
-          "DESCR": "MaLo Bezug"
+          "DESCR": "Malo Bezug"
         }
       ],
       "T_ATTR": [
         {
+          "ATTR_CATEGORY": "DEREGSCENARIO",
+          "DIVISION": "",
+          "ATTR_VALUE": "300/301"
+        },
+        {
           "ATTR_CATEGORY": "UISTRUTYP",
           "DIVISION": "",
           "ATTR_VALUE": "MA"
+        },
+        {
+          "ATTR_CATEGORY": "UITYPE",
+          "DIVISION": "",
+          "ATTR_VALUE": "0001//"
         }
       ],
       "ROLE_TYPE": 0,
       "LBS_OBJECT_CODE": 9992000001016,
+      "LBS_OBJECT_LEVEL": 1
+    },
+    {
+      "ID": "MA_EIN",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Malo Einspeisung"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "DEREGSCENARIO",
+          "DIVISION": "",
+          "ATTR_VALUE": "310/311"
+        },
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "MA"
+        },
+        {
+          "ATTR_CATEGORY": "UITYPE",
+          "DIVISION": "",
+          "ATTR_VALUE": "0001/ /"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001066,
       "LBS_OBJECT_LEVEL": 1
     },
     {
@@ -260,7 +243,7 @@
       "T_DESCR": [
         {
           "LANG": "D",
-          "DESCR": "MaLo hinterschalteter Verbraucher"
+          "DESCR": "Malo hinterschalteter Verbraucher"
         }
       ],
       "T_ATTR": [
@@ -275,48 +258,58 @@
       "LBS_OBJECT_LEVEL": 2
     },
     {
-      "ID": "MA_VBR_2",
+      "ID": "ME_BZGEIN",
       "CATEGORY": "03",
       "T_DESCR": [
         {
           "LANG": "D",
-          "DESCR": "MaLo Bezug (zu Erzeugung)"
+          "DESCR": "Melo Einspeisung und Bezug"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "DEREGSCENARIO",
+          "DIVISION": "",
+          "ATTR_VALUE": "302"
+        },
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "ME"
+        },
+        {
+          "ATTR_CATEGORY": "UITYPE",
+          "DIVISION": "",
+          "ATTR_VALUE": "0001//"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001214,
+      "LBS_OBJECT_LEVEL": 1
+    },
+    {
+      "ID": "ME_HS_BZG",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Melo hinterschalteter Verbraucher"
         }
       ],
       "T_ATTR": [
         {
           "ATTR_CATEGORY": "UISTRUTYP",
           "DIVISION": "",
-          "ATTR_VALUE": "MA"
+          "ATTR_VALUE": "ME"
         }
       ],
       "ROLE_TYPE": 0,
-      "LBS_OBJECT_CODE": 9992000001272,
+      "LBS_OBJECT_CODE": 9992000001082,
       "LBS_OBJECT_LEVEL": 2
     },
     {
-      "ID": "MA_EIN_2",
-      "CATEGORY": "03",
-      "T_DESCR": [
-        {
-          "LANG": "D",
-          "DESCR": "MaLo Einspeisung"
-        }
-      ],
-      "T_ATTR": [
-        {
-          "ATTR_CATEGORY": "UISTRUTYP",
-          "DIVISION": "",
-          "ATTR_VALUE": "MA"
-        }
-      ],
-      "ROLE_TYPE": 0,
-      "LBS_OBJECT_CODE": 9992000001115,
-      "LBS_OBJECT_LEVEL": 2
-    },
-    {
-      "ID": "TR_BZG_L1",
-      "CATEGORY": "03",
+      "ID": "TR_BZG",
+      "CATEGORY": "14",
       "T_DESCR": [
         {
           "LANG": "D",
@@ -325,9 +318,9 @@
       ],
       "T_ATTR": [
         {
-          "ATTR_CATEGORY": "UISTRUTYP",
-          "DIVISION": "",
-          "ATTR_VALUE": "TR"
+          "ATTR_CATEGORY": "TECH_RESRC_TYPE",
+          "DIVISION": "01",
+          "ATTR_VALUE": "Z17"
         }
       ],
       "ROLE_TYPE": 0,
@@ -335,97 +328,167 @@
       "LBS_OBJECT_LEVEL": 1
     },
     {
-      "ID": "TR_BZG_L2",
-      "CATEGORY": "03",
+      "ID": "VKONT_BZGE",
+      "CATEGORY": "06",
       "T_DESCR": [
         {
           "LANG": "D",
-          "DESCR": "TR Bezug (flexibel)"
+          "DESCR": "Vertragskonto-Hülle Bezug für Einspeisekonstrukte"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "VKONT_EIN",
+      "CATEGORY": "06",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Vertragskonto Einspeiser"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "VTG_BZG",
+      "CATEGORY": "05",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Vertrag Marktlokation Bezug"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "VTG_BZG_RL",
+      "CATEGORY": "05",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Vertrag Bezug RLM"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "VTG_EIN",
+      "CATEGORY": "05",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Vertrag Einspeiser"
+        }
+      ],
+      "T_ATTR": [],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "ZWP+",
+      "CATEGORY": "08",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "ZW Ausspeisung"
         }
       ],
       "T_ATTR": [
         {
-          "ATTR_CATEGORY": "UISTRUTYP",
-          "DIVISION": "",
-          "ATTR_VALUE": "TR"
+          "ATTR_CATEGORY": "BLIWIRK",
+          "DIVISION": "01",
+          "ATTR_VALUE": "02"
+        },
+        {
+          "ATTR_CATEGORY": "KENNZIFF",
+          "DIVISION": "01",
+          "ATTR_VALUE": "1-0:1.8.*/1-1:1.8.*/1-1:1.29.0"
         }
       ],
       "ROLE_TYPE": 0,
-      "LBS_OBJECT_CODE": 9992000001149,
-      "LBS_OBJECT_LEVEL": 2
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
     },
     {
-      "ID": "TR_SPEI_L2",
-      "CATEGORY": "03",
+      "ID": "ZWP+HS",
+      "CATEGORY": "08",
       "T_DESCR": [
         {
           "LANG": "D",
-          "DESCR": "TR Speicher (Verbrauch & Erzeugung)"
+          "DESCR": "ZW Ausspeisung"
         }
       ],
       "T_ATTR": [
         {
-          "ATTR_CATEGORY": "UISTRUTYP",
-          "DIVISION": "",
-          "ATTR_VALUE": "TR"
+          "ATTR_CATEGORY": "BLIWIRK",
+          "DIVISION": "01",
+          "ATTR_VALUE": "02"
+        },
+        {
+          "ATTR_CATEGORY": "KENNZIFF",
+          "DIVISION": "01",
+          "ATTR_VALUE": "1-1:1.29.0"
+        },
+        {
+          "ATTR_CATEGORY": "ZWTYP",
+          "DIVISION": "01",
+          "ATTR_VALUE": "04"
         }
       ],
       "ROLE_TYPE": 0,
-      "LBS_OBJECT_CODE": 9992000001165,
-      "LBS_OBJECT_LEVEL": 2
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
     },
     {
-      "ID": "TR_EIN_L2",
-      "CATEGORY": "03",
+      "ID": "ZWP-",
+      "CATEGORY": "08",
       "T_DESCR": [
         {
           "LANG": "D",
-          "DESCR": "TR Erzeugung"
+          "DESCR": "ZW Einspeisung Wirk A-"
         }
       ],
       "T_ATTR": [
         {
-          "ATTR_CATEGORY": "UISTRUTYP",
-          "DIVISION": "",
-          "ATTR_VALUE": "TR"
+          "ATTR_CATEGORY": "BLIWIRK",
+          "DIVISION": "01",
+          "ATTR_VALUE": "02"
+        },
+        {
+          "ATTR_CATEGORY": "KENNZIFF",
+          "DIVISION": "01",
+          "ATTR_VALUE": "1-0:2.8.*/1-1:2.8.*/1-1:2.29.0"
         }
       ],
       "ROLE_TYPE": 0,
-      "LBS_OBJECT_CODE": 9992000001157,
-      "LBS_OBJECT_LEVEL": 2
-    },
-    {
-      "ID": "NELO",
-      "CATEGORY": "03",
-      "T_DESCR": [
-        {
-          "LANG": "D",
-          "DESCR": "Zählpunkt NeLo"
-        }
-      ],
-      "T_ATTR": [
-        {
-          "ATTR_CATEGORY": "UISTRUTYP",
-          "DIVISION": "",
-          "ATTR_VALUE": "NE"
-        }
-      ],
-      "ROLE_TYPE": 2,
-      "LBS_OBJECT_CODE": 9992000001256,
-      "LBS_OBJECT_LEVEL": 1
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
     }
   ],
   "T_MC": [
     {
-      "MCID": "3:4_FLEX_HS_SEPGEN",
+      "MCID": "3:2_HS_VBR",
       "CONCEPT_CATEGORY": 2,
       "CHECK_MAN": "",
-      "LBS_CODE": 9992000000084,
+      "LBS_CODE": 9992000000076,
       "EMPTY_OR_BUFFER": "",
       "T_DESCR": [
         {
           "LANG": "D",
-          "DESCR": "Verbrauch mit flexibler Hinterschaltung und getrennt gemessener flexibler Erzeugung"
+          "DESCR": "Überschusseinspeiser mit hinterschaltetem Verbraucher"
         }
       ],
       "T_VAR": [
@@ -443,23 +506,23 @@
           ],
           "T_ROLE": [
             {
-              "ROLE_ID": "ANE_BEZUG",
-              "FREQUENCY_MIN": 1,
-              "FREQUENCY_MAX": 1,
-              "LAYOUT": {
-                "X": 150,
-                "Y": 330,
-                "STRAND": ""
-              },
-              "T_IAV": []
-            },
-            {
               "ROLE_ID": "AMA_BZG",
               "FREQUENCY_MIN": 1,
               "FREQUENCY_MAX": 1,
               "LAYOUT": {
                 "X": 150,
-                "Y": 280,
+                "Y": 320,
+                "STRAND": ""
+              },
+              "T_IAV": []
+            },
+            {
+              "ROLE_ID": "AMA_EIN",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "LAYOUT": {
+                "X": 300,
+                "Y": 320,
                 "STRAND": ""
               },
               "T_IAV": []
@@ -469,30 +532,8 @@
               "FREQUENCY_MIN": 1,
               "FREQUENCY_MAX": 1,
               "LAYOUT": {
-                "X": 300,
-                "Y": 280,
-                "STRAND": ""
-              },
-              "T_IAV": []
-            },
-            {
-              "ROLE_ID": "AMA_VBR_2",
-              "FREQUENCY_MIN": 1,
-              "FREQUENCY_MAX": 1,
-              "LAYOUT": {
                 "X": 450,
-                "Y": 280,
-                "STRAND": ""
-              },
-              "T_IAV": []
-            },
-            {
-              "ROLE_ID": "AMA_EIN_2",
-              "FREQUENCY_MIN": 1,
-              "FREQUENCY_MAX": 1,
-              "LAYOUT": {
-                "X": 600,
-                "Y": 280,
+                "Y": 320,
                 "STRAND": ""
               },
               "T_IAV": []
@@ -502,8 +543,8 @@
               "FREQUENCY_MIN": 1,
               "FREQUENCY_MAX": 1,
               "LAYOUT": {
-                "X": 150,
-                "Y": 240,
+                "X": 600,
+                "Y": 320,
                 "STRAND": ""
               },
               "T_IAV": []
@@ -513,19 +554,41 @@
               "FREQUENCY_MIN": 1,
               "FREQUENCY_MAX": 1,
               "LAYOUT": {
-                "X": 300,
-                "Y": 240,
+                "X": 750,
+                "Y": 320,
                 "STRAND": ""
               },
               "T_IAV": []
             },
             {
-              "ROLE_ID": "AME_ERZ",
+              "ROLE_ID": "ERZE_SOLGEB",
+              "FREQUENCY_MIN": 0,
+              "FREQUENCY_MAX": 99,
+              "LAYOUT": {
+                "X": 0,
+                "Y": 0,
+                "STRAND": ""
+              },
+              "T_IAV": []
+            },
+            {
+              "ROLE_ID": "G_BZGEIN",
               "FREQUENCY_MIN": 1,
               "FREQUENCY_MAX": 1,
               "LAYOUT": {
-                "X": 450,
-                "Y": 240,
+                "X": 150,
+                "Y": 470,
+                "STRAND": ""
+              },
+              "T_IAV": []
+            },
+            {
+              "ROLE_ID": "G_HS_BZG",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "LAYOUT": {
+                "X": 300,
+                "Y": 470,
                 "STRAND": ""
               },
               "T_IAV": []
@@ -536,7 +599,18 @@
               "FREQUENCY_MAX": 1,
               "LAYOUT": {
                 "X": 150,
-                "Y": 160,
+                "Y": 150,
+                "STRAND": ""
+              },
+              "T_IAV": []
+            },
+            {
+              "ROLE_ID": "MA_EIN",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 1,
+              "LAYOUT": {
+                "X": 300,
+                "Y": 150,
                 "STRAND": ""
               },
               "T_IAV": []
@@ -546,30 +620,8 @@
               "FREQUENCY_MIN": 1,
               "FREQUENCY_MAX": 1,
               "LAYOUT": {
-                "X": 300,
-                "Y": 160,
-                "STRAND": ""
-              },
-              "T_IAV": []
-            },
-            {
-              "ROLE_ID": "MA_VBR_2",
-              "FREQUENCY_MIN": 1,
-              "FREQUENCY_MAX": 1,
-              "LAYOUT": {
                 "X": 450,
-                "Y": 160,
-                "STRAND": ""
-              },
-              "T_IAV": []
-            },
-            {
-              "ROLE_ID": "MA_EIN_2",
-              "FREQUENCY_MIN": 1,
-              "FREQUENCY_MAX": 1,
-              "LAYOUT": {
-                "X": 600,
-                "Y": 160,
+                "Y": 150,
                 "STRAND": ""
               },
               "T_IAV": []
@@ -579,8 +631,8 @@
               "FREQUENCY_MIN": 1,
               "FREQUENCY_MAX": 1,
               "LAYOUT": {
-                "X": 150,
-                "Y": 120,
+                "X": 600,
+                "Y": 200,
                 "STRAND": ""
               },
               "T_IAV": []
@@ -590,63 +642,107 @@
               "FREQUENCY_MIN": 1,
               "FREQUENCY_MAX": 1,
               "LAYOUT": {
-                "X": 300,
-                "Y": 120,
+                "X": 750,
+                "Y": 200,
                 "STRAND": ""
               },
               "T_IAV": []
             },
             {
-              "ROLE_ID": "ME_ERZ",
-              "FREQUENCY_MIN": 1,
+              "ROLE_ID": "TR_BZG",
+              "FREQUENCY_MIN": 0,
+              "FREQUENCY_MAX": 0,
+              "LAYOUT": {
+                "X": 0,
+                "Y": 0,
+                "STRAND": ""
+              },
+              "T_IAV": []
+            },
+            {
+              "ROLE_ID": "VKONT_BZGE",
+              "FREQUENCY_MIN": 0,
               "FREQUENCY_MAX": 1,
               "LAYOUT": {
-                "X": 450,
-                "Y": 120,
+                "X": 0,
+                "Y": 0,
                 "STRAND": ""
               },
               "T_IAV": []
             },
             {
-              "ROLE_ID": "TR_BZG_L1",
-              "FREQUENCY_MIN": 1,
+              "ROLE_ID": "VKONT_EIN",
+              "FREQUENCY_MIN": 0,
+              "FREQUENCY_MAX": 1,
+              "LAYOUT": {
+                "X": 0,
+                "Y": 0,
+                "STRAND": ""
+              },
+              "T_IAV": []
+            },
+            {
+              "ROLE_ID": "VTG_BZG",
+              "FREQUENCY_MIN": 0,
               "FREQUENCY_MAX": 1,
               "LAYOUT": {
                 "X": 150,
-                "Y": 80,
+                "Y": 20,
                 "STRAND": ""
               },
               "T_IAV": []
             },
             {
-              "ROLE_ID": "TR_BZG_L2",
-              "FREQUENCY_MIN": 1,
+              "ROLE_ID": "VTG_BZG_RL",
+              "FREQUENCY_MIN": 0,
               "FREQUENCY_MAX": 1,
               "LAYOUT": {
                 "X": 300,
-                "Y": 80,
+                "Y": 20,
                 "STRAND": ""
               },
               "T_IAV": []
             },
             {
-              "ROLE_ID": "TR_SPEI_L2",
-              "FREQUENCY_MIN": 1,
+              "ROLE_ID": "VTG_EIN",
+              "FREQUENCY_MIN": 0,
               "FREQUENCY_MAX": 1,
               "LAYOUT": {
                 "X": 450,
-                "Y": 80,
+                "Y": 20,
                 "STRAND": ""
               },
               "T_IAV": []
             },
             {
-              "ROLE_ID": "TR_EIN_L2",
+              "ROLE_ID": "ZWP+",
               "FREQUENCY_MIN": 1,
-              "FREQUENCY_MAX": 1,
+              "FREQUENCY_MAX": 2,
               "LAYOUT": {
-                "X": 600,
-                "Y": 80,
+                "X": 150,
+                "Y": 620,
+                "STRAND": ""
+              },
+              "T_IAV": []
+            },
+            {
+              "ROLE_ID": "ZWP+HS",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 2,
+              "LAYOUT": {
+                "X": 300,
+                "Y": 620,
+                "STRAND": ""
+              },
+              "T_IAV": []
+            },
+            {
+              "ROLE_ID": "ZWP-",
+              "FREQUENCY_MIN": 1,
+              "FREQUENCY_MAX": 2,
+              "LAYOUT": {
+                "X": 450,
+                "Y": 620,
                 "STRAND": ""
               },
               "T_IAV": []
@@ -660,20 +756,14 @@
               "T_OBJRAT": []
             },
             {
+              "OBJECT_ID_1": "AMA_EIN",
+              "OBJECT_ID_2": "MA_EIN",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
               "OBJECT_ID_1": "AMA_HS_BZG",
               "OBJECT_ID_2": "MA_HS_BZG",
-              "CARDINALITY": 0,
-              "T_OBJRAT": []
-            },
-            {
-              "OBJECT_ID_1": "AMA_VBR_2",
-              "OBJECT_ID_2": "MA_VBR_2",
-              "CARDINALITY": 0,
-              "T_OBJRAT": []
-            },
-            {
-              "OBJECT_ID_1": "AMA_EIN_2",
-              "OBJECT_ID_2": "MA_EIN_2",
               "CARDINALITY": 0,
               "T_OBJRAT": []
             },
@@ -690,8 +780,44 @@
               "T_OBJRAT": []
             },
             {
-              "OBJECT_ID_1": "AME_ERZ",
-              "OBJECT_ID_2": "ME_ERZ",
+              "OBJECT_ID_1": "ERZE_SOLGEB",
+              "OBJECT_ID_2": "AMA_EIN",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
+              "OBJECT_ID_1": "G_BZGEIN",
+              "OBJECT_ID_2": "AMA_BZG",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
+              "OBJECT_ID_1": "G_BZGEIN",
+              "OBJECT_ID_2": "AMA_EIN",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
+              "OBJECT_ID_1": "G_BZGEIN",
+              "OBJECT_ID_2": "AME_BZGEIN",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
+              "OBJECT_ID_1": "G_HS_BZG",
+              "OBJECT_ID_2": "AMA_BZG",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
+              "OBJECT_ID_1": "G_HS_BZG",
+              "OBJECT_ID_2": "AMA_HS_BZG",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
+              "OBJECT_ID_1": "G_HS_BZG",
+              "OBJECT_ID_2": "AME_HS_BZG",
               "CARDINALITY": 0,
               "T_OBJRAT": []
             },
@@ -704,7 +830,22 @@
                   "OBJECT_ID_1": "ME_BZGEIN",
                   "OBJECT_ID_2": "MA_BZG",
                   "ATTR_NUM": 1,
-                  "DIRECTED": "",
+                  "DIRECTED": "X",
+                  "ATTR_CATEGORY": "REL_TYPE",
+                  "ATTR_VALUE": "MEMA"
+                }
+              ]
+            },
+            {
+              "OBJECT_ID_1": "ME_BZGEIN",
+              "OBJECT_ID_2": "MA_EIN",
+              "CARDINALITY": 0,
+              "T_OBJRAT": [
+                {
+                  "OBJECT_ID_1": "ME_BZGEIN",
+                  "OBJECT_ID_2": "MA_EIN",
+                  "ATTR_NUM": 1,
+                  "DIRECTED": "X",
                   "ATTR_CATEGORY": "REL_TYPE",
                   "ATTR_VALUE": "MEMA"
                 }
@@ -719,7 +860,7 @@
                   "OBJECT_ID_1": "ME_HS_BZG",
                   "OBJECT_ID_2": "MA_BZG",
                   "ATTR_NUM": 1,
-                  "DIRECTED": "",
+                  "DIRECTED": "X",
                   "ATTR_CATEGORY": "REL_TYPE",
                   "ATTR_VALUE": "MEMA"
                 }
@@ -734,120 +875,114 @@
                   "OBJECT_ID_1": "ME_HS_BZG",
                   "OBJECT_ID_2": "MA_HS_BZG",
                   "ATTR_NUM": 1,
-                  "DIRECTED": "",
+                  "DIRECTED": "X",
                   "ATTR_CATEGORY": "REL_TYPE",
                   "ATTR_VALUE": "MEMA"
                 }
               ]
             },
             {
-              "OBJECT_ID_1": "ME_ERZ",
-              "OBJECT_ID_2": "MA_BZG",
+              "OBJECT_ID_1": "TR_BZG",
+              "OBJECT_ID_2": "AMA_BZG",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
+              "OBJECT_ID_1": "VKONT_BZGE",
+              "OBJECT_ID_2": "VTG_BZG",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
+              "OBJECT_ID_1": "VKONT_BZGE",
+              "OBJECT_ID_2": "VTG_BZG_RL",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
+              "OBJECT_ID_1": "VKONT_EIN",
+              "OBJECT_ID_2": "VTG_EIN",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
+              "OBJECT_ID_1": "VTG_BZG",
+              "OBJECT_ID_2": "AMA_BZG",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
+              "OBJECT_ID_1": "VTG_BZG_RL",
+              "OBJECT_ID_2": "AMA_HS_BZG",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
+              "OBJECT_ID_1": "VTG_EIN",
+              "OBJECT_ID_2": "AMA_EIN",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
+              "OBJECT_ID_1": "ZWP+",
+              "OBJECT_ID_2": "AMA_BZG",
               "CARDINALITY": 0,
               "T_OBJRAT": [
                 {
-                  "OBJECT_ID_1": "ME_ERZ",
-                  "OBJECT_ID_2": "MA_BZG",
+                  "OBJECT_ID_1": "ZWP+",
+                  "OBJECT_ID_2": "AMA_BZG",
                   "ATTR_NUM": 1,
-                  "DIRECTED": "",
-                  "ATTR_CATEGORY": "REL_TYPE",
-                  "ATTR_VALUE": "MEMA"
+                  "DIRECTED": "X",
+                  "ATTR_CATEGORY": "ZWNABR",
+                  "ATTR_VALUE": ""
                 }
               ]
             },
             {
-              "OBJECT_ID_1": "ME_ERZ",
-              "OBJECT_ID_2": "MA_VBR_2",
+              "OBJECT_ID_1": "ZWP+",
+              "OBJECT_ID_2": "G_BZGEIN",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
+              "OBJECT_ID_1": "ZWP+HS",
+              "OBJECT_ID_2": "AMA_HS_BZG",
               "CARDINALITY": 0,
               "T_OBJRAT": [
                 {
-                  "OBJECT_ID_1": "ME_ERZ",
-                  "OBJECT_ID_2": "MA_VBR_2",
+                  "OBJECT_ID_1": "ZWP+HS",
+                  "OBJECT_ID_2": "AMA_HS_BZG",
                   "ATTR_NUM": 1,
-                  "DIRECTED": "",
-                  "ATTR_CATEGORY": "REL_TYPE",
-                  "ATTR_VALUE": "MEMA"
+                  "DIRECTED": "X",
+                  "ATTR_CATEGORY": "ZWNABR",
+                  "ATTR_VALUE": ""
                 }
               ]
             },
             {
-              "OBJECT_ID_1": "ME_ERZ",
-              "OBJECT_ID_2": "MA_EIN_2",
+              "OBJECT_ID_1": "ZWP+HS",
+              "OBJECT_ID_2": "G_HS_BZG",
+              "CARDINALITY": 0,
+              "T_OBJRAT": []
+            },
+            {
+              "OBJECT_ID_1": "ZWP-",
+              "OBJECT_ID_2": "AMA_EIN",
               "CARDINALITY": 0,
               "T_OBJRAT": [
                 {
-                  "OBJECT_ID_1": "ME_ERZ",
-                  "OBJECT_ID_2": "MA_EIN_2",
-                  "ATTR_NUM": 1,
+                  "OBJECT_ID_1": "ZWP-",
+                  "OBJECT_ID_2": "AMA_EIN",
+                  "ATTR_NUM": 2,
                   "DIRECTED": "",
-                  "ATTR_CATEGORY": "REL_TYPE",
-                  "ATTR_VALUE": "MEMA"
+                  "ATTR_CATEGORY": "TARIFART",
+                  "ATTR_VALUE": "1019"
                 }
               ]
             },
             {
-              "OBJECT_ID_1": "ME_BZGEIN",
-              "OBJECT_ID_2": "TR_BZG_L1",
-              "CARDINALITY": 0,
-              "T_OBJRAT": [
-                {
-                  "OBJECT_ID_1": "ME_BZGEIN",
-                  "OBJECT_ID_2": "TR_BZG_L1",
-                  "ATTR_NUM": 1,
-                  "DIRECTED": "",
-                  "ATTR_CATEGORY": "REL_TYPE",
-                  "ATTR_VALUE": "METR"
-                }
-              ]
-            },
-            {
-              "OBJECT_ID_1": "ME_HS_BZG",
-              "OBJECT_ID_2": "TR_BZG_L2",
-              "CARDINALITY": 0,
-              "T_OBJRAT": [
-                {
-                  "OBJECT_ID_1": "ME_HS_BZG",
-                  "OBJECT_ID_2": "TR_BZG_L2",
-                  "ATTR_NUM": 1,
-                  "DIRECTED": "",
-                  "ATTR_CATEGORY": "REL_TYPE",
-                  "ATTR_VALUE": "METR"
-                }
-              ]
-            },
-            {
-              "OBJECT_ID_1": "ME_ERZ",
-              "OBJECT_ID_2": "TR_SPEI_L2",
-              "CARDINALITY": 0,
-              "T_OBJRAT": [
-                {
-                  "OBJECT_ID_1": "ME_ERZ",
-                  "OBJECT_ID_2": "TR_SPEI_L2",
-                  "ATTR_NUM": 1,
-                  "DIRECTED": "",
-                  "ATTR_CATEGORY": "REL_TYPE",
-                  "ATTR_VALUE": "METR"
-                }
-              ]
-            },
-            {
-              "OBJECT_ID_1": "ME_ERZ",
-              "OBJECT_ID_2": "TR_EIN_L2",
-              "CARDINALITY": 0,
-              "T_OBJRAT": [
-                {
-                  "OBJECT_ID_1": "ME_ERZ",
-                  "OBJECT_ID_2": "TR_EIN_L2",
-                  "ATTR_NUM": 1,
-                  "DIRECTED": "",
-                  "ATTR_CATEGORY": "REL_TYPE",
-                  "ATTR_VALUE": "METR"
-                }
-              ]
-            },
-            {
-              "OBJECT_ID_1": "ANE_BEZUG",
-              "OBJECT_ID_2": "NELO",
+              "OBJECT_ID_1": "ZWP-",
+              "OBJECT_ID_2": "G_BZGEIN",
               "CARDINALITY": 0,
               "T_OBJRAT": []
             }
@@ -860,9 +995,9 @@
   "T_AV": [],
   "_lbs_optionality": {
     "augmentation_version": "v1",
-    "purpose": "Represent BDEW optional/repeatable LBS objects and counting/reference constraints as metadata without modifying the SAP-export core structure consumed by graph_templates.py.",
-    "source": "User-provided BDEW table+notes+graphic for 9992 00000 008 4 (Verbrauch mit flexibler Hinterschaltung und getrennt gemessener flexibler Erzeugung).",
-    "lbs_code": "9992000000084",
+    "purpose": "Represent BDEW optional/repeatable LBS objects and coupling constraints as metadata without modifying SAP export core.",
+    "source": "User-provided BDEW table+graphic for 9992 00000 007 6 (Verbrauch mit flexibler Hinterschaltung und nicht getrennt gemessener Erzeugung).",
+    "lbs_code": "9992000000076",
     "lbs_objects": [
       {
         "object_code": "9992000001256",
@@ -880,7 +1015,7 @@
         "max_occurs": 1,
         "flexibility": "starr",
         "melo_function": "N",
-        "direction_hint": "consumption & generation (Netzübergabe)"
+        "direction": "both"
       },
       {
         "object_code": "9992000001082",
@@ -890,17 +1025,7 @@
         "max_occurs": "N",
         "flexibility": "flexibel",
         "melo_function": "H",
-        "direction_hint": "consumption (Hinterschaltung)"
-      },
-      {
-        "object_code": "9992000001090",
-        "object_type": "MeLo",
-        "level": 2,
-        "min_occurs": 1,
-        "max_occurs": "N",
-        "flexibility": "flexibel",
-        "melo_function": "H",
-        "direction_hint": "generation (Hinterschaltung)"
+        "direction": "consumption"
       },
       {
         "object_code": "9992000001024",
@@ -909,7 +1034,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "tr_direction": "consumption"
+        "direction": "consumption"
       },
       {
         "object_code": "9992000001149",
@@ -918,25 +1043,26 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "tr_direction": "consumption"
+        "direction": "consumption",
+        "reference_to_melo": "9992000001082"
       },
       {
-        "object_code": "9992000001165",
+        "object_code": "9992000001074",
         "object_type": "TR",
-        "level": 2,
+        "level": 1,
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "tr_direction": "consumption+generation(storage)"
+        "direction": "both"
       },
       {
-        "object_code": "9992000001157",
+        "object_code": "9992000001058",
         "object_type": "TR",
-        "level": 2,
+        "level": 1,
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "tr_direction": "generation"
+        "direction": "generation"
       },
       {
         "object_code": "9992000001016",
@@ -954,24 +1080,16 @@
         "min_occurs": 1,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "direction": "consumption"
+        "direction": "consumption",
+        "reference_to_melo": "9992000001082"
       },
       {
-        "object_code": "9992000001272",
+        "object_code": "9992000001066",
         "object_type": "MaLo",
-        "level": 2,
-        "min_occurs": 0,
-        "max_occurs": "N",
-        "flexibility": "flexibel",
-        "direction": "consumption"
-      },
-      {
-        "object_code": "9992000001115",
-        "object_type": "MaLo",
-        "level": 2,
+        "level": 1,
         "min_occurs": 1,
-        "max_occurs": "N",
-        "flexibility": "flexibel",
+        "max_occurs": 1,
+        "flexibility": "starr",
         "direction": "generation"
       }
     ],
@@ -982,69 +1100,30 @@
             "9992000001082",
             "9992000001107"
           ]
-        },
-        {
-          "equal_count_between_object_codes": [
-            "9992000001090",
-            "9992000001115"
-          ]
         }
       ],
       "reference_rules": [
         {
           "if_object_code": "9992000001149",
           "then_reference_to": "9992000001082",
-          "rationale": "BDEW table: TR 1149 references Messlokation 1082."
+          "rationale": "BDEW table/graphic: TR 1149 references Messlokation 1082."
         },
         {
           "if_object_code": "9992000001107",
           "then_reference_to": "9992000001082",
-          "rationale": "BDEW table: MaLo 1107 references Messlokation 1082."
+          "rationale": "BDEW table: MaLo 1107 carries reference to Messlokation 1082."
         },
         {
           "if_object_code": "9992000001082",
           "condition": "occurs>1",
           "then_reference_to": "9992000001107",
-          "rationale": "BDEW note: additional reference from MeLo 1082 to MaLo 1107 required when MeLo 1082 occurs more than once."
-        },
-        {
-          "if_object_code": "9992000001165",
-          "then_reference_to": "9992000001090",
-          "rationale": "BDEW table: TR 1165 references Messlokation 1090."
-        },
-        {
-          "if_object_code": "9992000001157",
-          "then_reference_to": "9992000001090",
-          "rationale": "BDEW table: TR 1157 references Messlokation 1090."
-        },
-        {
-          "if_object_code": "9992000001272",
-          "then_reference_to": "9992000001090",
-          "rationale": "BDEW table: MaLo 1272 references Messlokation 1090."
-        },
-        {
-          "if_object_code": "9992000001115",
-          "then_reference_to": "9992000001090",
-          "rationale": "BDEW table: MaLo 1115 references Messlokation 1090."
-        },
-        {
-          "if_object_code": "9992000001090",
-          "condition": "occurs>1",
-          "then_reference_to": "9992000001115",
-          "rationale": "BDEW note: additional reference(s) from MeLo 1090 to MaLo 1115 required when MeLo 1090 occurs more than once."
-        },
-        {
-          "if_object_code": "9992000001090",
-          "condition": "occurs>1",
-          "then_reference_to": "9992000001272",
-          "rationale": "BDEW note: additional reference(s) from MeLo 1090 to MaLo 1272 required when MeLo 1090 occurs more than once."
+          "rationale": "BDEW note: additional reference from MeLo 1082 to MaLo 1107 is required when MeLo 1082 occurs more than once."
         }
       ]
     },
     "file_encoding_detected": "cp1252",
     "known_tension_with_sap_export": [
-      "SAP export frequencies (FREQUENCY_MIN/MAX) are kept at 1 to stay close to typical exported MC JSON; repeatability is captured in _lbs_optionality.lbs_objects instead.",
-      "SAP IS-U exports provide MaLo–MeLo relations; MeLo–MeLo chains and NeLo links are not always available in CSV exports. This template keeps the core as MeLo–MaLo plus optional MeLo–TR edges."
+      "SAP export frequencies (FREQUENCY_MIN/MAX) are defined on ROLE_ID level and may not align 1:1 with BDEW object-code multiplicities or coupling constraints; this block records the BDEW interpretation additively."
     ]
   }
 }

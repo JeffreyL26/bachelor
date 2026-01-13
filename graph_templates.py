@@ -642,5 +642,5 @@ def build_all_templates(lbs_dir: str, out_path: str) -> None:
 if __name__ == "__main__":
     BASE = os.path.dirname(os.path.abspath(__file__))
     lbs_dir = os.path.join(BASE, "data", "lbs_templates")
-    out_path = os.path.join(BASE, "data", "lbs_soll_graphs_pro.jsonl")
+    out_path = os.path.join(BASE, "data", "lbs_soll_graphs.jsonl")
     build_all_templates(lbs_dir, out_path)

@@ -1551,7 +1551,7 @@
         "max_occurs": 1,
         "flexibility": "starr",
         "melo_function": "N",
-        "direction_hint": "consumption (Netzübergabe)"
+        "direction": "consumption"
       },
       {
         "object_code": "9992000001024",
@@ -1560,7 +1560,7 @@
         "min_occurs": 0,
         "max_occurs": "N",
         "flexibility": "flexibel",
-        "tr_direction": "consumption"
+        "direction": "consumption"
       },
       {
         "object_code": "9992000001016",
