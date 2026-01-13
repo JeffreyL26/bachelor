@@ -715,21 +715,16 @@ def build_graphs(t: Dict[str, pd.DataFrame],
 
                     if tr_id not in seen_tr:
                         seen_tr.add(tr_id)
-                        # Wir setzen beides: direction (kanonisch) und tr_direction (Alias),
-                        # damit Ist- und Template-Graphen einheitlich bleiben.
+                        # Wir setzen nur direction (kanonisch), damit Ist- und Template-Graphen einheitlich bleiben.
+                                                # Nur die für Matching relevanten Attribute behalten:
+                        # - direction: kanonische Richtung der TR (consumption / generation / both)
+                        # - source: Herkunft (TR-Tabelle)
                         attrs = {
                             "direction": tr_dir,
                             "source": "tr_table",
-                            "malo_ref": malo_id,
                         }
-                        # Zusatzattribute aus TR.csv (falls vorhanden) übernehmen
-                        for k, v in rep_attrs.items():
-                            if k in ("tr_id", "malo_id"):
-                                continue
-                            attrs[k] = v
                         nodes.append(make_node(tr_id, "TR", attrs))
-
-                    # über POD_REL alle MeLo finden, die mit dieser MaLo verbunden sind (innerhalb der Komponente)
+# über POD_REL alle MeLo finden, die mit dieser MaLo verbunden sind (innerhalb der Komponente)
                     for melo_id in sorted(melos_by_malo.get(malo_id, set())):
                         if melo_id in melos:
                             key = (melo_id, tr_id)
