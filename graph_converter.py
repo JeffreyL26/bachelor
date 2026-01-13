@@ -292,21 +292,40 @@ def canonicalize(tables: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
     # ------------------------------
     if "tr" in tables:
         tr = tables["tr"].copy()
+
+        # Pflicht: TR-ID + referenzierte MaLo(Anlage)
         tr_id_cols = [c for c in tr.columns if c in ("externeid", "tr_id", "tr", "id")]
         malo_cols  = [c for c in tr.columns if c in ("malo_anlage", "malo", "malo_id", "marktlokation", "marktlokation_id")]
+
         if tr_id_cols:
             tr.rename(columns={tr_id_cols[0]: "tr_id"}, inplace=True)
         else:
             tr["tr_id"] = None
+
         if malo_cols:
             tr.rename(columns={malo_cols[0]: "malo_id"}, inplace=True)
         else:
             tr["malo_id"] = None
 
+        # Optional: Art der technischen Ressource (wird später für TR-Richtung verwendet)
+        # Erwartete Codes (laut Vorgabe):
+        #   Z17 => consumption
+        #   Z50 => generation
+        #   Z56 => storage => both
+        tr_type_cols = [c for c in tr.columns if c in ("art_der_technischen_ressource", "tr_type_code", "art_technische_ressource")]
+        if tr_type_cols:
+            tr.rename(columns={tr_type_cols[0]: "tr_type_code"}, inplace=True)
+        else:
+            tr["tr_type_code"] = None
+
+        # Normalisieren
         if "tr_id" in tr.columns:
             tr["tr_id"] = _clean_id_series(tr["tr_id"])
         if "malo_id" in tr.columns:
             tr["malo_id"] = _clean_id_series(tr["malo_id"])
+        if "tr_type_code" in tr.columns:
+            tr["tr_type_code"] = _clean_id_series(tr["tr_type_code"])
+
         t["tr"] = tr
 
     # ------------------------------
@@ -383,6 +402,34 @@ def map_direction(direction_code: Any) -> str:
     # Laut Datenlieferung bedeutet "X" hier: generation.
     if s in ("X", "JA", "TRUE", "1"):
         return "generation"
+
+    return None
+
+
+def map_tr_direction(tr_type_code: Any) -> str:
+    """Mapping der TR-Art (Art der technischen Ressource) auf Richtung.
+
+    Erwartete Codes (TR.csv):
+      - Z17 => consumption
+      - Z50 => generation
+      - Z56 => storage => both
+
+    Rückgabe:
+      - "consumption" | "generation" | "both" | None
+    """
+    if tr_type_code is None:
+        return None
+
+    s = str(tr_type_code).strip().upper()
+    if not s or s == "NAN":
+        return None
+
+    if s == "Z17":
+        return "consumption"
+    if s == "Z50":
+        return "generation"
+    if s == "Z56":
+        return "both"
 
     return None
 
@@ -649,16 +696,33 @@ def build_graphs(t: Dict[str, pd.DataFrame],
 #Zusätzliche TR aus TR.csv (via MaLo(Anlage) -> POD_REL -> MeLo)
         # Semantik: TRs aus TR.csv werden als TR-Knoten modelliert und per METR
         # an diejenigen MeLo gehängt, die zur referenzierten MaLo-Anlage verbunden sind.
+        #
+        # WICHTIG: TR-Richtung wird **nicht** mehr aus der MaLo-Richtung abgeleitet,
+        # sondern aus der TR-Art ("Art der technischen Ressource"):
+        #   Z17 => consumption, Z50 => generation, Z56 => storage => both
+        # Fallback (nur wenn TR-Art fehlt/unbekannt): MaLo-basierte Richtung.
         if trs_by_malo:
             for malo_id in sorted(malos):
-                derived_dir = malo_dir.get(malo_id)
+                malo_based_dir = malo_dir.get(malo_id)
                 for raw_tr_id in trs_by_malo.get(malo_id, []):
                     tr_id = raw_tr_id
+
+                    # TR-Art aus TR.csv (falls vorhanden) → Richtung
+                    rep_attrs = tr_rep_attrs_by_id.get(raw_tr_id, {})
+                    tr_dir = map_tr_direction(rep_attrs.get("tr_type_code"))
+                    if tr_dir is None:
+                        tr_dir = malo_based_dir
+
                     if tr_id not in seen_tr:
                         seen_tr.add(tr_id)
-                        attrs = {"direction": derived_dir, "source": "tr_table", "malo_ref": malo_id}
+                        # Wir setzen beides: direction (kanonisch) und tr_direction (Alias),
+                        # damit Ist- und Template-Graphen einheitlich bleiben.
+                        attrs = {
+                            "direction": tr_dir,
+                            "source": "tr_table",
+                            "malo_ref": malo_id,
+                        }
                         # Zusatzattribute aus TR.csv (falls vorhanden) übernehmen
-                        rep_attrs = tr_rep_attrs_by_id.get(raw_tr_id, {})
                         for k, v in rep_attrs.items():
                             if k in ("tr_id", "malo_id"):
                                 continue
@@ -674,7 +738,7 @@ def build_graphs(t: Dict[str, pd.DataFrame],
                                 edges.append(make_edge(melo_id, tr_id, "METR"))
 
 
-        # --- NeLo-Knoten + MENE-Kanten (MeLo -> NeLo) ---
+# --- NeLo-Knoten + MENE-Kanten (MeLo -> NeLo) ---
         # Zuordnung NeLo -> MeLo erfolgt über die Spalte "NELO" in PODREL (falls vorhanden).
         # NeLo besitzt im Ist-Datensatz keine weiteren Attribute (nur ID).
         seen_mene = set()

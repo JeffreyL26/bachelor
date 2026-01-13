@@ -92,6 +92,20 @@ def _normalize_direction(raw: Any) -> Optional[str]:
 
     s_low = s.lower()
 
+    # TR-Art-Codes (falls sie direkt als "direction" / "tr_direction" durchgereicht werden)
+    s_up = s.upper()
+    if s_up == "Z17":
+        return "consumption"
+    if s_up == "Z50":
+        return "generation"
+    if s_up == "Z56":
+        return "both"
+
+    # Storage/Speicher (falls als Text auftaucht)
+    if "storage" in s_low or "speicher" in s_low:
+        return "both"
+
+
     # Harte Treffer (bereits kanonisch)
     if s_low in ("consumption", "generation", "both"):
         return s_low
@@ -136,6 +150,10 @@ def _encode_node_features(node: Dict[str, Any]) -> List[float]:
     raw_dir = attrs.get("direction")
     if raw_dir is None and ntype == "TR":
         raw_dir = attrs.get("tr_direction")
+    if raw_dir is None and ntype == "TR":
+        # Falls der Converter nur den Typcode mitgibt (Z17/Z50/Z56), können wir daraus
+        # ebenfalls eine Richtung ableiten.
+        raw_dir = attrs.get("tr_type_code") or attrs.get("art_der_technischen_ressource")
     if raw_dir is None and ntype in ("MaLo", "MeLo"):
         raw_dir = attrs.get("direction_hint")
 
