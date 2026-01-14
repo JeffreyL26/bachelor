@@ -176,6 +176,50 @@ def _sync_graph_attrs_counts(g: TGraph) -> None:
         ga["nelo_count"] = counts["NeLo"]
 
 
+
+# =============================================================================
+# Optional: Template-Meta aus Graph-B entfernen (macht B "Ist-näher")
+# =============================================================================
+
+# In den Soll-Graphen (aus _lbs_optionality) stehen zusätzliche Meta-Keys in node["attrs"],
+# die in echten Ist-Graphen typischerweise NICHT vorkommen (min/max/optional/flexibility/...).
+#
+# DGMC sieht diese Keys aktuell nicht (graph_pipeline encodiert nur Typ + Richtung),
+# aber:
+#   (a) es ist realistischer, wenn Graph-B diese Meta-Infos nicht trägt
+#   (b) es verhindert "Leakage", falls du später weitere Attrs als Features addierst.
+
+TEMPLATE_META_ATTR_KEYS: set[str] = {
+    "min_occurs",
+    "max_occurs",
+    "flexibility",
+    "optional",
+    "object_code",
+    "level",
+    "reference_to_melo",
+}
+
+def strip_template_meta_attrs(
+    g: TGraph,
+    keys: set[str] = TEMPLATE_META_ATTR_KEYS,
+) -> int:
+    """
+    Entfernt Template-spezifische Meta-Attribute aus allen Nodes eines Graphen (in-place).
+
+    :return: Anzahl entfernter (key,value)-Paare
+    """
+    removed = 0
+    for node in g.get("nodes", []) or []:
+        attrs = node.get("attrs")
+        if not isinstance(attrs, dict):
+            continue
+        for k in list(attrs.keys()):
+            if k in keys:
+                del attrs[k]
+                removed += 1
+    return removed
+
+
 # =============================================================================
 # Phase A: Attribute-/Edge-Augmentation (Ist-Noise)
 # =============================================================================
@@ -789,13 +833,15 @@ def build_synthetic_pairs(
     p_apply_attachment: float = 0.70,
     ensure_nontrivial: bool = True,
     # Supervision
-    supervision: str = "perm",   # "perm" (klassisch) oder "y" (partial matching)
+    supervision: str = "y",   # "y" (partial matching) oder "perm" (klassisch)
     # Phase B (nur sinnvoll bei supervision="y")
     p_node_dropout: float = 0.50,
     respect_min_occurs: bool = True,
     p_add_extra_nodes: float = 0.25,
     max_extra_nodes_total: int = 3,
     extra_node_types: Tuple[str, ...] = ("TR",),
+    # Optional: Template-Meta aus Graph B entfernen
+    strip_template_meta_in_b: bool = True,
 ) -> List[TPair]:
     """
     Positive Paare (label=1):
@@ -850,6 +896,12 @@ def build_synthetic_pairs(
                 if en_meta:
                     aug_meta["extra_nodes"] = en_meta
 
+            # Optional: Template-Meta entfernen, damit Graph-B stärker wie "Ist" aussieht
+            if strip_template_meta_in_b:
+                removed_meta = strip_template_meta_attrs(g_perm)
+                if removed_meta:
+                    aug_meta["strip_template_meta"] = {"removed": removed_meta}
+
             pair: TPair = {"graph_a": g, "graph_b": g_perm, "label": 1}
 
             if supervision == "perm":
@@ -896,7 +948,7 @@ def write_pairs_jsonl(pairs: List[TPair], out_path: str) -> None:
             f.write(json.dumps(p, ensure_ascii=False) + "\n")
 
 
-def _print_quick_stats(pairs: List[TPair], supervision: str = "perm") -> None:
+def _print_quick_stats(pairs: List[TPair], supervision: str = "y") -> None:
     pos = [p for p in pairs if p.get("label") == 1]
     neg = [p for p in pairs if p.get("label") == 0]
     pos_with_aug = [p for p in pos if p.get("aug")]
@@ -947,8 +999,7 @@ if __name__ == "__main__":
 
     # Für reines DGMC-Training ist "perm" meist der kompatibelste Modus.
     # Für Stress-Tests / Feasibility (partial matching) kannst du auf "y" umstellen.
-    supervision = "perm"
-
+    supervision = "y"
     pairs = build_synthetic_pairs(
         templates,
         num_pos_per_template=60,
