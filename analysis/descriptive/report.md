@@ -269,7 +269,7 @@ Degree-Plots saved in `plots/` (ist_degree_*.png, soll_degree_*.png).
 ## Graph Signatures - Structural Diversity in the Dataset
 
 - Instances: 2521 Graphs, 19 unique signatures
-- Templates: 15 Graphs, 13 uniwue signatures
+- Templates: 15 Graphs, 13 unique signatures
 - Signatures are based on node type counts, edge relation counts, number of connected components and degree-Min/Median/Max. 
 Connected Components are a great indicator, whether the structure forms a single coherent graph or splits into disconnected subgraphs.
 
@@ -325,33 +325,21 @@ Full table stored in: `analysis/descriptive/tables/signatures_top_soll.csv`
 
 Full table stored in: `analysis/descriptive/tables/attr_coverage_ist.csv`
 
-| kind   | type   | attr           |   present |   total | present %   |
-|:-------|:-------|:---------------|----------:|--------:|:------------|
-| ist    | MaLo   | direction      |      2761 |    2761 | 100.0%      |
-| ist    | MaLo   | direction_hint |         0 |    2761 | 0.0%        |
-| ist    | MeLo   | direction_hint |         0 |    2624 | 0.0%        |
-| ist    | MeLo   | dynamic        |         0 |    2624 | 0.0%        |
-| ist    | MeLo   | function       |         0 |    2624 | 0.0%        |
-| ist    | MeLo   | melo_function  |         0 |    2624 | 0.0%        |
-| ist    | MeLo   | voltage_level  |         0 |    2624 | 0.0%        |
-| ist    | TR     | direction      |        36 |      36 | 100.0%      |
-| ist    | TR     | tr_direction   |         0 |      36 | 0.0%        |
+| kind   | type   | attr      |   present |   total | present %   |
+|:-------|:-------|:----------|----------:|--------:|:------------|
+| ist    | MaLo   | direction |      2761 |    2761 | 100.0%      |
+| ist    | MeLo   | direction |      2624 |    2624 | 100.0%      |
+| ist    | TR     | direction |        36 |      36 | 100.0%      |
 
 ### Coverage: Main Attributes (Templates)
 
 Full table stored in: `analysis/descriptive/tables/attr_coverage_soll.csv`
 
-| kind   | type   | attr           |   present |   total | present %   |
-|:-------|:-------|:---------------|----------:|--------:|:------------|
-| soll   | MaLo   | direction      |        38 |      38 | 100.0%      |
-| soll   | MaLo   | direction_hint |         0 |      38 | 0.0%        |
-| soll   | MeLo   | direction_hint |         0 |      28 | 0.0%        |
-| soll   | MeLo   | dynamic        |        28 |      28 | 100.0%      |
-| soll   | MeLo   | function       |        28 |      28 | 100.0%      |
-| soll   | MeLo   | melo_function  |         0 |      28 | 0.0%        |
-| soll   | MeLo   | voltage_level  |         0 |      28 | 0.0%        |
-| soll   | TR     | direction      |        46 |      46 | 100.0%      |
-| soll   | TR     | tr_direction   |         0 |      46 | 0.0%        |
+| kind   | type   | attr      |   present |   total | present %   |
+|:-------|:-------|:----------|----------:|--------:|:------------|
+| soll   | MaLo   | direction |        38 |      38 | 100.0%      |
+| soll   | MeLo   | direction |        28 |      28 | 100.0%      |
+| soll   | TR     | direction |        46 |      46 | 100.0%      |
 
 ### Top Values: Direction (MaLo)
 
@@ -369,47 +357,40 @@ Full table stored in: `analysis/descriptive/tables/top_values_soll_MaLo_directio
 | soll   | MaLo   | direction | consumption |      25 |
 | soll   | MaLo   | direction | generation  |      13 |
 
-### Top Values: Voltage Level (MeLo.voltage_level)
+### Top Values: Direction (MeLo)
 
-Full table stored in: `analysis/descriptive/tables/top_values_ist_MeLo_voltage_level.csv`
+Full table stored in: `analysis/descriptive/tables/top_values_ist_MeLo_direction.csv`
 
-_No data._
+| kind   | type   | attr      | value       |   count |
+|:-------|:-------|:----------|:------------|--------:|
+| ist    | MeLo   | direction | consumption |    1597 |
+| ist    | MeLo   | direction | both        |     922 |
+| ist    | MeLo   | direction | generation  |     105 |
 
-Full table stored in: `analysis/descriptive/tables/top_values_soll_MeLo_voltage_level.csv`
+Full table stored in: `analysis/descriptive/tables/top_values_soll_MeLo_direction.csv`
 
-_No data._
+| kind   | type   | attr      | value       |   count |
+|:-------|:-------|:----------|:------------|--------:|
+| soll   | MeLo   | direction | both        |      11 |
+| soll   | MeLo   | direction | consumption |      10 |
+| soll   | MeLo   | direction | generation  |       7 |
 
-### Top Values: MeLo-Function (Templates should have function/melo_function)
+### Top Values: Direction (TR)
 
-Full table stored in: `analysis/descriptive/tables/top_values_ist_MeLo_function.csv`
+Full table stored in: `analysis/descriptive/tables/top_values_ist_TR_direction.csv`
 
-_No data._
+| kind   | type   | attr      | value       |   count |
+|:-------|:-------|:----------|:------------|--------:|
+| ist    | TR     | direction | consumption |      25 |
+| ist    | TR     | direction | both        |      11 |
 
-Full table stored in: `analysis/descriptive/tables/top_values_ist_MeLo_melo_function.csv`
+Full table stored in: `analysis/descriptive/tables/top_values_soll_TR_direction.csv`
 
-_No data._
-
-Full table stored in: `analysis/descriptive/tables/top_values_soll_MeLo_function.csv`
-
-| kind   | type   | attr     | value   |   count |
-|:-------|:-------|:---------|:--------|--------:|
-| soll   | MeLo   | function | N       |      16 |
-| soll   | MeLo   | function | H       |       8 |
-| soll   | MeLo   | function | D       |       4 |
-
-Full table stored in: `analysis/descriptive/tables/top_values_soll_MeLo_melo_function.csv`
-
-_No data._
-
-### Top Values: TR Richtung (tr_direction)
-
-Full table stored in: `analysis/descriptive/tables/top_values_ist_TR_tr_direction.csv`
-
-_No data._
-
-Full table stored in: `analysis/descriptive/tables/top_values_soll_TR_tr_direction.csv`
-
-_No data._
+| kind   | type   | attr      | value       |   count |
+|:-------|:-------|:----------|:------------|--------:|
+| soll   | TR     | direction | consumption |      21 |
+| soll   | TR     | direction | generation  |      13 |
+| soll   | TR     | direction | both        |      12 |
 
 ## Template-specific Analysis (LBS-Scheme)
 
@@ -503,29 +484,27 @@ Full table stored in: `analysis/descriptive/tables/template_coverage.csv`
 
 Full table stored in: `analysis/descriptive/tables/encoder_unknown_rates.csv`
 
-| kind   | metric                   | count              |
-|:-------|:-------------------------|:-------------------|
-| ist    | nodes_total              | 5433               |
-| ist    | edges_total(valid typed) | 2923               |
-| ist    | dir_unknown_rate         | 0.0% (0/2797)      |
-| ist    | melo_fn_unknown_rate     | 100.0% (2624/2624) |
-| ist    | volt_unknown_rate        | 100.0% (2624/2624) |
-| soll   | nodes_total              | 127                |
-| soll   | edges_total(valid typed) | 78                 |
-| soll   | dir_unknown_rate         | 0.0% (0/84)        |
-| soll   | melo_fn_unknown_rate     | 0.0% (0/28)        |
-| soll   | volt_unknown_rate        | 100.0% (28/28)     |
+| kind   | metric                         | count         |
+|:-------|:-------------------------------|:--------------|
+| ist    | nodes_total                    | 5433          |
+| ist    | edges_total(valid typed)       | 2923          |
+| ist    | node_type_unknown_rate         | 0.0% (0/5433) |
+| ist    | dir_unknown_rate(MaLo/MeLo/TR) | 0.0% (0/5421) |
+| ist    | edge_rel_unknown_rate          | 0.0% (0/2923) |
+| soll   | nodes_total                    | 127           |
+| soll   | edges_total(valid typed)       | 78            |
+| soll   | node_type_unknown_rate         | 0.0% (0/127)  |
+| soll   | dir_unknown_rate(MaLo/MeLo/TR) | 0.0% (0/112)  |
+| soll   | edge_rel_unknown_rate          | 0.0% (0/78)   |
 
 ### Which Features are Considered for DGMC?
 
-The feature encoder (graph_pipeline.py) reduces node attributes to one-hot-blocks. This helps to check, whether the graphs use unnecessary attributes or if important data misses.
+The feature encoder (graph_pipeline.py) reduces node and edge information to compact one-hot blocks. This section verifies which raw fields can actually affect the model input, and which are currently unused.
 
-- **Knotentyp**: `node['type']` → One-Hot über {MaLo, MeLo, TR, NeLo}
-- **Richtung** (nur MaLo/TR): `attrs['direction']` bzw. TR: `attrs['tr_direction']`; Fallback MaLo: `attrs['direction_hint']` → {consumption, generation, both, unknown}
-- **MeLo-Funktion** (nur MeLo): `attrs['function']` oder `attrs['melo_function']` → {N, H, D, S, unknown}
-- **Spannungsebene** (nur MeLo): `attrs['voltage_level']` → {E05, E06, unknown}
-- **Kantentyp**: `edge['rel']` → One-Hot über {MEMA, METR, MENE, MEME, unknown}
-- Alle anderen Node-Attribute (z.B. `min_occurs/max_occurs/flexibility/optional/object_code/level/dynamic/attachment_rules`) werden aktuell **nicht** als ML-Feature kodiert.
+- **Node type**: `node['type']` → one-hot over {MaLo, MeLo, TR, NeLo}
+- **Direction** (MaLo/MeLo/TR): derived from `attrs['direction']` with fallbacks (TR: `tr_direction`, `tr_type_code` / `art_der_technischen_ressource`; MaLo/MeLo: `direction_hint`) → {consumption, generation, both, unknown}
+- **Edge relation**: `edge['rel']` (or legacy keys like `type`/`edge_type`) → one-hot over {MEMA, METR, MENE, MEME, unknown}
+- All other node/graph attributes are currently **not** encoded as ML features.
 
 ### Which Node-Attributes are within the Dataset, however unused in Encoding?
 
@@ -549,6 +528,7 @@ Full table stored in: `analysis/descriptive/tables/soll_unused_node_attrs.csv`
 | max_occurs  |     127 |
 | flexibility |     127 |
 | optional    |     127 |
+| function    |      28 |
 | dynamic     |      28 |
 
 ## Observations (Automatic) and Possible Causes

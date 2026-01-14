@@ -1,0 +1,4 @@
+count,kind,type,attr,value
+21,soll,TR,direction,consumption
+13,soll,TR,direction,generation
+12,soll,TR,direction,both

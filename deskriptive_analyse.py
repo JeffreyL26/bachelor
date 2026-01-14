@@ -57,9 +57,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-import pandas as pd  # type: ignore
+try:
+    import pandas as pd  # type: ignore
+except Exception:  # pragma: no cover
+    pd = None  # type: ignore
 
-import matplotlib.pyplot as plt  # type: ignore
+try:
+    import matplotlib.pyplot as plt  # type: ignore
+except Exception:  # pragma: no cover
+    plt = None  # type: ignore
 
 #TODO: Kommentare und jeff - Done bis:
 
@@ -908,42 +914,84 @@ def per_graph_basic_df(graphs: List[Dict[str, Any]], kind: str) -> List[Dict[str
 
 
 def _normalize_direction_fallback(raw: Any) -> Optional[str]:
+    """Best-effort direction normalizer used when graph_pipeline is not importable.
+
+    This mirrors the intent of graph_pipeline._normalize_direction:
+      - tolerate different spellings / languages
+      - map to {consumption, generation, both}
+      - otherwise return None
+
+    Note: In the current project setup, *direction* is encoded for MaLo/MeLo/TR.
+    """
     if raw is None:
         return None
-    s = str(raw).strip().lower()
+    s = str(raw).strip()
     if not s:
         return None
-    if "consumption" in s and "generation" in s:
-        return "both"
-    if "verbrauch" in s:
+
+    s_low = s.lower()
+
+    # TR type codes (if passed through)
+    s_up = s.upper()
+    if s_up == "Z17":
         return "consumption"
-    if "einspeis" in s or "generation" in s:
+    if s_up == "Z50":
         return "generation"
-    if s in ("consumption", "generation", "both"):
-        return s
-    return s
+    if s_up == "Z56":
+        return "both"
+
+    # Storage / Speicher
+    if "storage" in s_low or "speicher" in s_low:
+        return "both"
+
+    # Already canonical
+    if s_low in ("consumption", "generation", "both"):
+        return s_low
+
+    # Combined spellings
+    if ("consumption" in s_low and "generation" in s_low) or ("einspeis" in s_low and "ausspeis" in s_low):
+        return "both"
+
+    # German heuristics
+    if "einspeis" in s_low or "erzeug" in s_low:
+        return "generation"
+    if "ausspeis" in s_low or "bezug" in s_low or "verbrauch" in s_low:
+        return "consumption"
+
+    return None
 
 
 def encoder_alignment(graphs: List[Dict[str, Any]], kind: str) -> Dict[str, Any]:
-    """Compute how often values fall into 'unknown' bucket according to graph_pipeline mappings."""
+    """Compute how often values fall into the *unknown* bucket according to graph_pipeline.
+
+    Important: We only track *features actually used by graph_pipeline.py*.
+
+    Current graph_pipeline encodes:
+      - Node type (MaLo/MeLo/TR/NeLo)
+      - Direction (consumption/generation/both/unknown), derived via fallbacks:
+          * attrs['direction']
+          * TR: attrs['tr_direction']
+          * TR: attrs['tr_type_code'] or attrs['art_der_technischen_ressource']
+          * MaLo/MeLo: attrs['direction_hint']
+      - Edge relation (MEMA/METR/MENE/MEME/unknown)
+
+    Everything else may exist in the JSON, but is not used as ML feature right now.
+    """
     if gp is not None:
         NODE_TYPES = getattr(gp, "NODE_TYPES", {"MaLo": 0, "MeLo": 1, "TR": 2, "NeLo": 3})
+        EDGE_TYPES = getattr(gp, "EDGE_TYPES", {"MEMA": 0, "METR": 1, "MENE": 2, "MEME": 3})
         DIRECTIONS = getattr(gp, "DIRECTIONS", {"consumption": 0, "generation": 1, "both": 2})
-        MELO_FUNCTIONS = getattr(gp, "MELO_FUNCTIONS", {"N": 0, "H": 1, "D": 2, "S": 3})
-        VOLTAGE_LEVELS = getattr(gp, "VOLTAGE_LEVELS", {"E05": 0, "E06": 1})
         normalize_dir = getattr(gp, "_normalize_direction", _normalize_direction_fallback)
     else:
         NODE_TYPES = {"MaLo": 0, "MeLo": 1, "TR": 2, "NeLo": 3}
+        EDGE_TYPES = {"MEMA": 0, "METR": 1, "MENE": 2, "MEME": 3}
         DIRECTIONS = {"consumption": 0, "generation": 1, "both": 2}
-        MELO_FUNCTIONS = {"N": 0, "H": 1, "D": 2, "S": 3}
-        VOLTAGE_LEVELS = {"E05": 0, "E06": 1}
         normalize_dir = _normalize_direction_fallback
 
     counts = Counter()
     unknown = Counter()
+
     raw_dir_vals = Counter()
-    raw_fn_vals = Counter()
-    raw_volt_vals = Counter()
     raw_nt_vals = Counter()
     raw_rel_vals = Counter()
 
@@ -951,48 +999,39 @@ def encoder_alignment(graphs: List[Dict[str, Any]], kind: str) -> Dict[str, Any]
         for n in get_nodes(g):
             ntype = str(n.get("type"))
             raw_nt_vals[ntype] += 1
+            counts["nodes_total"] += 1
             if ntype not in NODE_TYPES:
                 unknown["node_type_unknown"] += 1
-            counts["nodes_total"] += 1
 
             attrs = n.get("attrs", {}) or {}
 
-            # direction (MaLo/TR only)
+            # Reproduce graph_pipeline's direction lookup logic
+            raw_dir = None
             if ntype == "TR":
-                raw_dir = attrs.get("tr_direction") or attrs.get("direction")
-            elif ntype == "MaLo":
-                raw_dir = attrs.get("direction") or attrs.get("direction_hint")
-            else:
-                raw_dir = None
+                raw_dir = attrs.get("direction")
+                if raw_dir is None:
+                    raw_dir = attrs.get("tr_direction")
+                if raw_dir is None:
+                    raw_dir = attrs.get("tr_type_code") or attrs.get("art_der_technischen_ressource")
+            elif ntype in ("MaLo", "MeLo"):
+                raw_dir = attrs.get("direction")
 
             if raw_dir is not None:
                 raw_dir_vals[str(raw_dir)] += 1
-            canon = normalize_dir(raw_dir)
-            if ntype in ("MaLo", "TR"):
+
+            # Direction is meaningful for MaLo/MeLo/TR (NeLo defaults to unknown)
+            if ntype in ("MaLo", "MeLo", "TR"):
                 counts["dir_nodes_total"] += 1
+                canon = normalize_dir(raw_dir)
                 if canon is None or canon not in DIRECTIONS:
                     unknown["dir_unknown"] += 1
 
-            # melo function (MeLo only)
-            if ntype == "MeLo":
-                raw_fn = attrs.get("function") or attrs.get("melo_function")
-                if raw_fn is not None:
-                    raw_fn_vals[str(raw_fn)] += 1
-                counts["melo_fn_nodes_total"] += 1
-                if raw_fn is None or str(raw_fn) not in MELO_FUNCTIONS:
-                    unknown["melo_fn_unknown"] += 1
-
-                # voltage (MeLo only)
-                raw_volt = attrs.get("voltage_level")
-                if raw_volt is not None:
-                    raw_volt_vals[str(raw_volt)] += 1
-                counts["volt_nodes_total"] += 1
-                if raw_volt is None or str(raw_volt) not in VOLTAGE_LEVELS:
-                    unknown["volt_unknown"] += 1
-
         for _, _, rel in get_valid_typed_edges(g):
+            rel = str(rel).strip().upper()
             raw_rel_vals[rel] += 1
             counts["edges_total"] += 1
+            if rel not in EDGE_TYPES:
+                unknown["edge_rel_unknown"] += 1
 
     return {
         "kind": kind,
@@ -1001,11 +1040,7 @@ def encoder_alignment(graphs: List[Dict[str, Any]], kind: str) -> Dict[str, Any]
         "raw_node_types": raw_nt_vals,
         "raw_edge_types": raw_rel_vals,
         "raw_direction_values": raw_dir_vals,
-        "raw_melo_function_values": raw_fn_vals,
-        "raw_voltage_values": raw_volt_vals,
     }
-
-
 # -------------------------
 # Ist vs Soll coverage (bounds)
 # -------------------------
@@ -1475,7 +1510,7 @@ def run_analysis(
     rw.bullet(
         [
             f"Instances: {meta_ist['graphs']} Graphs, {meta_ist['unique_signatures']} unique signatures",
-            f"Templates: {meta_soll['graphs']} Graphs, {meta_soll['unique_signatures']} uniwue signatures",
+            f"Templates: {meta_soll['graphs']} Graphs, {meta_soll['unique_signatures']} unique signatures",
             f"Signatures are based on node type counts, edge relation counts, number of connected components and degree-Min/Median/Max. \n"
             f"Connected Components are a great indicator, whether the structure forms a single coherent graph or splits into disconnected subgraphs.",
         ]
@@ -1488,9 +1523,10 @@ def run_analysis(
     # Attribut-Vollständigkeit und values Verteilung
     rw.h2("Attributes & Value-Distribution")
     key_attrs_by_type = {
-        "MaLo": ["direction", "direction_hint"],
-        "MeLo": ["voltage_level", "function", "melo_function", "dynamic", "direction_hint"],
-        "TR": ["tr_direction", "direction"],
+        # These keys are either used directly as features or used as *fallbacks* to derive direction.
+        "MaLo": ["direction"],
+        "MeLo": ["direction"],
+        "TR": ["direction"],
         "NeLo": [],
     }
 
@@ -1542,19 +1578,13 @@ def run_analysis(
     rw.insert_table(top_values(ist_graphen, "ist", "MaLo", "direction"))
     rw.insert_table(top_values(soll_graphen, "soll", "MaLo", "direction"))
 
-    rw.h3("Top Values: Voltage Level (MeLo.voltage_level)")
-    rw.insert_table(top_values(ist_graphen, "ist", "MeLo", "voltage_level"))
-    rw.insert_table(top_values(soll_graphen, "soll", "MeLo", "voltage_level"))
+    rw.h3("Top Values: Direction (MeLo)")
+    rw.insert_table(top_values(ist_graphen, "ist", "MeLo", "direction"))
+    rw.insert_table(top_values(soll_graphen, "soll", "MeLo", "direction"))
 
-    rw.h3("Top Values: MeLo-Function (Templates should have function/melo_function)")
-    rw.insert_table(top_values(ist_graphen, "ist", "MeLo", "function"))
-    rw.insert_table(top_values(ist_graphen, "ist", "MeLo", "melo_function"))
-    rw.insert_table(top_values(soll_graphen, "soll", "MeLo", "function"))
-    rw.insert_table(top_values(soll_graphen, "soll", "MeLo", "melo_function"))
-
-    rw.h3("Top Values: TR Richtung (tr_direction)")
-    rw.insert_table(top_values(ist_graphen, "ist", "TR", "tr_direction"))
-    rw.insert_table(top_values(soll_graphen, "soll", "TR", "tr_direction"))
+    rw.h3("Top Values: Direction (TR)")
+    rw.insert_table(top_values(ist_graphen, "ist", "TR", "direction"))
+    rw.insert_table(top_values(soll_graphen, "soll", "TR", "direction"))
 
     # Template spezifisch
     rw.h2("Template-specific Analysis (LBS-Scheme)")
@@ -1653,37 +1683,45 @@ def run_analysis(
     rw.h2("Feature Encoding Alignment (graph_pipeline.py)")
     align_ist = encoder_alignment(ist_graphen, "ist")
     align_soll = encoder_alignment(soll_graphen, "soll")
-
     def alignment_table(al: Dict[str, Any]) -> List[Dict[str, Any]]:
         c = al["counts"]
         u = al["unknown"]
-        rows = []
-        rows.append({"kind": al["kind"], "metric": "nodes_total", "count": int(c.get("nodes_total", 0))})
-        rows.append({"kind": al["kind"], "metric": "edges_total(valid typed)", "count": int(c.get("edges_total", 0))})
+        rows: List[Dict[str, Any]] = []
+
+        nodes_total = int(c.get("nodes_total", 0))
+        edges_total = int(c.get("edges_total", 0))
         dir_tot = int(c.get("dir_nodes_total", 0))
-        fn_tot = int(c.get("melo_fn_nodes_total", 0))
-        volt_tot = int(c.get("volt_nodes_total", 0))
+
+        rows.append({"kind": al["kind"], "metric": "nodes_total", "count": nodes_total})
+        rows.append({"kind": al["kind"], "metric": "edges_total(valid typed)", "count": edges_total})
+
+        nt_unk = int(u.get("node_type_unknown", 0))
         rows.append(
             {
                 "kind": al["kind"],
-                "metric": "dir_unknown_rate",
-                "count": f"{prozent_nachkomma(u.get('dir_unknown', 0), dir_tot)} ({u.get('dir_unknown', 0)}/{dir_tot})",
+                "metric": "node_type_unknown_rate",
+                "count": f"{prozent_nachkomma(nt_unk, nodes_total)} ({nt_unk}/{nodes_total})",
             }
         )
+
+        dir_unk = int(u.get("dir_unknown", 0))
         rows.append(
             {
                 "kind": al["kind"],
-                "metric": "melo_fn_unknown_rate",
-                "count": f"{prozent_nachkomma(u.get('melo_fn_unknown', 0), fn_tot)} ({u.get('melo_fn_unknown', 0)}/{fn_tot})",
+                "metric": "dir_unknown_rate(MaLo/MeLo/TR)",
+                "count": f"{prozent_nachkomma(dir_unk, dir_tot)} ({dir_unk}/{dir_tot})",
             }
         )
+
+        rel_unk = int(u.get("edge_rel_unknown", 0))
         rows.append(
             {
                 "kind": al["kind"],
-                "metric": "volt_unknown_rate",
-                "count": f"{prozent_nachkomma(u.get('volt_unknown', 0), volt_tot)} ({u.get('volt_unknown', 0)}/{volt_tot})",
+                "metric": "edge_rel_unknown_rate",
+                "count": f"{prozent_nachkomma(rel_unk, edges_total)} ({rel_unk}/{edges_total})",
             }
         )
+
         return rows
 
     rw.h3("Unknown-rates for used features")
@@ -1691,23 +1729,21 @@ def run_analysis(
 
     rw.h3("Which Features are Considered for DGMC?")
     rw.text(
-        "The feature encoder (graph_pipeline.py) reduces node attributes to one-hot-blocks. "
-        "This helps to check, whether the graphs use unnecessary attributes or if important data misses."
+        "The feature encoder (graph_pipeline.py) reduces node and edge information to compact one-hot blocks. "
+        "This section verifies which raw fields can actually affect the model input, and which are currently unused."
     )
-    #TODO
+
     rw.bullet(
         [
-            "**Knotentyp**: `node['type']` → One-Hot über {MaLo, MeLo, TR, NeLo}",
-            "**Richtung** (nur MaLo/TR): `attrs['direction']` bzw. TR: `attrs['tr_direction']`; Fallback MaLo: `attrs['direction_hint']` → {consumption, generation, both, unknown}",
-            "**MeLo-Funktion** (nur MeLo): `attrs['function']` oder `attrs['melo_function']` → {N, H, D, S, unknown}",
-            "**Spannungsebene** (nur MeLo): `attrs['voltage_level']` → {E05, E06, unknown}",
-            "**Kantentyp**: `edge['rel']` → One-Hot über {MEMA, METR, MENE, MEME, unknown}",
-            "Alle anderen Node-Attribute (z.B. `min_occurs/max_occurs/flexibility/optional/object_code/level/dynamic/attachment_rules`) werden aktuell **nicht** als ML-Feature kodiert.",
+            "**Node type**: `node['type']` → one-hot over {MaLo, MeLo, TR, NeLo}",
+            "**Direction** (MaLo/MeLo/TR): derived from `attrs['direction']` with fallbacks (TR: `tr_direction`, `tr_type_code` / `art_der_technischen_ressource`; MaLo/MeLo: `direction_hint`) → {consumption, generation, both, unknown}",
+            "**Edge relation**: `edge['rel']` (or legacy keys like `type`/`edge_type`) → one-hot over {MEMA, METR, MENE, MEME, unknown}",
+            "All other node/graph attributes are currently **not** encoded as ML features.",
         ]
     )
-    #TODO done
 
-    used_attr_keys = {"direction", "tr_direction", "direction_hint", "function", "melo_function", "voltage_level"}
+
+    used_attr_keys = {"direction", "tr_direction", "direction_hint", "tr_type_code", "art_der_technischen_ressource"}
     ist_unused = [k for k, _ in ist_node_attr_keys.most_common() if k not in used_attr_keys]
     soll_unused = [k for k, _ in soll_node_attr_keys.most_common() if k not in used_attr_keys]
 
@@ -1746,10 +1782,10 @@ def run_analysis(
     soll_rels = set(soll_et.keys())
     rel_only_soll = sorted((soll_rels - ist_rels) & {"MENE", "MEME"})
     if rel_only_soll:
-        observations.append(f"Templates have node type(s) {rel_only_soll}, that Instance-Graphs are missing. Possible reason: Instance-Converter currently doesn't model this type.")
+        observations.append(f"Templates have edge relation(s) {rel_only_soll}, that Instance-Graphs are missing. Possible reason: Instance-Converter currently doesn't model this type.")
     rel_only_ist = sorted(ist_rels - soll_rels)
     if rel_only_ist:
-        observations.append(f"Instances have node type(s) {rel_only_ist}, that are not in Template-Graphs (check if model choice).")
+        observations.append(f"Instances have edge relation(s) {rel_only_ist}, that are not in Template-Graphs (check if expected or noise).")
 
     u_soll = align_soll["unknown"]
     c_soll = align_soll["counts"]

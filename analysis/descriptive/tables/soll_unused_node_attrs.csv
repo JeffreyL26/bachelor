@@ -5,4 +5,5 @@ min_occurs,127
 max_occurs,127
 flexibility,127
 optional,127
+function,28
 dynamic,28
