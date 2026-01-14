@@ -1,5 +1,27 @@
-
 from __future__ import annotations
+
+"""
+synthetic_pair_builder.py  (Annäherung B)
+
+Ziel
+----
+Erzeugt synthetische Trainingspaare für DGMC, die **nur** Variationen enthalten,
+die deine aktuelle `graph_pipeline.py` auch wirklich als Features sieht:
+
+  - Node-Features: Knotentyp + Richtung (direction; bei TR zusätzlich Fallbacks)
+  - Edge-Features: Kantenrelation (rel) als One-Hot
+
+Konsequenz:
+  - Wir droppen / verändern keine Attribute wie "function", "dynamic", ...,
+    solange sie nicht in der Pipeline encodiert werden.
+  - Damit wird vermieden, dass Graph-B im JSON zwar "anders" aussieht, DGMC aber
+    exakt dieselben Eingabe-Features bekommt (-> Training liefert dann kaum Signal).
+
+Hinweis:
+  - Optionality (min_occurs/max_occurs/flexibility/optional) wird weiterhin als
+    Generator-Logik genutzt (Node-Dropout / Extra-Nodes), aber **nicht** als
+    Augmentation "für DGMC" manipuliert.
+"""
 
 import copy
 import json
@@ -10,6 +32,30 @@ from typing import Any, Dict, List, Optional, Tuple
 # JSON-Graph und Trainingspaar
 TGraph = Dict[str, Any]
 TPair = Dict[str, Any]
+
+
+# =============================================================================
+# Pipeline-relevante Attribute (müssen mit graph_pipeline.py zusammenpassen!)
+# =============================================================================
+
+# graph_pipeline encodiert direction so:
+#   raw_dir = attrs["direction"]
+#   bei TR: fallback attrs["tr_type_code"] oder attrs["art_der_technischen_ressource"]
+PIPELINE_NODE_ATTR_KEYS_BY_TYPE: Dict[str, set[str]] = {
+    "MaLo": {"direction"},
+    "MeLo": {"direction"},
+    "TR": {"direction", "tr_type_code", "art_der_technischen_ressource"},
+    "NeLo": set(),
+}
+PIPELINE_NODE_ATTR_KEYS_ALL: set[str] = set().union(*PIPELINE_NODE_ATTR_KEYS_BY_TYPE.values())
+
+
+def _filter_pipeline_node_attrs(ntype: str, attrs: Dict[str, Any]) -> Dict[str, Any]:
+    """Keep only those node attrs that the current graph_pipeline actually encodes."""
+    keys = PIPELINE_NODE_ATTR_KEYS_BY_TYPE.get(str(ntype), set())
+    if not keys or not isinstance(attrs, dict):
+        return {}
+    return {k: attrs[k] for k in keys if k in attrs}
 
 
 # =============================================================================
@@ -92,11 +138,14 @@ def _is_unbounded_max(value: Any) -> bool:
 def _node_optionality(node: Dict[str, Any]) -> Dict[str, Any]:
     """
     Extrahiert optionale Metainfos aus node["attrs"] (falls vorhanden).
-    Diese Keys existieren in deinen neuen Soll-Graphen (_lbs_optionality):
+    Diese Keys existieren in deinen Soll-Graphen (_lbs_optionality):
       - min_occurs (int)
       - max_occurs (int oder "N")
       - flexibility ("starr"/"flexibel")
       - optional (bool)
+
+    Wichtig: Diese Meta-Infos werden hier nur als Generator-Logik benutzt.
+    DGMC bekommt daraus aktuell keine Features (graph_pipeline encodiert sie nicht).
     """
     attrs = node.get("attrs") or {}
     if not isinstance(attrs, dict):
@@ -115,7 +164,6 @@ def _node_optionality(node: Dict[str, Any]) -> Dict[str, Any]:
     if _is_unbounded_max(max_occurs):
         max_int = None
     else:
-        # int oder int-String
         if isinstance(max_occurs, int):
             max_int = max_occurs
         elif isinstance(max_occurs, str) and max_occurs.strip().isdigit():
@@ -149,12 +197,10 @@ def _sync_graph_attrs_counts(g: TGraph) -> None:
     """
     Hält optionale Zählwerte in graph_attrs konsistent, wenn Knoten entfernt/ergänzt wurden.
 
-    Wichtig:
-      - In den neuen Soll-Graphen gibt es typischerweise *_min/_max und *_node_types,
-        NICHT die alten *_count Keys.
-      - Diese Funktion updatet daher nur *_count Keys (falls vorhanden), um ältere
-        Downstream-Skripte nicht zu brechen. *_min/_max bleiben bewusst unverändert
-        (sie sind Template-Constraints und keine Instanz-Zählwerte).
+    WICHTIG:
+      - Bei deinen neuen Soll-Graphen sind *_min/_max Template-Constraints und sollen
+        **nicht** verändert werden.
+      - Wir aktualisieren daher nur *_count Keys, falls sie existieren (legacy/debugging).
     """
     ga = g.get("graph_attrs")
     if not isinstance(ga, dict):
@@ -176,19 +222,15 @@ def _sync_graph_attrs_counts(g: TGraph) -> None:
         ga["nelo_count"] = counts["NeLo"]
 
 
-
 # =============================================================================
 # Optional: Template-Meta aus Graph-B entfernen (macht B "Ist-näher")
 # =============================================================================
 
-# In den Soll-Graphen (aus _lbs_optionality) stehen zusätzliche Meta-Keys in node["attrs"],
-# die in echten Ist-Graphen typischerweise NICHT vorkommen (min/max/optional/flexibility/...).
-#
-# DGMC sieht diese Keys aktuell nicht (graph_pipeline encodiert nur Typ + Richtung),
+# Diese Keys sind Template-spezifisch und in echten Ist-Graphen typischerweise nicht enthalten.
+# Sie beeinflussen DGMC aktuell NICHT (graph_pipeline encodiert sie nicht),
 # aber:
-#   (a) es ist realistischer, wenn Graph-B diese Meta-Infos nicht trägt
-#   (b) es verhindert "Leakage", falls du später weitere Attrs als Features addierst.
-
+#   - realistischere Graph-B JSONs
+#   - verhindert Leakage, falls du später weitere Attrs als Features addierst
 TEMPLATE_META_ATTR_KEYS: set[str] = {
     "min_occurs",
     "max_occurs",
@@ -199,6 +241,7 @@ TEMPLATE_META_ATTR_KEYS: set[str] = {
     "reference_to_melo",
 }
 
+
 def strip_template_meta_attrs(
     g: TGraph,
     keys: set[str] = TEMPLATE_META_ATTR_KEYS,
@@ -206,7 +249,7 @@ def strip_template_meta_attrs(
     """
     Entfernt Template-spezifische Meta-Attribute aus allen Nodes eines Graphen (in-place).
 
-    :return: Anzahl entfernter (key,value)-Paare
+    Hinweis: Das ist *Cleaning*, kein Trainingssignal (DGMC sieht es aktuell nicht).
     """
     removed = 0
     for node in g.get("nodes", []) or []:
@@ -224,18 +267,19 @@ def strip_template_meta_attrs(
 # Phase A: Attribute-/Edge-Augmentation (Ist-Noise)
 # =============================================================================
 
-# Attribute-Dropout: fehlende Attribute simulieren.
-# Wichtig: An aktuelle graph_pipeline angepasst (direction + Fallback-Keys).
+# Attribute-Dropout: fehlende direction-Infos simulieren.
+# Achtung: Wir droppen nur Keys, die die graph_pipeline tatsächlich verwendet.
 DEFAULT_ATTR_DROPOUT_BY_TYPE: Dict[str, Dict[str, float]] = {
-    # Für MaLo/MeLo/TR ist "direction" momentan der zentrale Vergleichspunkt in deiner Pipeline.
     "MaLo": {"direction": 0.25},
-    "MeLo": {"direction": 0.20, "function": 0.15, "dynamic": 0.15},
-    # TR: direction kann auch via tr_type_code/art_der_technischen_ressource kommen (Fallback in Pipeline)
-    "TR":   {"direction": 0.25, "tr_type_code": 0.10, "art_der_technischen_ressource": 0.10},
+    "MeLo": {"direction": 0.20},
+    # TR: pipeline kann direction auch aus tr_type_code / art_der_technischen_ressource ableiten.
+    # Wenn du "direction" droppst, aber der Code bleibt, ändert sich das Feature evtl. nicht.
+    # Deshalb droppen wir diese Fallback-Keys ebenfalls (mit kleinerer Wahrscheinlichkeit).
+    "TR": {"direction": 0.25, "tr_type_code": 0.10, "art_der_technischen_ressource": 0.10},
     "NeLo": {},
 }
 
-# Edge-Dropout: METR häufiger droppen (TR-Beziehungen sind in Ist häufiger unvollständig)
+# Edge-Dropout: beeinflusst direkt edge_index/edge_attr (Pipeline!)
 DEFAULT_EDGE_DROPOUT_BY_REL: Dict[str, float] = {
     "MEMA": 0.10,
     "METR": 0.30,
@@ -251,16 +295,21 @@ def apply_attribute_dropout(
 ) -> int:
     """
     Entfernt ausgewählte Attribute aus node["attrs"], um fehlende Information zu simulieren.
-    :return: Anzahl gelöschter Attribute
+
+    WICHTIG:
+      - Es werden nur Pipeline-relevante Attribute entfernt (direction und TR-Fallbacks).
     """
     dropped = 0
     for node in g.get("nodes", []):
-        ntype = node.get("type")
+        ntype = str(node.get("type"))
         attrs = node.get("attrs")
         if not isinstance(attrs, dict):
             continue
-        probs = probs_by_type.get(str(ntype), {})
+
+        probs = probs_by_type.get(ntype, {})
         for key, p in probs.items():
+            if key not in PIPELINE_NODE_ATTR_KEYS_ALL:
+                continue
             if key in attrs and random.random() < float(p):
                 del attrs[key]
                 dropped += 1
@@ -272,8 +321,7 @@ def apply_edge_dropout(
     drop_by_rel: Dict[str, float] = DEFAULT_EDGE_DROPOUT_BY_REL
 ) -> int:
     """
-    Entfernt zufällig Kanten aus g["edges"].
-    :return: Anzahl gedroppter Kanten
+    Entfernt zufällig Kanten aus g["edges"] (in-place) -> Pipeline sieht das.
     """
     edges = list(g.get("edges", []))
     if not edges:
@@ -290,6 +338,7 @@ def apply_edge_dropout(
         if p > 0.0 and random.random() < p:
             dropped += 1
             continue
+
         # normalisiere auf "rel", damit downstream konsistent ist
         e2 = dict(e)
         if rel is not None:
@@ -301,10 +350,7 @@ def apply_edge_dropout(
 
 
 def apply_edge_less(g: TGraph) -> int:
-    """
-    Entfernt alle Kanten (edge-less Variante).
-    :return: Anzahl entfernter Kanten
-    """
+    """Entfernt alle Kanten (edge-less Variante) -> Pipeline sieht das."""
     n = len(g.get("edges", []))
     g["edges"] = []
     return n
@@ -314,9 +360,6 @@ def apply_edge_less(g: TGraph) -> int:
 # Phase B: Partial Matching (Node-Varianz)
 # =============================================================================
 
-# Basis-Node-Dropout nach Typ (wird durch Optionality weiter skaliert).
-# Hinweis: In der aktuellen Thesis-Pipeline sind MaLo/MeLo "strukturell definierend".
-# Trotzdem: optionale MaLos (min_occurs=0) werden in Ist durchaus fehlen -> leicht erlauben.
 DEFAULT_NODE_DROPOUT_BASE_BY_TYPE: Dict[str, float] = {
     "TR": 0.18,
     "NeLo": 0.06,
@@ -344,25 +387,17 @@ def _node_dropout_prob(
     opt = _node_optionality(node)
 
     if respect_min_occurs and opt["min_occurs"] >= 1 and not opt["is_optional"]:
-        # Mandatory -> deutlich seltener droppen
-        p *= 0.15
+        p *= 0.15  # Mandatory -> stark schützen
     else:
-        # Optional -> leicht erhöhen
-        p *= 1.15
+        p *= 1.15  # Optional -> leicht erhöhen
 
     if opt["is_flexible"]:
         p *= 1.10
 
-    # Bei max_occurs>1 / unbounded ist das Objekt typischerweise variabler -> etwas mehr Dropout
     if opt["max_is_unbounded"] or (opt["max_occurs"] is not None and opt["max_occurs"] > 1):
         p *= 1.05
 
-    # Clamp
-    if p < 0.0:
-        p = 0.0
-    if p > 0.90:
-        p = 0.90
-    return p
+    return max(0.0, min(0.90, p))
 
 
 def apply_node_dropout(
@@ -374,9 +409,7 @@ def apply_node_dropout(
     """
     Entfernt zufällig Nodes aus g["nodes"] (in-place) und bereinigt betroffene Kanten.
 
-    Wichtige Änderungen ggü. älterer Version:
-      - Dropout ist optionality-aware (min/max/optional/flexibility aus node.attrs)
-      - Mandatory Nodes (min_occurs>=1) werden standardmäßig geschützt
+    -> Pipeline sieht das (andere Graph-Struktur / andere Knotenzahl).
 
     :return: Meta-Infos: {"dropped_node_ids": [...], "dropped_counts": {...}}
     """
@@ -384,7 +417,6 @@ def apply_node_dropout(
     if not nodes:
         return {}
 
-    # Gruppiere Node-IDs nach Typ (für "ensure_keep_types").
     ids_by_type: Dict[str, List[str]] = {}
     for n in nodes:
         t = n.get("type")
@@ -399,9 +431,7 @@ def apply_node_dropout(
         if nid is None:
             continue
         p = _node_dropout_prob(n, base_by_type, respect_min_occurs=respect_min_occurs)
-        if p <= 0.0:
-            continue
-        if random.random() < p:
+        if p > 0.0 and random.random() < p:
             drop_ids.add(str(nid))
 
     # Mindest-Kern-Struktur bewahren:
@@ -413,9 +443,7 @@ def apply_node_dropout(
         kept = [nid for nid in existing if nid not in drop_ids]
         if kept:
             continue
-        # Alles gedroppt -> genau einen wieder behalten
-        nid_keep = random.choice(existing)
-        drop_ids.discard(nid_keep)
+        drop_ids.discard(random.choice(existing))
 
     if not drop_ids:
         return {}
@@ -446,16 +474,11 @@ def apply_node_dropout(
                 break
         dropped_counts[found_t or "UNKNOWN"] = dropped_counts.get(found_t or "UNKNOWN", 0) + 1
 
-    return {
-        "dropped_node_ids": sorted(drop_ids),
-        "dropped_counts": dropped_counts,
-    }
+    return {"dropped_node_ids": sorted(drop_ids), "dropped_counts": dropped_counts}
 
 
 def _make_unique_id(existing_ids: set[str], base: str) -> str:
-    """
-    Erzeugt eine neue ID, die garantiert nicht in existing_ids vorkommt.
-    """
+    """Erzeugt eine neue ID, die garantiert nicht in existing_ids vorkommt."""
     base = base or "NODE"
     for _ in range(1000):
         suffix = random.randint(1000, 9999)
@@ -471,10 +494,7 @@ def _make_unique_id(existing_ids: set[str], base: str) -> str:
 
 
 def _candidate_melo_sources_for_dst(g: TGraph, dst_id: str, rel: str) -> List[str]:
-    """
-    Findet MeLo-Quellen für eine Kante mit gegebenem rel, die auf dst_id zeigt.
-    Falls keine existieren, leere Liste.
-    """
+    """Findet MeLo-Quellen für eine Kante mit gegebenem rel, die auf dst_id zeigt."""
     rel = str(rel).upper()
     out: List[str] = []
     for e in g.get("edges", []) or []:
@@ -492,23 +512,23 @@ def apply_extra_nodes_from_optionality(
     g: TGraph,
     p_add: float = 0.25,
     max_extra_total: int = 3,
-    allowed_types: Tuple[str, ...] = ("TR",),  # optional: ("TR","MaLo")
+    allowed_types: Tuple[str, ...] = ("TR",),
     inherit_attrs: bool = True,
-    p_blank_attrs: float = 0.35,
+    p_blank_direction: float = 0.35,
 ) -> Dict[str, Any]:
     """
     Fügt zusätzliche Nodes hinzu, aber NUR dort, wo das Template es plausibel macht:
-      - node.attrs.max_occurs ist unbounded ("N") oder >1
-      - und (optional) node.attrs.flexibility ist "flexibel" (falls vorhanden)
+      - max_occurs unbounded ("N") oder >1
+      - und (falls vorhanden) flexibility="flexibel"
 
-    Default: nur TR, weil das in deiner Ist-Datenlage typischerweise am variabelsten ist.
+    Pipeline-Konsistenz:
+      - Neue Nodes bekommen nur Pipeline-relevante Attrs (direction, TR-Fallbacks).
+      - Optional kann direction "weggera(s)cht" werden (unknown direction).
 
     Für jeden neuen Node wird eine passende Kante von einem MeLo hinzugefügt:
       - TR  -> METR
       - MaLo-> MEMA
       - NeLo-> MENE
-
-    :return: Meta-Infos
     """
     if max_extra_total <= 0:
         return {}
@@ -532,7 +552,6 @@ def apply_extra_nodes_from_optionality(
         opt = _node_optionality(n)
         if not (opt["max_is_unbounded"] or (opt["max_occurs"] is not None and opt["max_occurs"] > 1)):
             continue
-        # Wenn wir flexibility kennen und sie "starr" ist: lieber nicht duplizieren
         if "flexibility" in (n.get("attrs") or {}) and not opt["is_flexible"]:
             continue
         candidates.append(n)
@@ -555,19 +574,18 @@ def apply_extra_nodes_from_optionality(
         new_id = _make_unique_id(existing_ids, base=t)
         existing_ids.add(new_id)
 
-        # attrs: entweder erben (realistische Duplikate) oder leer (Ist oft dünn)
+        # attrs: nur Pipeline-relevante Keys übernehmen
         new_attrs: Dict[str, Any] = {}
         if inherit_attrs and isinstance(src_node.get("attrs"), dict):
-            new_attrs = copy.deepcopy(src_node["attrs"])
-        if new_attrs and random.random() < float(p_blank_attrs):
-            # "Ist-TR haben oft wenig attrs" -> lösche die meisten, aber lass optional object_code/level stehen
-            for key in list(new_attrs.keys()):
-                if key in ("object_code", "level"):
-                    continue
-                # direction ist wichtig, aber in Ist auch oft fehlend -> 50/50 behalten
-                if key == "direction" and random.random() < 0.5:
-                    continue
-                del new_attrs[key]
+            new_attrs = _filter_pipeline_node_attrs(t, copy.deepcopy(src_node["attrs"]))
+
+        # Optional: direction "verschwindet" (unknown direction) -> Pipeline sieht das
+        if new_attrs and random.random() < float(p_blank_direction):
+            # Bei TR sind mehrere Keys pipeline-relevant -> wir entfernen sie gemeinsam,
+            # sonst könnte die Richtung über Fallbacks trotzdem gleich bleiben.
+            for k in list(new_attrs.keys()):
+                if k in PIPELINE_NODE_ATTR_KEYS_BY_TYPE.get(t, set()):
+                    del new_attrs[k]
 
         nodes.append({"id": new_id, "type": t, "attrs": new_attrs})
         added_ids.append(new_id)
@@ -575,7 +593,6 @@ def apply_extra_nodes_from_optionality(
         # passende Relationen
         rel = {"TR": "METR", "MaLo": "MEMA", "NeLo": "MENE"}.get(t)
         if rel and melo_ids:
-            # bevorzugt: gleiche Quellen wie das Original (falls schon verbunden), sonst random MeLo
             src_candidates = _candidate_melo_sources_for_dst(g, dst_id=src_id, rel=rel)
             src_candidates = [s for s in src_candidates if s in melo_ids] or melo_ids
             melo_src = random.choice(src_candidates)
@@ -605,12 +622,7 @@ def apply_attachment_ambiguity(
     only_rewire_when_rules_exist: bool = True,
 ) -> Tuple[int, int]:
     """
-    Attachment-Mehrdeutigkeit abbilden.
-
-    - Wenn graph_attrs["attachment_rules"] Kandidaten-MeLos nennt, instanziieren wir
-      (mit Wahrscheinlichkeit) eine konkrete Anbindung (z.B. METR: MeLo -> TR).
-    - Zusätzlich können wir bestehende METR/MENE/MEMA Kanten, für die Regeln existieren,
-      auf alternative MeLo-Kandidaten umverdrahten.
+    Attachment-Mehrdeutigkeit abbilden (Kanten verändern/hinzufügen) -> Pipeline sieht das.
 
     return: (added_edges, rewired_edges)
     """
@@ -632,6 +644,7 @@ def apply_attachment_ambiguity(
         if not isinstance(r, dict):
             continue
         rel = r.get("rel")
+        rel = str(rel).strip().upper() if rel is not None else None
         obj = r.get("object_code")
         cands = r.get("target_candidates") or []
         if rel not in allowed_rels:
@@ -653,7 +666,7 @@ def apply_attachment_ambiguity(
     for (rel, obj), cands in rule_map.items():
         if obj not in node_ids:
             continue
-        already = any((e.get("rel") == rel and e.get("dst") == obj) for e in edges if isinstance(e, dict))
+        already = any((str(e.get("rel", "")).upper() == rel and e.get("dst") == obj) for e in edges if isinstance(e, dict))
         if already:
             continue
         if random.random() > p_instantiate_from_rules:
@@ -671,7 +684,7 @@ def apply_attachment_ambiguity(
     for e in edges:
         if not isinstance(e, dict):
             continue
-        rel = e.get("rel")
+        rel = str(e.get("rel", "")).upper()
         dst = e.get("dst")
         src = e.get("src")
         if rel not in allowed_rels:
@@ -703,6 +716,7 @@ def apply_attachment_ambiguity(
         old_key = _edge_key(e)
         edge_set.discard(old_key)
         e["src"] = new_src
+        e["rel"] = rel
         edge_set.add(_edge_key(e))
         rewired += 1
 
@@ -716,24 +730,28 @@ def apply_attachment_ambiguity(
 
 def _force_one_change(g: TGraph) -> Dict[str, Any]:
     """
-    Fallback, falls durch Zufall in einem Paar keine Augmentation gegriffen hat.
-    Ziel: Positive Paare sollen i.d.R. nicht 1:1 identisch bleiben.
+    Fallback, falls durch Zufall in einem Paar keine pipeline-wirksame Augmentation gegriffen hat.
+
+    -> Wir erzwingen ausschließlich Änderungen, die die Pipeline auch sieht:
+       (a) direction / TR-Fallbacks löschen oder
+       (b) eine Kante entfernen
     """
-    # 1) Versuche, direction/function/dynamic o.ä. zu löschen
-    candidates = []
+    # 1) Pipeline-relevante Node-Attrs löschen
+    candidates: List[Tuple[Dict[str, Any], str]] = []
     for node in g.get("nodes", []):
         attrs = node.get("attrs")
         if not isinstance(attrs, dict):
             continue
-        for key in ("direction", "tr_type_code", "art_der_technischen_ressource", "function", "dynamic"):
+        for key in PIPELINE_NODE_ATTR_KEYS_ALL:
             if key in attrs:
                 candidates.append((node, key))
+
     if candidates:
         node, key = random.choice(candidates)
         del node["attrs"][key]
         return {"forced": {"type": "attr_dropout", "node_id": node.get("id"), "attr": key}}
 
-    # 2) Falls keine Attribute droppbar sind: droppe eine Kante
+    # 2) Falls keine pipeline-relevanten Attrs droppbar sind: droppe eine Kante
     edges = g.get("edges", [])
     if isinstance(edges, list) and edges:
         removed = edges.pop(random.randrange(len(edges)))
@@ -750,11 +768,11 @@ def augment_graph_phase_a(
     ensure_nontrivial: bool = True,
 ) -> Dict[str, Any]:
     """
-    Phase A (Ist-Noise):
-      (1) Attachment-Mehrdeutigkeit (regelbasiert)
+    Phase A (Ist-Noise) – alles pipeline-wirksam:
+      (1) Attachment-Mehrdeutigkeit (Kanten hinzufügen/rewiren)
       (2) Edge-less Varianten
       (3) Edge-Dropout
-      (4) Attribute-Dropout
+      (4) direction-Attribute-Dropout
     """
     meta: Dict[str, Any] = {}
 
@@ -845,17 +863,15 @@ def build_synthetic_pairs(
     """
     Positive Paare (label=1):
       - (Template, permutierte Kopie)
-      - Auf die permutierte Kopie werden Phase-A Augmentations angewendet (Ist-Noise)
-      - Optional (Phase B): Node-Dropout + zusätzliche Nodes (partial matching)
+      - Phase A: pipeline-wirksame Noise (edges + direction)
+      - Phase B: Node-Dropout + Extra-Nodes (pipeline-wirksam über Struktur)
 
     Supervision:
-      - supervision="perm": perm-Vektor (setzt i.d.R. gleiche Knotenzahl voraus)
-      - supervision="y": y=[src_indices, tgt_indices] (auch bei unterschiedlicher Knotenzahl)
+      - supervision="perm": perm-Vektor (gleiche Knotenzahl nötig)
+      - supervision="y": y=[src_indices, tgt_indices] (partial matching)
 
-    Negative Paare:
-      - Für DGMC-Training typischerweise NICHT notwendig (und kann Training sogar stören),
-        deshalb default include_negative_pairs=False.
-      - Wenn du sie für eine spätere Graph-Pair-Klassifikation brauchst, kannst du sie aktivieren.
+    Negative Paare (optional):
+      - Für DGMC supervised matching in der Regel nicht nötig.
     """
     if supervision not in ("perm", "y"):
         raise ValueError("supervision must be 'perm' or 'y'")
@@ -895,7 +911,7 @@ def build_synthetic_pairs(
                 if en_meta:
                     aug_meta["extra_nodes"] = en_meta
 
-            # Optional: Template-Meta entfernen, damit Graph-B stärker wie "Ist" aussieht
+            # Optional: Template-Meta entfernen (cleaning, nicht pipeline-wirksam)
             if strip_template_meta_in_b:
                 removed_meta = strip_template_meta_attrs(g_perm)
                 if removed_meta:
@@ -920,7 +936,6 @@ def build_synthetic_pairs(
             for j, g2 in enumerate(templates):
                 if i >= j:
                     continue
-                # grobe Heuristik: unterschiedliche Labels / LBS-Codes
                 if g1.get("label") == g2.get("label"):
                     continue
                 neg_pair: TPair = {"graph_a": g1, "graph_b": g2, "label": 0}
@@ -964,6 +979,7 @@ def _print_quick_stats(pairs: List[TPair], supervision: str = "y") -> None:
     print("  - node_dropout:", count_aug("node_dropout"))
     print("  - extra_nodes:", count_aug("extra_nodes"))
     print("  - forced:", count_aug("forced"))
+    print("  - strip_template_meta:", count_aug("strip_template_meta"))
 
     if supervision == "y":
         ratios = []
@@ -989,15 +1005,12 @@ if __name__ == "__main__":
 
     base = os.path.dirname(os.path.abspath(__file__))
 
-    # an deine aktuelle Datei angepasst
     templates_path = os.path.join(base, "data", "lbs_soll_graphs.jsonl")
     out_path = os.path.join(base, "data", "synthetic_training_pairs.jsonl")
 
     templates = load_templates_jsonl(templates_path)
     print("Geladene Template-Graphen:", len(templates))
 
-    # Für reines DGMC-Training ist "perm" meist der kompatibelste Modus.
-    # Für Stress-Tests / Feasibility (partial matching) kannst du auf "y" umstellen.
     supervision = "y"
     pairs = build_synthetic_pairs(
         templates,
@@ -1008,12 +1021,12 @@ if __name__ == "__main__":
         p_apply_attachment=0.70,
         ensure_nontrivial=True,
         supervision=supervision,
-        # Phase B (nur wenn supervision="y")
         p_node_dropout=0.50,
         respect_min_occurs=True,
         p_add_extra_nodes=0.25,
         max_extra_nodes_total=3,
         extra_node_types=("TR",),
+        strip_template_meta_in_b=True,
     )
     _print_quick_stats(pairs, supervision=supervision)
 
