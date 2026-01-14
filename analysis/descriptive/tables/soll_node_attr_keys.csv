@@ -5,8 +5,6 @@ COUNT,KEY
 127,max_occurs
 127,flexibility
 127,optional
-75,direction
-38,tr_direction
+112,direction
 28,function
 28,dynamic
-28,direction_hint

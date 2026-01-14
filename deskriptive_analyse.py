@@ -1751,19 +1751,9 @@ def run_analysis(
     if rel_only_ist:
         observations.append(f"Instances have node type(s) {rel_only_ist}, that are not in Template-Graphs (check if model choice).")
 
-    u_ist = align_ist["unknown"]
-    c_ist = align_ist["counts"]
     u_soll = align_soll["unknown"]
     c_soll = align_soll["counts"]
 
-    if c_ist.get("melo_fn_nodes_total", 0) and prozentrechner(u_ist.get("melo_fn_unknown", 0), c_ist.get("melo_fn_nodes_total", 0)) > 80:
-        observations.append(
-            "MeLo-function in Instance-Graphs almost always 'unknown' (feature not being used). Possible reason: Instance-Graphs don't have function/melo_function."
-        )
-    if c_soll.get("volt_nodes_total", 0) and prozentrechner(u_soll.get("volt_unknown", 0), c_soll.get("volt_nodes_total", 0)) > 80:
-        observations.append(
-            "Voltage Level in Template-Graphs almost always 'unknown' (feature not being used). Possible reason: Template-Graphs don't have voltage_level."
-        )
     if c_soll.get("dir_nodes_total", 0) and prozentrechner(u_soll.get("dir_unknown", 0), c_soll.get("dir_nodes_total", 0)) > 80:
         observations.append("Direction (MaLo/TR) in Template-Graphs often 'unknown' → Direction as feature hardly differentiates Templates.")
 
@@ -1787,7 +1777,7 @@ def run_analysis(
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser()
     ap.add_argument("--ist", type=str, default="data/ist_graphs_all.jsonl", help="Pfad zu Ist-Graphen JSONL")
-    ap.add_argument("--soll", type=str, default="data/lbs_soll_graphs_pro.jsonl", help="Pfad zu Soll-Template JSONL")
+    ap.add_argument("--soll", type=str, default="data/lbs_soll_graphs.jsonl", help="Pfad zu Soll-Template JSONL")
     ap.add_argument("--out_dir", type=str, default="analysis/descriptive", help="Output-Verzeichnis")
     ap.add_argument("--max_graphs", type=int, default=None, help="Begrenze Anzahl Graphen (Debug)")
     ap.add_argument("--no-plots", action="store_true", help="Deaktiviere Plots")

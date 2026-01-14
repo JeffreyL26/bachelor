@@ -1,11 +1,11 @@
 count,kind,metric
-5421,ist,nodes_total
-2911,ist,edges_total(valid typed)
-5.0% (140/2797),ist,dir_unknown_rate
+5433,ist,nodes_total
+2923,ist,edges_total(valid typed)
+0.0% (0/2797),ist,dir_unknown_rate
 100.0% (2624/2624),ist,melo_fn_unknown_rate
-2.5% (66/2624),ist,volt_unknown_rate
+100.0% (2624/2624),ist,volt_unknown_rate
 127,soll,nodes_total
 78,soll,edges_total(valid typed)
-10.7% (9/84),soll,dir_unknown_rate
+0.0% (0/84),soll,dir_unknown_rate
 0.0% (0/28),soll,melo_fn_unknown_rate
 100.0% (28/28),soll,volt_unknown_rate

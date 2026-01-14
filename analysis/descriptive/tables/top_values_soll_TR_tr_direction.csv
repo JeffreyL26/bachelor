@@ -1,4 +1,0 @@
-count,kind,type,attr,value
-17,soll,TR,tr_direction,consumption
-11,soll,TR,tr_direction,generation
-10,soll,TR,tr_direction,consumption+generation(storage)

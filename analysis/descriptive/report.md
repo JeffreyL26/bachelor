@@ -3,7 +3,7 @@
 ## Inputs
 
 - Instance-Graphs: `data\ist_graphs_all.jsonl`
-- Graph-Templates: `data\lbs_soll_graphs_pro.jsonl`
+- Graph-Templates: `data\lbs_soll_graphs.jsonl`
 - Graphs covered: _all_
 - Plots: created (matplotlib installed)
 - pandas: installed
@@ -77,37 +77,26 @@ Full table stored in: `analysis/descriptive/tables/soll_graph_attrs_keys.csv`
 
 Full table stored in: `analysis/descriptive/tables/ist_node_attr_keys.csv`
 
-| KEY                           |   COUNT |
-|:------------------------------|--------:|
-| direction                     |    2797 |
-| voltage_level                 |    2624 |
-| source                        |      36 |
-| malo_ref                      |      36 |
-| anlage                        |      36 |
-| bisdatum                      |      36 |
-| abdatum                       |      36 |
-| art_der_technischen_ressource |      36 |
-| verbrauchsart                 |      36 |
-| wrmenutzung                   |      36 |
-| ref_zur_tr                    |      36 |
+| KEY       |   COUNT |
+|:----------|--------:|
+| direction |    5421 |
+| source    |      36 |
 
 ### Templates: Node-Attribute Keys (How often per Node?)
 
 Full table stored in: `analysis/descriptive/tables/soll_node_attr_keys.csv`
 
-| KEY            |   COUNT |
-|:---------------|--------:|
-| level          |     127 |
-| object_code    |     127 |
-| min_occurs     |     127 |
-| max_occurs     |     127 |
-| flexibility    |     127 |
-| optional       |     127 |
-| direction      |      75 |
-| tr_direction   |      38 |
-| function       |      28 |
-| dynamic        |      28 |
-| direction_hint |      28 |
+| KEY         |   COUNT |
+|:------------|--------:|
+| level       |     127 |
+| object_code |     127 |
+| min_occurs  |     127 |
+| max_occurs  |     127 |
+| flexibility |     127 |
+| optional    |     127 |
+| direction   |     112 |
+| function    |      28 |
+| dynamic     |      28 |
 
 ## Structure: Node Types & Edge Types
 
@@ -119,7 +108,7 @@ Full table stored in: `analysis/descriptive/tables/node_type_distribution.csv`
 |:-------|---------------:|---------------:|
 | MaLo   |           2761 |             38 |
 | MeLo   |           2624 |             28 |
-| NeLo   |              0 |             15 |
+| NeLo   |             12 |             15 |
 | TR     |             36 |             46 |
 
 ### Edge Types in Dataset (Full)
@@ -131,7 +120,7 @@ Full table stored in: `analysis/descriptive/tables/edge_type_distribution.csv`
 | RELATION   |   IN INSTANCES |   IN TEMPLATES |
 |:-----------|---------------:|---------------:|
 | MEMA       |           2864 |             31 |
-| MENE       |              0 |             12 |
+| MENE       |             12 |             12 |
 | METR       |             47 |             35 |
 
 ## Metrics per Graph
@@ -198,7 +187,7 @@ Full table stored in: `analysis/descriptive/tables/size_distributions.csv`
 
 | kind   |   graphs |   nodes_min |   nodes_med |   nodes_max |   edges_min |   edges_med |   edges_max |
 |:-------|---------:|------------:|------------:|------------:|------------:|------------:|------------:|
-| ist    |     2521 |           2 |           2 |           8 |           1 |           1 |           9 |
+| ist    |     2521 |           2 |           2 |           9 |           1 |           1 |          10 |
 | soll   |       15 |           3 |           9 |          13 |           0 |           5 |           9 |
 
 Plots saved in `plots/` (siehe Dateien).
@@ -211,7 +200,7 @@ Full table stored in: `analysis/descriptive/tables/connectivity_summary.csv`
 
 | kind   |   graphs |   cc_count_mean |   cc_count_max |   largest_cc_mean |   largest_cc_min |
 |:-------|---------:|----------------:|---------------:|------------------:|-----------------:|
-| ist    |     2521 |           1     |              1 |             2.15  |                2 |
+| ist    |     2521 |           1     |              1 |             2.155 |                2 |
 | soll   |       15 |           3.267 |              9 |             4.667 |                1 |
 
 ### Density, Edges per Node, Degree and Isolated Nodes
@@ -230,7 +219,7 @@ Full table stored in: `analysis/descriptive/tables/struct_metrics_summary.csv`
 
 | kind   |   graphs |   density_mean |   density_med |   E_per_N_mean |   avg_deg_mean |   isolated_pct_mean |
 |:-------|---------:|---------------:|--------------:|---------------:|---------------:|--------------------:|
-| ist    |     2521 |       0.961373 |      1        |       0.520101 |        1.0402  |              0      |
+| ist    |     2521 |       0.960834 |      1        |       0.520334 |        1.04067 |              0      |
 | soll   |       15 |       0.19842  |      0.177778 |       0.612962 |        1.22592 |             21.4608 |
 
 ### Degree Statistics per Node Type - Undirected
@@ -240,7 +229,8 @@ Full table stored in: `analysis/descriptive/tables/degree_stats_ist.csv`
 | type   |   count |   deg_mean |   deg_min |   deg_max |
 |:-------|--------:|-----------:|----------:|----------:|
 | MaLo   |    2761 |      1.037 |         1 |         3 |
-| MeLo   |    2624 |      1.109 |         1 |         5 |
+| MeLo   |    2624 |      1.114 |         1 |         5 |
+| NeLo   |      12 |      1     |         1 |         1 |
 | TR     |      36 |      1.306 |         1 |         2 |
 
 Full table stored in: `analysis/descriptive/tables/degree_stats_soll.csv`
@@ -259,7 +249,8 @@ Full table stored in: `analysis/descriptive/tables/degree_stats_directed_ist.csv
 | type   |   count |   out_mean |   out_max |   in_mean |   in_max |
 |:-------|--------:|-----------:|----------:|----------:|---------:|
 | MaLo   |    2761 |      0     |         0 |     1.037 |        3 |
-| MeLo   |    2624 |      1.109 |         5 |     0     |        0 |
+| MeLo   |    2624 |      1.114 |         5 |     0     |        0 |
+| NeLo   |      12 |      0     |         0 |     1     |        1 |
 | TR     |      36 |      0     |         0 |     1.306 |        2 |
 
 Full table stored in: `analysis/descriptive/tables/degree_stats_directed_soll.csv`
@@ -277,7 +268,7 @@ Degree-Plots saved in `plots/` (ist_degree_*.png, soll_degree_*.png).
 
 ## Graph Signatures - Structural Diversity in the Dataset
 
-- Instances: 2521 Graphs, 15 unique signatures
+- Instances: 2521 Graphs, 19 unique signatures
 - Templates: 15 Graphs, 13 uniwue signatures
 - Signatures are based on node type counts, edge relation counts, number of connected components and degree-Min/Median/Max. 
 Connected Components are a great indicator, whether the structure forms a single coherent graph or splits into disconnected subgraphs.
@@ -289,19 +280,23 @@ Full table stored in: `analysis/descriptive/tables/signatures_top_ist.csv`
 | kind   | signature_id   |   count | %      | example_graph_id                                                                                                                                                                                        | signature                                                                  |
 |:-------|:---------------|--------:|:-------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:---------------------------------------------------------------------------|
 | ist    | 6efad90624     |    2293 | 90.96% | comp:['50414974078']|['DE0071947684600000000000000000341']                                                                                                                                              | NT:MaLo=1,MeLo=1,TR=0,NeLo=0|ET:MEMA=1,METR=0,MENE=0,MEME=0|CC:1|DEG:1,1,1 |
-| ist    | 623cabe978     |     106 | 4.20%  | comp:['50414794286', '50415648028']|['DE0071947684600000000000000000738']                                                                                                                               | NT:MaLo=2,MeLo=1,TR=0,NeLo=0|ET:MEMA=2,METR=0,MENE=0,MEME=0|CC:1|DEG:1,1,2 |
+| ist    | 623cabe978     |     101 | 4.01%  | comp:['50414794286', '50415648028']|['DE0071947684600000000000000000738']                                                                                                                               | NT:MaLo=2,MeLo=1,TR=0,NeLo=0|ET:MEMA=2,METR=0,MENE=0,MEME=0|CC:1|DEG:1,1,2 |
 | ist    | afbaf8ef4b     |      80 | 3.17%  | comp:['50414863156', '50415025416']|['DE0071947684600000000000000001508', 'DE0071947684600000000000000002800']                                                                                          | NT:MaLo=2,MeLo=2,TR=0,NeLo=0|ET:MEMA=3,METR=0,MENE=0,MEME=0|CC:1|DEG:1,2,2 |
-| ist    | 2f374262a1     |      10 | 0.40%  | comp:['50414941895', '50414948312', '50415030134']|['DE0071947684600000000000000000031', 'DE0071947684600000000000000002652']                                                                           | NT:MaLo=3,MeLo=2,TR=0,NeLo=0|ET:MEMA=4,METR=0,MENE=0,MEME=0|CC:1|DEG:1,2,2 |
+| ist    | 2f374262a1     |       9 | 0.36%  | comp:['50414941895', '50414948312', '50415030134']|['DE0071947684600000000000000000031', 'DE0071947684600000000000000002652']                                                                           | NT:MaLo=3,MeLo=2,TR=0,NeLo=0|ET:MEMA=4,METR=0,MENE=0,MEME=0|CC:1|DEG:1,2,2 |
 | ist    | d2ad259fa3     |       9 | 0.36%  | bundle:100002161955                                                                                                                                                                                     | NT:MaLo=1,MeLo=1,TR=1,NeLo=0|ET:MEMA=1,METR=1,MENE=0,MEME=0|CC:1|DEG:1,1,2 |
-| ist    | 3d1cbbb0e7     |       9 | 0.36%  | bundle:100002616793                                                                                                                                                                                     | NT:MaLo=2,MeLo=1,TR=1,NeLo=0|ET:MEMA=2,METR=1,MENE=0,MEME=0|CC:1|DEG:1,1,3 |
-| ist    | 05fcbe5520     |       6 | 0.24%  | bundle:100003045702                                                                                                                                                                                     | NT:MaLo=3,MeLo=2,TR=1,NeLo=0|ET:MEMA=4,METR=2,MENE=0,MEME=0|CC:1|DEG:1,2,3 |
+| ist    | 3d1cbbb0e7     |       6 | 0.24%  | bundle:100002616793                                                                                                                                                                                     | NT:MaLo=2,MeLo=1,TR=1,NeLo=0|ET:MEMA=2,METR=1,MENE=0,MEME=0|CC:1|DEG:1,1,3 |
+| ist    | be0d0f937a     |       5 | 0.20%  | bundle:100003249169                                                                                                                                                                                     | NT:MaLo=2,MeLo=1,TR=0,NeLo=1|ET:MEMA=2,METR=0,MENE=1,MEME=0|CC:1|DEG:1,1,3 |
+| ist    | 05fcbe5520     |       5 | 0.20%  | bundle:100002988406                                                                                                                                                                                     | NT:MaLo=3,MeLo=2,TR=1,NeLo=0|ET:MEMA=4,METR=2,MENE=0,MEME=0|CC:1|DEG:1,2,3 |
+| ist    | 3b20757886     |       3 | 0.12%  | bundle:100002563743                                                                                                                                                                                     | NT:MaLo=2,MeLo=1,TR=1,NeLo=1|ET:MEMA=2,METR=1,MENE=1,MEME=0|CC:1|DEG:1,1,4 |
 | ist    | 8fb147d1d4     |       1 | 0.04%  | comp:['50414918844', '50415021117', '50415148002']|['DE0003967684600000000000053018206', 'DE0003967684600000000000053018207', 'DE0071947684600000000000000002172', 'DE0071947684600000000000000002747'] | NT:MaLo=3,MeLo=4,TR=0,NeLo=0|ET:MEMA=6,METR=0,MENE=0,MEME=0|CC:1|DEG:1,2,3 |
 | ist    | a6332cf2ce     |       1 | 0.04%  | comp:['50415031497', '50415263470', '50415263636']|['DE0071947684600000000000000000022']                                                                                                                | NT:MaLo=3,MeLo=1,TR=0,NeLo=0|ET:MEMA=3,METR=0,MENE=0,MEME=0|CC:1|DEG:1,1,3 |
 | ist    | 075026649f     |       1 | 0.04%  | bundle:100002149765                                                                                                                                                                                     | NT:MaLo=1,MeLo=1,TR=2,NeLo=0|ET:MEMA=1,METR=2,MENE=0,MEME=0|CC:1|DEG:1,1,3 |
-| ist    | 9725f560e7     |       1 | 0.04%  | bundle:100003262307                                                                                                                                                                                     | NT:MaLo=3,MeLo=2,TR=2,NeLo=0|ET:MEMA=4,METR=3,MENE=0,MEME=0|CC:1|DEG:1,2,4 |
-| ist    | 03bab450ba     |       1 | 0.04%  | bundle:100003266124                                                                                                                                                                                     | NT:MaLo=3,MeLo=2,TR=3,NeLo=0|ET:MEMA=4,METR=5,MENE=0,MEME=0|CC:1|DEG:1,2,5 |
+| ist    | 7e77b08f37     |       1 | 0.04%  | bundle:100003262307                                                                                                                                                                                     | NT:MaLo=3,MeLo=2,TR=2,NeLo=1|ET:MEMA=4,METR=3,MENE=1,MEME=0|CC:1|DEG:1,2,5 |
+| ist    | 64ccf90809     |       1 | 0.04%  | bundle:100003266124                                                                                                                                                                                     | NT:MaLo=3,MeLo=2,TR=3,NeLo=1|ET:MEMA=4,METR=5,MENE=1,MEME=0|CC:1|DEG:1,2,5 |
+| ist    | dca1595d75     |       1 | 0.04%  | bundle:100003045702                                                                                                                                                                                     | NT:MaLo=3,MeLo=2,TR=1,NeLo=1|ET:MEMA=4,METR=2,MENE=1,MEME=0|CC:1|DEG:1,2,4 |
 | ist    | 8ab8d4cad9     |       1 | 0.04%  | bundle:100003262313                                                                                                                                                                                     | NT:MaLo=3,MeLo=2,TR=1,NeLo=0|ET:MEMA=4,METR=1,MENE=0,MEME=0|CC:1|DEG:1,1,3 |
 | ist    | c0dc24afe2     |       1 | 0.04%  | bundle:100002627035                                                                                                                                                                                     | NT:MaLo=2,MeLo=1,TR=2,NeLo=0|ET:MEMA=2,METR=2,MENE=0,MEME=0|CC:1|DEG:1,1,4 |
+| ist    | b0facc4164     |       1 | 0.04%  | bundle:100003124197                                                                                                                                                                                     | NT:MaLo=3,MeLo=2,TR=0,NeLo=1|ET:MEMA=4,METR=0,MENE=1,MEME=0|CC:1|DEG:1,1,3 |
 | ist    | c508c43a0c     |       1 | 0.04%  | bundle:100003120593                                                                                                                                                                                     | NT:MaLo=3,MeLo=2,TR=2,NeLo=0|ET:MEMA=4,METR=4,MENE=0,MEME=0|CC:1|DEG:1,2,4 |
 
 ### Top Signatures (Templates)
@@ -332,14 +327,14 @@ Full table stored in: `analysis/descriptive/tables/attr_coverage_ist.csv`
 
 | kind   | type   | attr           |   present |   total | present %   |
 |:-------|:-------|:---------------|----------:|--------:|:------------|
-| ist    | MaLo   | direction      |      2657 |    2761 | 96.2%       |
+| ist    | MaLo   | direction      |      2761 |    2761 | 100.0%      |
 | ist    | MaLo   | direction_hint |         0 |    2761 | 0.0%        |
 | ist    | MeLo   | direction_hint |         0 |    2624 | 0.0%        |
 | ist    | MeLo   | dynamic        |         0 |    2624 | 0.0%        |
 | ist    | MeLo   | function       |         0 |    2624 | 0.0%        |
 | ist    | MeLo   | melo_function  |         0 |    2624 | 0.0%        |
-| ist    | MeLo   | voltage_level  |      2624 |    2624 | 100.0%      |
-| ist    | TR     | direction      |         0 |      36 | 0.0%        |
+| ist    | MeLo   | voltage_level  |         0 |    2624 | 0.0%        |
+| ist    | TR     | direction      |        36 |      36 | 100.0%      |
 | ist    | TR     | tr_direction   |         0 |      36 | 0.0%        |
 
 ### Coverage: Main Attributes (Templates)
@@ -348,15 +343,15 @@ Full table stored in: `analysis/descriptive/tables/attr_coverage_soll.csv`
 
 | kind   | type   | attr           |   present |   total | present %   |
 |:-------|:-------|:---------------|----------:|--------:|:------------|
-| soll   | MaLo   | direction      |        37 |      38 | 97.4%       |
+| soll   | MaLo   | direction      |        38 |      38 | 100.0%      |
 | soll   | MaLo   | direction_hint |         0 |      38 | 0.0%        |
-| soll   | MeLo   | direction_hint |        28 |      28 | 100.0%      |
+| soll   | MeLo   | direction_hint |         0 |      28 | 0.0%        |
 | soll   | MeLo   | dynamic        |        28 |      28 | 100.0%      |
 | soll   | MeLo   | function       |        28 |      28 | 100.0%      |
 | soll   | MeLo   | melo_function  |         0 |      28 | 0.0%        |
 | soll   | MeLo   | voltage_level  |         0 |      28 | 0.0%        |
-| soll   | TR     | direction      |        38 |      46 | 82.6%       |
-| soll   | TR     | tr_direction   |        38 |      46 | 82.6%       |
+| soll   | TR     | direction      |        46 |      46 | 100.0%      |
+| soll   | TR     | tr_direction   |         0 |      46 | 0.0%        |
 
 ### Top Values: Direction (MaLo)
 
@@ -364,25 +359,21 @@ Full table stored in: `analysis/descriptive/tables/top_values_ist_MaLo_direction
 
 | kind   | type   | attr      | value       |   count |
 |:-------|:-------|:----------|:------------|--------:|
-| ist    | MaLo   | direction | consumption |    2390 |
-| ist    | MaLo   | direction | generation  |     267 |
+| ist    | MaLo   | direction | consumption |    2457 |
+| ist    | MaLo   | direction | generation  |     304 |
 
 Full table stored in: `analysis/descriptive/tables/top_values_soll_MaLo_direction.csv`
 
 | kind   | type   | attr      | value       |   count |
 |:-------|:-------|:----------|:------------|--------:|
-| soll   | MaLo   | direction | consumption |      24 |
+| soll   | MaLo   | direction | consumption |      25 |
 | soll   | MaLo   | direction | generation  |      13 |
 
 ### Top Values: Voltage Level (MeLo.voltage_level)
 
 Full table stored in: `analysis/descriptive/tables/top_values_ist_MeLo_voltage_level.csv`
 
-| kind   | type   | attr          | value   |   count |
-|:-------|:-------|:--------------|:--------|--------:|
-| ist    | MeLo   | voltage_level | E06     |    2552 |
-| ist    | MeLo   | voltage_level | 41      |      66 |
-| ist    | MeLo   | voltage_level | E05     |       6 |
+_No data._
 
 Full table stored in: `analysis/descriptive/tables/top_values_soll_MeLo_voltage_level.csv`
 
@@ -418,11 +409,7 @@ _No data._
 
 Full table stored in: `analysis/descriptive/tables/top_values_soll_TR_tr_direction.csv`
 
-| kind   | type   | attr         | value                           |   count |
-|:-------|:-------|:-------------|:--------------------------------|--------:|
-| soll   | TR     | tr_direction | consumption                     |      17 |
-| soll   | TR     | tr_direction | generation                      |      11 |
-| soll   | TR     | tr_direction | consumption+generation(storage) |      10 |
+_No data._
 
 ## Template-specific Analysis (LBS-Scheme)
 
@@ -518,14 +505,14 @@ Full table stored in: `analysis/descriptive/tables/encoder_unknown_rates.csv`
 
 | kind   | metric                   | count              |
 |:-------|:-------------------------|:-------------------|
-| ist    | nodes_total              | 5421               |
-| ist    | edges_total(valid typed) | 2911               |
-| ist    | dir_unknown_rate         | 5.0% (140/2797)    |
+| ist    | nodes_total              | 5433               |
+| ist    | edges_total(valid typed) | 2923               |
+| ist    | dir_unknown_rate         | 0.0% (0/2797)      |
 | ist    | melo_fn_unknown_rate     | 100.0% (2624/2624) |
-| ist    | volt_unknown_rate        | 2.5% (66/2624)     |
+| ist    | volt_unknown_rate        | 100.0% (2624/2624) |
 | soll   | nodes_total              | 127                |
 | soll   | edges_total(valid typed) | 78                 |
-| soll   | dir_unknown_rate         | 10.7% (9/84)       |
+| soll   | dir_unknown_rate         | 0.0% (0/84)        |
 | soll   | melo_fn_unknown_rate     | 0.0% (0/28)        |
 | soll   | volt_unknown_rate        | 100.0% (28/28)     |
 
@@ -546,17 +533,9 @@ Instance-Graphs (Top unused Keys):
 
 Full table stored in: `analysis/descriptive/tables/ist_unused_node_attrs.csv`
 
-| key                           |   count |
-|:------------------------------|--------:|
-| source                        |      36 |
-| malo_ref                      |      36 |
-| anlage                        |      36 |
-| bisdatum                      |      36 |
-| abdatum                       |      36 |
-| art_der_technischen_ressource |      36 |
-| verbrauchsart                 |      36 |
-| wrmenutzung                   |      36 |
-| ref_zur_tr                    |      36 |
+| key    |   count |
+|:-------|--------:|
+| source |      36 |
 
 Template-Graphs (Top unused Keys):
 
@@ -574,8 +553,4 @@ Full table stored in: `analysis/descriptive/tables/soll_unused_node_attrs.csv`
 
 ## Observations (Automatic) and Possible Causes
 
-- Templates have node type(s) ['NeLo'], that are not in Instance-Graphs. Possible reason: Instance-Converter currently doesn't model this type.
-- Templates have node type(s) ['MENE'], that Instance-Graphs are missing. Possible reason: Instance-Converter currently doesn't model this type.
-- MeLo-function in Instance-Graphs almost always 'unknown' (feature not being used). Possible reason: Instance-Graphs don't have function/melo_function.
-- Voltage Level in Template-Graphs almost always 'unknown' (feature not being used). Possible reason: Template-Graphs don't have voltage_level.
 - Topology-Check: 1 Template(s) don't have MEMA although MeLo+MaLo exists, 1 Template(s) miss METR although MeLo+TR exists. Check if: Model choice (attachment_rules) vs. mapping-gap.
