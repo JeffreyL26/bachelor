@@ -228,10 +228,10 @@ def strip_template_meta_attrs(
 # Wichtig: An aktuelle graph_pipeline angepasst (direction + Fallback-Keys).
 DEFAULT_ATTR_DROPOUT_BY_TYPE: Dict[str, Dict[str, float]] = {
     # Für MaLo/MeLo/TR ist "direction" momentan der zentrale Vergleichspunkt in deiner Pipeline.
-    "MaLo": {"direction": 0.25, "direction_hint": 0.10},
-    "MeLo": {"direction": 0.20, "direction_hint": 0.10, "function": 0.15, "dynamic": 0.15},
+    "MaLo": {"direction": 0.25},
+    "MeLo": {"direction": 0.20, "function": 0.15, "dynamic": 0.15},
     # TR: direction kann auch via tr_type_code/art_der_technischen_ressource kommen (Fallback in Pipeline)
-    "TR":   {"direction": 0.25, "tr_direction": 0.15, "tr_type_code": 0.10, "art_der_technischen_ressource": 0.10},
+    "TR":   {"direction": 0.25, "tr_type_code": 0.10, "art_der_technischen_ressource": 0.10},
     "NeLo": {},
 }
 
@@ -725,8 +725,7 @@ def _force_one_change(g: TGraph) -> Dict[str, Any]:
         attrs = node.get("attrs")
         if not isinstance(attrs, dict):
             continue
-        for key in ("direction", "direction_hint", "tr_direction", "tr_type_code", "art_der_technischen_ressource",
-                    "function", "dynamic"):
+        for key in ("direction", "tr_type_code", "art_der_technischen_ressource", "function", "dynamic"):
             if key in attrs:
                 candidates.append((node, key))
     if candidates:
@@ -827,7 +826,7 @@ def build_synthetic_pairs(
     templates: List[TGraph],
     num_pos_per_template: int = 50,
     include_negative_pairs: bool = False,
-    max_neg_pairs: Optional[int] = 500,
+    max_neg_pairs: Optional[int] = 0,
     # Phase-A Steuerparameter
     p_edge_less: float = 0.05,
     p_apply_attachment: float = 0.70,
@@ -1004,7 +1003,7 @@ if __name__ == "__main__":
         templates,
         num_pos_per_template=60,
         include_negative_pairs=False,
-        max_neg_pairs=200,
+        max_neg_pairs=0,
         p_edge_less=0.05,
         p_apply_attachment=0.70,
         ensure_nontrivial=True,
