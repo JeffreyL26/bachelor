@@ -101,28 +101,7 @@
             </Attribute>
           </value>
         </entry>
-        <entry key="\analysis\descriptive\tables\top_values_ist_MeLo_voltage_level.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
         <entry key="\analysis\descriptive\tables\top_values_soll_MaLo_direction.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
-        <entry key="\analysis\descriptive\tables\top_values_soll_MeLo_function.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
-        <entry key="\analysis\descriptive\tables\top_values_soll_TR_tr_direction.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />

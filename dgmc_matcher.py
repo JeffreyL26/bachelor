@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-"""dgmc_matcher.py
+"""
+dgmc_matcher.py
 
 Match real *Ist*-graphs against LBS templates using a trained DGMC model.
 
@@ -16,6 +17,18 @@ For each Ist-graph (from a JSONL file), the script:
   1) scores the Ist-graph against every template (graph-level heuristic from DGMC S)
   2) outputs the **Top-N templates** (default N=3)
   3) for the best template, outputs **Top-K node candidates per template node** (default K=3)
+
+Evaluation (labelled subset)
+----------------------------
+To make DGMC outputs comparable to the rule/constraints and GED baselines, this
+matcher can evaluate on your labelled subset derived from `BNDL2MC.csv`.
+
+- Default: tries to load `data/training_data/BNDL2MC.csv` (set `--bndl2mc_path ''` to disable).
+- Evaluation uses (MaLo, MeLo) pairs only AFTER inference; it does not affect matching.
+
+At the end it prints:
+  - Top-1 prediction distribution over all processed Ist graphs
+  - Top-1 / Top-3 accuracy on the labelled subset (where a template label can be derived)
 
 Important notes (re: ID leakage)
 --------------------------------
@@ -46,8 +59,10 @@ Example:
 """
 
 import argparse
+import csv
 import json
 import os
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -71,10 +86,11 @@ import graph_pipeline as gp
 # Model definition (MUST match dgmc_template_training.py)
 # =============================================================================
 
+
 class EdgeAwareGINE(nn.Module):
     """Small GINE-style GNN that supports edge_attr.
 
-    This is copied (verbatim in logic) from your current dgmc_template_training.py
+    Copied (verbatim in logic) from your current dgmc_template_training.py
     to avoid import coupling.
 
     DGMC expects psi_2 to expose `in_channels` and `out_channels` attributes.
@@ -149,6 +165,16 @@ class EdgeAwareGINE(nn.Module):
 TGraph = Dict[str, Any]
 
 
+def _resolve_default(path: Path) -> Path:
+    """Try a couple of sensible fallbacks (similar to your baselines)."""
+    if path.exists():
+        return path
+    alt = Path(__file__).resolve().parent / path.name
+    if alt.exists():
+        return alt
+    return path
+
+
 def iter_jsonl(path: Path, max_lines: Optional[int] = None) -> Iterable[TGraph]:
     """Stream JSONL (optionally truncated)."""
     with path.open("r", encoding="utf-8") as f:
@@ -170,6 +196,104 @@ def load_jsonl(path: Path, max_lines: Optional[int] = None) -> List[TGraph]:
 
 def ensure_dir(p: Path) -> None:
     p.mkdir(parents=True, exist_ok=True)
+
+
+# =============================================================================
+# Optional: label mapping from BNDL2MC.csv (evaluation only)
+# =============================================================================
+
+MCID_TO_TEMPLATE_LABEL: Dict[str, str] = {
+    # Mapping used across your project so far.
+    # Extend if you add more labelled MCIDs.
+    "S_A1_A2": "9992000000042",
+    "S_C3": "9992000000175",
+    "S_A001": "9992000000026",
+}
+
+
+def load_bndl2mc_labels(bndl2mc_path: Path) -> Dict[Tuple[str, str], str]:
+    """Return map (malo_id, melo_id) -> MCID.
+
+    Expects semicolon-separated CSV with columns:
+      Bündel;Marktlokation;Messlokation;MCID
+    """
+    mapping: Dict[Tuple[str, str], str] = {}
+    with bndl2mc_path.open("r", encoding="utf-8") as f:
+        header = f.readline().strip().split(";")
+        cols = {name: i for i, name in enumerate(header)}
+        need = {"Marktlokation", "Messlokation", "MCID"}
+        if not need.issubset(cols.keys()):
+            raise ValueError(
+                f"BNDL2MC header missing required columns {sorted(need)}. "
+                f"Got: {header}"
+            )
+
+        for line_no, line in enumerate(f, start=2):
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(";")
+            if len(parts) <= max(cols.values()):
+                continue
+
+            # MaLo sometimes stored numeric => normalise by int-cast if possible
+            try:
+                malo = str(int(parts[cols["Marktlokation"]]))
+            except Exception:
+                malo = str(parts[cols["Marktlokation"]]).strip()
+
+            melo = str(parts[cols["Messlokation"]]).strip()
+            mcid = str(parts[cols["MCID"]]).strip()
+
+            if not malo or not melo or not mcid:
+                continue
+
+            mapping[(malo, melo)] = mcid
+
+    return mapping
+
+
+def infer_ground_truth_for_ist(
+    g: TGraph,
+    pair_to_mcid: Dict[Tuple[str, str], str],
+) -> Optional[Dict[str, str]]:
+    """If any (MaLo,MeLo) pair of the graph occurs in BNDL2MC, return ground truth.
+
+    Note: if the MCID has no known mapping to a template label, template_label is "".
+    """
+    nodes = g.get("nodes") or []
+    malos = [
+        str(n.get("id"))
+        for n in nodes
+        if isinstance(n, dict) and n.get("type") == "MaLo" and n.get("id") is not None
+    ]
+    melos = [
+        str(n.get("id"))
+        for n in nodes
+        if isinstance(n, dict) and n.get("type") == "MeLo" and n.get("id") is not None
+    ]
+
+    found: Optional[Tuple[str, str]] = None
+    found_mcid: Optional[str] = None
+    for malo in malos:
+        for melo in melos:
+            mcid = pair_to_mcid.get((malo, melo))
+            if mcid:
+                found = (malo, melo)
+                found_mcid = mcid
+                break
+        if found_mcid:
+            break
+
+    if not found_mcid:
+        return None
+
+    return {
+        "mcid": found_mcid,
+        "template_label": MCID_TO_TEMPLATE_LABEL.get(found_mcid, ""),
+        "malo": found[0] if found else "",
+        "melo": found[1] if found else "",
+    }
 
 
 # =============================================================================
@@ -222,7 +346,12 @@ def build_model_from_checkpoint(
     # Dimensions
     in_channels = ckpt.get("in_channels")
     edge_dim = ckpt.get("edge_dim")
-    if not isinstance(in_channels, int) or not isinstance(edge_dim, int) or in_channels <= 0 or edge_dim <= 0:
+    if (
+        not isinstance(in_channels, int)
+        or not isinstance(edge_dim, int)
+        or in_channels <= 0
+        or edge_dim <= 0
+    ):
         in_channels, edge_dim = _infer_dims_from_graph(sample_graph, undirected=undirected)
 
     # Architecture params
@@ -280,6 +409,7 @@ def build_model_from_checkpoint(
 # =============================================================================
 # Matching logic
 # =============================================================================
+
 
 @dataclass
 class PreparedGraph:
@@ -358,7 +488,6 @@ def score_pair(
 
     We always return S(template->ist), because we use it for node-level Top-K output.
     """
-
     S_t2i = dgmc_similarity_matrix(model, src=template, tgt=ist, device=device)
     s1 = score_mean_rowmax(S_t2i)
 
@@ -381,7 +510,6 @@ def topk_from_S(
     k_top: int,
 ) -> List[Dict[str, Any]]:
     """For each src node, return top-k target candidates."""
-
     if S.dim() != 2:
         return []
 
@@ -470,11 +598,19 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max_ist", type=int, default=0, help="Process only the first N ist graphs (0 = all).")
     p.add_argument("--max_templates", type=int, default=0, help="Use only the first N templates (0 = all).")
 
-    # Optional: override DGMC inference settings (should usually match training)
+    # Optional: DGMC inference overrides (should usually match training)
     p.add_argument("--override_num_steps", type=int, default=-999)
     p.add_argument("--override_k", type=int, default=-999)
     p.add_argument("--override_detach", action="store_true")
     p.add_argument("--no_override_detach", action="store_true")
+
+    # Evaluation (default ON, matching your baseline scripts)
+    p.add_argument(
+        "--bndl2mc_path",
+        type=str,
+        default=str(os.path.join("data", "training_data", "BNDL2MC.csv")),
+        help="BNDL2MC.csv for evaluation (default: data/training_data/BNDL2MC.csv). Use '' to disable.",
+    )
 
     return p.parse_args()
 
@@ -487,6 +623,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
+    # directed/undirected flag resolution (keep your current default: undirected)
     undirected = True
     if args.directed:
         undirected = False
@@ -495,9 +632,9 @@ def main() -> None:
 
     device = torch.device(args.device)
 
-    ist_path = Path(args.ist_path)
-    tpl_path = Path(args.templates_path)
-    ckpt_path = Path(args.checkpoint)
+    ist_path = _resolve_default(Path(args.ist_path))
+    tpl_path = _resolve_default(Path(args.templates_path))
+    ckpt_path = _resolve_default(Path(args.checkpoint))
     out_path = Path(args.out_path)
 
     if not ist_path.exists():
@@ -513,13 +650,24 @@ def main() -> None:
     max_templates = None if int(args.max_templates) <= 0 else int(args.max_templates)
 
     if max_ist is not None:
-        print(f"[matcher] NOTE: --max_ist={max_ist} => the Ist file will NOT be processed completely.")
+        print(f"[dgmc][note] --max_ist={max_ist} => the Ist file will NOT be processed completely.")
     if max_templates is not None:
-        print(f"[matcher] NOTE: --max_templates={max_templates} => the Templates file will NOT be processed completely.")
+        print(f"[dgmc][note] --max_templates={max_templates} => the Templates file will NOT be processed completely.")
 
     templates = load_jsonl(tpl_path, max_lines=max_templates)
     if not templates:
         raise RuntimeError("No templates loaded (templates JSONL empty or invalid).")
+
+    # --- Evaluation data (optional) ---
+    pair_to_mcid: Dict[Tuple[str, str], str] = {}
+    bndl_arg = str(args.bndl2mc_path or "").strip()
+    if bndl_arg:
+        bndl_path = _resolve_default(Path(bndl_arg))
+        if bndl_path.exists():
+            pair_to_mcid = load_bndl2mc_labels(bndl_path)
+            print(f"[dgmc] Loaded BNDL2MC pairs: {len(pair_to_mcid)} from {bndl_path}")
+        else:
+            print(f"[dgmc][warn] BNDL2MC.csv not found at: {bndl_path} (evaluation disabled)")
 
     # Build + load model
     ckpt = _load_checkpoint(ckpt_path, device=device)
@@ -549,13 +697,22 @@ def main() -> None:
         prepare_graph(t, undirected=undirected, device=device) for t in templates
     ]
 
+    # Evaluation counters
+    eval_total = 0
+    eval_top1 = 0
+    eval_top3 = 0
+
+    # Prediction distribution
+    pred_top1_dist: Counter = Counter()
+
     # Stream ist graphs (avoid loading everything into RAM)
     written = 0
     ist_iter = iter_jsonl(ist_path, max_lines=max_ist)
 
     print(
-        f"[matcher] device={device} | undirected={undirected} | templates={len(prepared_templates)} "
-        f"| top_templates={args.top_templates} | top_matches={args.top_matches} | score_mode={args.score_mode}"
+        f"[dgmc] device={device} | undirected={undirected} | ist_graphs={'ALL' if max_ist is None else max_ist} "
+        f"| templates={len(prepared_templates)} | top_k={args.top_templates} | top_matches={args.top_matches} "
+        f"| score_mode={args.score_mode}"
     )
 
     with out_path.open("w", encoding="utf-8") as f_out:
@@ -584,7 +741,8 @@ def main() -> None:
                     best_S_t2i = S_t2i
 
             tpl_scores.sort(key=lambda x: (-x[0], x[1]))
-            top_tpl = tpl_scores[: max(1, int(args.top_templates))]
+            top_n = max(1, int(args.top_templates))
+            top_tpl = tpl_scores[:top_n]
 
             top_templates_out = []
             for rank, (sc, ti) in enumerate(top_tpl, start=1):
@@ -598,6 +756,10 @@ def main() -> None:
                     }
                 )
 
+            # Distribution over top-1 predictions
+            if top_templates_out:
+                pred_top1_dist[str(top_templates_out[0].get("template_label") or "")] += 1
+
             best_tpl = templates[best_i]
             best_tpl_p = prepared_templates[best_i]
 
@@ -605,11 +767,27 @@ def main() -> None:
             if best_S_t2i is None:
                 topk = []
             else:
-                topk = topk_from_S(best_S_t2i, src=best_tpl_p, tgt=ist_p, k_top=int(args.top_matches))
+                topk = topk_from_S(
+                    best_S_t2i, src=best_tpl_p, tgt=ist_p, k_top=int(args.top_matches)
+                )
+
+            # Ground truth (evaluation only; does NOT affect inference)
+            gt = infer_ground_truth_for_ist(g_ist, pair_to_mcid) if pair_to_mcid else None
+            if gt and gt.get("template_label"):
+                eval_total += 1
+                gt_label = str(gt["template_label"])
+                pred1 = str(top_templates_out[0].get("template_label") or "") if top_templates_out else ""
+                if pred1 == gt_label:
+                    eval_top1 += 1
+                pred_labels = [str(x.get("template_label") or "") for x in top_templates_out[:3]]
+                if gt_label in pred_labels:
+                    eval_top3 += 1
 
             res = {
                 "ist_graph_id": g_ist.get("graph_id"),
                 "top_templates": top_templates_out,
+                "ground_truth": gt,
+                # DGMC-specific extras (kept for debugging/analysis):
                 "best_template_graph_id": best_tpl.get("graph_id"),
                 "best_template_label": template_label(best_tpl),
                 "best_score": float(best_score),
@@ -620,9 +798,34 @@ def main() -> None:
             written += 1
 
             if idx % 50 == 0:
-                print(f"[matcher] processed {idx} ist graphs")
+                print(f"[dgmc] processed {idx} ist graphs")
 
-    print(f"[matcher] done. wrote {written} results -> {out_path}")
+    print(f"[dgmc] wrote: {out_path}")
+
+    # Report prediction distribution (like your WL/GED logs)
+    total_preds = sum(int(v) for v in pred_top1_dist.values())
+    if total_preds > 0:
+        print("[dgmc] top1 prediction distribution (processed Ist graphs):")
+        for lab, cnt in pred_top1_dist.most_common():
+            pct = 100.0 * float(cnt) / float(total_preds)
+            print(f"  - {lab}: {cnt} ({pct:.3f}%)")
+
+    # Report evaluation
+    if eval_total > 0:
+        print(
+            "[dgmc] evaluation on labelled subset | "
+            f"n={eval_total} | top1={eval_top1/eval_total:.3f} | top3={eval_top3/eval_total:.3f}"
+        )
+    else:
+        if pair_to_mcid:
+            print(
+                "[dgmc][warn] evaluation skipped: no labelled graphs found that map to known template labels. "
+                "If you added more MCIDs, extend MCID_TO_TEMPLATE_LABEL."
+            )
+        else:
+            print("[dgmc] evaluation skipped (no BNDL2MC loaded).")
+
+    print(f"[dgmc] done. wrote {written} results")
 
 
 if __name__ == "__main__":
