@@ -19,8 +19,8 @@ pip install "git+https://github.com/rusty1s/deep-graph-matching-consensus.git"
   - data/ist_graphs_all.jsonl – instance graphs
   - data/synthetic_training_pairs.jsonl – synthetic DGMC training pairs
   - data/synthetic_training_pairs_control.jsonl – permutation-only control pairs
-  - data/dgmc_partial.pt – DGMC checkpoint
-  - data/dgmc_perm.pt – DGMC checkpoint trained on synthetic_training_pairs_control.py
+  - data/dgmc_partial*.pt – DGMC checkpoint
+  - data/dgmc_perm*.pt – DGMC checkpoint trained on synthetic_training_pairs_control.py
   - runs/*.jsonl – matching outputs
   - analysis/descriptive/ – descriptive analysis report (markdown + CSV + plots)
 
