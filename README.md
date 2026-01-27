@@ -1,6 +1,6 @@
 # Automated Matching Analysis of Metering Constructs using GNN (DGMC) - PROJECT README
 
-Install correct librariy versions to run:
+Install correct library versions to run:
 ```bash
 pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.8.0+cpu.html
 pip install pykeops
