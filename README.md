@@ -1,4 +1,12 @@
-#Automated Matching Analysis of Metering Constructs using GNN (DGMC) - PROJECT README
+# Automated Matching Analysis of Metering Constructs using GNN (DGMC) - PROJECT README
+
+Install correct librariy versions to run:
+```bash
+pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.8.0+cpu.html
+pip install pykeops
+pip install "git+https://github.com/rusty1s/deep-graph-matching-consensus.git"
+```
+
 
 - data/lbs_templates/
   JSON LBS template files (9992 … - Final.json).
@@ -12,14 +20,13 @@
   - data/synthetic_training_pairs.jsonl – synthetic DGMC training pairs
   - data/synthetic_training_pairs_control.jsonl – permutation-only control pairs
   - data/dgmc_partial.pt – DGMC checkpoint
+  - data/dgmc_perm.pt – DGMC checkpoint trained on synthetic_training_pairs_control.py
   - runs/*.jsonl – matching outputs
   - analysis/descriptive/ – descriptive analysis report (markdown + CSV + plots)
 
 ---
 
-# File-by-file reference
-
-## Python code
+## Code Files
 
 ### baseline_constraints.py
 Rule-based baseline that scores an instance graph against each template using hard bounds and constraint penalties, returning top-k candidates. Evaluates hits@k using subset.
@@ -52,7 +59,7 @@ python baseline_graph_similarity.py   --ist_path <path>   --templates_path <path
 - --max_templates <int> (optional)
 - --directed (boolean, default is undirected)
 - --timeout_s <float> (optional per pair computation timeout)
-- --lbs_json_dir <dir> (used to enrich template directions)
+- --lbs_json_dir <dir> (used to enrich template directions, where template directions might be zero, not the case as for final templates)
 - --bndl2mc_path <path | ''> (set to empty string to disable evaluation)
 - --type_mismatch_cost <float>
 - --dir_mismatch_cost <float>
@@ -60,7 +67,7 @@ python baseline_graph_similarity.py   --ist_path <path>   --templates_path <path
 
 ### dgmc_dataset.py
 Dataset + batching utilities to load synthetic JSONL graph pairs and produce PyG Batch objects plus correspondence tensors y. Main is merely a check if everything functions.
-**Run (sanity-check, no CLI):**
+**Run:**
 ```bash
 python dgmc_dataset.py
 ```
@@ -79,8 +86,8 @@ python dgmc_template_training.py   --pairs_path <path>   --epochs <int>   --batc
 - --weight_decay <float>
 - --seed <int>
 - --num_steps <int> (DGMC refinement steps)
-- --k <-1 | int>=1> (-1 = dense all-vs-all, >=1 = sparse top-k) #TODO
-- --detach` (flag; default false)
+- --k <-1 | int>=1> (-1 = dense all-vs-all node matching, >=1 = sparse top-k, meaning DGMC oly keeps the top-k target candidates per source node, limits search space)
+- --detach (boolean, default false. If true, DGMC wouldn't backpropagate)
 - --hidden_channels <int>
 - --out_channels <int>
 - --num_layers <int>
@@ -110,13 +117,13 @@ python dgmc_matcher.py   --ist_path <path>   --templates_path <path>   --checkpo
 - --max_templates <int | 0> (0 = all)
 - --override_num_steps <int> (-999 to keep checkpoint value, otherwise override)
 - --override_k <int> (-999 to keep checkpoint value, otherwise override)
-- --override_detach (boolean, force detach=True) #TODO
-- --no_override_detach (boolean, force detach=False) #TODO
+- --override_detach (boolean, force detach=True)
+- --no_override_detach (boolean, force detach=False)
 - --bndl2mc_path <path | ''> (set to empty string to disable evaluation)
 
 ### graph_converter.py
 Loads CSV exports (SDF dataset + 2nd dataset with TR/NeLo) and converts them into instance graphs in the shared JSON graph format. Writes the combined output to data/ist_graphs_all.jsonl.
-**Run (no CLI):**
+**Run:**
 ```bash
 python graph_converter.py
 ```
@@ -127,14 +134,14 @@ Not intended to be executed directly
 
 ### graph_templates.py
 Converts raw LBS template JSON files into template graphs in JSONL format. Writes data/lbs_soll_graphs.jsonl, which is then used by baselines, pair generation, training, and matching.
-**Run (no CLI):**
+**Run:**
 ```bash
 python graph_templates.py
 ```
 
 ### pipeline_tester.py
 Quick check that graph_pipeline.py can load and convert both instance and template JSONL files to PyG Data objects (prints tensor shapes metadata). 
-**Run (no CLI):**
+**Run:**
 ```bash
 python pipeline_tester.py
 ```
