@@ -4,11 +4,7 @@ import os
 
 if __name__ == "__main__":
     """
-    Konsolenausgabe zum Testen der Konvertierung in PyG-Objekte.
-
-    Erwartete Dateien (relativ zum Projekt-Root):
-      - data/ist_graphs_all.jsonl
-      - data/lbs_soll_graphs_pro.jsonl
+    Konsolenausgabe zum Testen der Konvertierung in PyG-Objekte
     """
 
     BASE = os.path.dirname(os.path.abspath(__file__))

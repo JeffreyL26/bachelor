@@ -3,59 +3,8 @@ from __future__ import annotations
 """
 dgmc_matcher.py
 
-Match real *Ist*-graphs against LBS templates using a trained DGMC model.
-
-This script is designed to be **compatible with your current stack**:
-  - graph_pipeline.py (current): encodes node features as
-      [node_type_onehot (4)] + [direction_onehot incl. unknown (4)]  => 8 dims
-    and edge features as one-hot of (MEMA, METR, MENE, MEME, unknown) => 5 dims.
-  - dgmc_template_training.py (current): trains DGMC on synthetic pairs with supervision `y`.
-
-What you get
-------------
-For each Ist-graph (from a JSONL file), the script:
-  1) scores the Ist-graph against every template (graph-level heuristic from DGMC S)
-  2) outputs the **Top-N templates** (default N=3)
-  3) for the best template, outputs **Top-K node candidates per template node** (default K=3)
-
-Evaluation (labelled subset)
-----------------------------
-To make DGMC outputs comparable to the rule/constraints and GED baselines, this
-matcher can evaluate on your labelled subset derived from `BNDL2MC.csv`.
-
-- Default: tries to load `data/training_data/BNDL2MC.csv` (set `--bndl2mc_path ''` to disable).
-- Evaluation uses (MaLo, MeLo) pairs only AFTER inference; it does not affect matching.
-
-At the end it prints:
-  - Top-1 prediction distribution over all processed Ist graphs
-  - Top-1 / Top-3 accuracy on the labelled subset (where a template label can be derived)
-
-Important notes (re: ID leakage)
---------------------------------
-- graph_pipeline.py uses node["id"] only to map edges to indices; it is NOT part of x.
-  => DGMC cannot "cheat" by matching IDs.
-
-How scoring works
------------------
-DGMC produces a similarity matrix S with shape [n_source, n_target].
-Default score = mean over source-nodes of max similarity in that row:
-  score = mean_i max_j S[i, j]
-
-Optional (recommended when |V_template| and |V_ist| differ a lot):
-  --score_mode mean_rowmax_symmetric
-which averages both directions:
-  0.5 * (score(template->ist) + score(ist->template))
-
-Run
----
-Example:
-  python dgmc_matcher.py \
-    --ist_path data/ist_graphs_all.jsonl \
-    --templates_path data/lbs_soll_graphs.jsonl \
-    --checkpoint data/dgmc_partial.pt \
-    --out_path runs/dgmc_matches_top3.jsonl \
-    --top_templates 3 \
-    --top_matches 3
+Matcht Ist-Graphen mit den Templates. Gibt Top-k aus. Für das Top-1 auch die jeweiligen Knoten-Korrespondenzen.
+Evaluierung auf gelabelten Subset.
 """
 
 import argparse
@@ -71,29 +20,24 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-# --- DGMC robust import (same pattern as training) ---
+#DGMC Import
 try:
-    from dgmc.models import DGMC  # type: ignore
-except Exception:  # pragma: no cover
-    from torch_geometric.nn import DGMC  # type: ignore
+    from dgmc.models import DGMC
+except Exception:
+    from torch_geometric.nn import DGMC
 
 from torch_geometric.nn import GINEConv
 
 import graph_pipeline as gp
 
 
-# =============================================================================
-# Model definition (MUST match dgmc_template_training.py)
-# =============================================================================
-
+# ------------------------------
+# MODELL DEFINIEREN
+# ------------------------------
 
 class EdgeAwareGINE(nn.Module):
-    """Small GINE-style GNN that supports edge_attr.
-
-    Copied (verbatim in logic) from your current dgmc_template_training.py
-    to avoid import coupling.
-
-    DGMC expects psi_2 to expose `in_channels` and `out_channels` attributes.
+    """
+    Gleicher EdgeAwareGINE wie in @dgmc_template_training.py, keine Zeit mehr auszulagern
     """
 
     def __init__(
@@ -131,14 +75,14 @@ class EdgeAwareGINE(nn.Module):
         self.lin_out = nn.Linear(hidden_channels, out_channels)
         self.reset_parameters()
 
-    def reset_parameters(self) -> None:
+    def reset_parameters(self) -> None: #wie in @dgmc_template_training.py
         for conv in self.convs:
             conv.reset_parameters()
         for bn in self.norms:
             bn.reset_parameters()
         self.lin_out.reset_parameters()
 
-    def forward(
+    def forward(                        #wie in @dgmc_template_training.py
         self,
         x: torch.Tensor,
         edge_index: torch.Tensor,
@@ -158,26 +102,30 @@ class EdgeAwareGINE(nn.Module):
         return self.lin_out(x)
 
 
-# =============================================================================
+# ------------------------------
 # IO helpers
-# =============================================================================
+# ------------------------------
 
 TGraph = Dict[str, Any]
 
 
-def _resolve_default(path: Path) -> Path:
-    """Try a couple of sensible fallbacks (similar to your baselines)."""
-    if path.exists():
-        return path
-    alt = Path(__file__).resolve().parent / path.name
+def _lade_pfad(pfad: Path) -> Path:
+    """
+    Pfad laden
+    """
+    if pfad.exists():
+        return pfad
+    alt = Path(__file__).resolve().parent / pfad.name
     if alt.exists():
         return alt
-    return path
+    return pfad
 
 
-def iter_jsonl(path: Path, max_lines: Optional[int] = None) -> Iterable[TGraph]:
-    """Stream JSONL (optionally truncated)."""
-    with path.open("r", encoding="utf-8") as f:
+def jsonl_iter(pfad: Path, max_lines: Optional[int] = None) -> Iterable[TGraph]:
+    """
+    JSONL durchlaufen
+    """
+    with pfad.open("r", encoding="utf-8") as f:
         for line_no, line in enumerate(f, start=1):
             if max_lines is not None and line_no > max_lines:
                 break
@@ -187,44 +135,46 @@ def iter_jsonl(path: Path, max_lines: Optional[int] = None) -> Iterable[TGraph]:
             try:
                 yield json.loads(line)
             except Exception as e:
-                raise ValueError(f"Invalid JSON in {path} at line {line_no}: {e}") from e
+                raise ValueError(f"Invalid JSON in {pfad} at line {line_no}: {e}") from e
 
 
-def load_jsonl(path: Path, max_lines: Optional[int] = None) -> List[TGraph]:
-    return list(iter_jsonl(path, max_lines=max_lines))
+def load_jsonl(pfad: Path, max_lines: Optional[int] = None) -> List[TGraph]:
+    """
+    JSONL aus Pfad laden
+    """
+    return list(jsonl_iter(pfad, max_lines=max_lines))
 
 
 def ensure_dir(p: Path) -> None:
+    """
+    Verzeichnis erstellen (wenn nötig)
+    """
     p.mkdir(parents=True, exist_ok=True)
 
 
-# =============================================================================
-# Optional: label mapping from BNDL2MC.csv (evaluation only)
-# =============================================================================
+# ------------------------------
+# Evaluierung
+# ------------------------------
 
-MCID_TO_TEMPLATE_LABEL: Dict[str, str] = {
-    # Mapping used across your project so far.
-    # Extend if you add more labelled MCIDs.
+LBS_CODES: Dict[str, str] = {
     "S_A1_A2": "9992000000042",
     "S_C3": "9992000000175",
     "S_A001": "9992000000026",
 }
 
 
-def load_bndl2mc_labels(bndl2mc_path: Path) -> Dict[Tuple[str, str], str]:
-    """Return map (malo_id, melo_id) -> MCID.
-
-    Expects semicolon-separated CSV with columns:
-      Bündel;Marktlokation;Messlokation;MCID
+def label_laden(bndl2mc_path: Path) -> Dict[Tuple[str, str], str]:
+    """
+    Labelt die Evaluierungsgraphen
     """
     mapping: Dict[Tuple[str, str], str] = {}
     with bndl2mc_path.open("r", encoding="utf-8") as f:
         header = f.readline().strip().split(";")
-        cols = {name: i for i, name in enumerate(header)}
-        need = {"Marktlokation", "Messlokation", "MCID"}
-        if not need.issubset(cols.keys()):
+        spalten = {name: i for i, name in enumerate(header)}
+        benoetigte_spalten = {"Marktlokation", "Messlokation", "MCID"}
+        if not benoetigte_spalten.issubset(spalten.keys()):
             raise ValueError(
-                f"BNDL2MC header missing required columns {sorted(need)}. "
+                f"BNDL2MC header missing required columns {sorted(benoetigte_spalten)}. "
                 f"Got: {header}"
             )
 
@@ -233,17 +183,17 @@ def load_bndl2mc_labels(bndl2mc_path: Path) -> Dict[Tuple[str, str], str]:
             if not line:
                 continue
             parts = line.split(";")
-            if len(parts) <= max(cols.values()):
+            if len(parts) <= max(spalten.values()):
                 continue
 
-            # MaLo sometimes stored numeric => normalise by int-cast if possible
+            # MaLo manchmal numerisch gespeichert, casten
             try:
-                malo = str(int(parts[cols["Marktlokation"]]))
+                malo = str(int(parts[spalten["Marktlokation"]]))
             except Exception:
-                malo = str(parts[cols["Marktlokation"]]).strip()
+                malo = str(parts[spalten["Marktlokation"]]).strip()
 
-            melo = str(parts[cols["Messlokation"]]).strip()
-            mcid = str(parts[cols["MCID"]]).strip()
+            melo = str(parts[spalten["Messlokation"]]).strip()
+            mcid = str(parts[spalten["MCID"]]).strip()
 
             if not malo or not melo or not mcid:
                 continue
@@ -254,14 +204,14 @@ def load_bndl2mc_labels(bndl2mc_path: Path) -> Dict[Tuple[str, str], str]:
 
 
 def infer_ground_truth_for_ist(
-    g: TGraph,
-    pair_to_mcid: Dict[Tuple[str, str], str],
+    graph: TGraph,
+    paar_label: Dict[Tuple[str, str], str],
 ) -> Optional[Dict[str, str]]:
-    """If any (MaLo,MeLo) pair of the graph occurs in BNDL2MC, return ground truth.
-
-    Note: if the MCID has no known mapping to a template label, template_label is "".
     """
-    nodes = g.get("nodes") or []
+    Wenn ein Graph in den gelabelten Graphen auftaucht, Ground-Truth ausgeben
+    """
+    #Wir prüfen für Malo-Melo-Paare, denn diese sind in den Spalten der Label-Tabelle fix gegeben
+    nodes = graph.get("nodes") or []
     malos = [
         str(n.get("id"))
         for n in nodes
@@ -277,7 +227,7 @@ def infer_ground_truth_for_ist(
     found_mcid: Optional[str] = None
     for malo in malos:
         for melo in melos:
-            mcid = pair_to_mcid.get((malo, melo))
+            mcid = paar_label.get((malo, melo))
             if mcid:
                 found = (malo, melo)
                 found_mcid = mcid
@@ -290,49 +240,49 @@ def infer_ground_truth_for_ist(
 
     return {
         "mcid": found_mcid,
-        "template_label": MCID_TO_TEMPLATE_LABEL.get(found_mcid, ""),
+        "template_label": LBS_CODES.get(found_mcid, ""),
         "malo": found[0] if found else "",
         "melo": found[1] if found else "",
     }
 
 
-# =============================================================================
-# Checkpoint loading / model rebuild
-# =============================================================================
+# ------------------------------
+# GESPEICHERTES MODELL LADEN
+# ------------------------------
 
+def _best_checkpoint_modell_laden(pfad: Path, device: torch.device) -> Dict[str, Any]:
+    """
+    Lädt das gespeicherte Modell (bester Checkpoint während des Trainings)
+    """
+    obj = torch.load(pfad, map_location=device)
 
-def _load_checkpoint(path: Path, device: torch.device) -> Dict[str, Any]:
-    obj = torch.load(path, map_location=device)
-
-    # Expected from dgmc_template_training.py:
     # {"epoch": ..., "model_state": ..., "optimizer_state": ..., "args": ..., "in_channels": ..., "edge_dim": ...}
     if isinstance(obj, dict) and "model_state" in obj:
         return obj
 
-    # Accept plain state_dict as a fallback
+    # Als Fallback leeres Modell akzeptieren (nur aus Error-Zwecken)
     if isinstance(obj, dict):
         return {"model_state": obj, "args": {}, "in_channels": None, "edge_dim": None}
 
     raise ValueError(
-        "Unsupported checkpoint format. Expected a dict with key 'model_state' "
-        "(from dgmc_template_training.py) or a plain state_dict dict."
+        "Unsupported checkpoint format. Expected a dict with key 'model_state'."
     )
 
 
-def _infer_dims_from_graph(sample_graph: TGraph, undirected: bool) -> Tuple[int, int]:
+def _dimensionen_aus_graph(sample_graph: TGraph, undirected: bool) -> Tuple[int, int]:
     d = gp.json_graph_to_pyg(sample_graph, undirected=undirected)
     in_channels = int(d.x.size(-1))
     edge_attr = getattr(d, "edge_attr", None)
     if edge_attr is not None and edge_attr.dim() == 2 and edge_attr.size(1) > 0:
         edge_dim = int(edge_attr.size(1))
     else:
-        # graph_pipeline.py uses 4 known + 1 unknown => 5
+        # graph_pipeline.py nutzt 4 + 1 unknown => 5
         edge_dim = 5
     return in_channels, edge_dim
 
 
-def build_model_from_checkpoint(
-    ckpt: Dict[str, Any],
+def modell_bauen(
+    checkpoint: Dict[str, Any],
     *,
     sample_graph: TGraph,
     undirected: bool,
@@ -341,28 +291,31 @@ def build_model_from_checkpoint(
     override_k: Optional[int] = None,
     override_detach: Optional[bool] = None,
 ) -> DGMC:
-    ckpt_args: Dict[str, Any] = dict(ckpt.get("args") or {})
+    checkpoint_args: Dict[str, Any] = dict(checkpoint.get("args") or {})
+    """
+    Baut Modell aus besagtem Checkpoint
+    """
 
-    # Dimensions
-    in_channels = ckpt.get("in_channels")
-    edge_dim = ckpt.get("edge_dim")
+    # Dimensionen
+    in_channels = checkpoint.get("in_channels")
+    edge_dim = checkpoint.get("edge_dim")
     if (
         not isinstance(in_channels, int)
         or not isinstance(edge_dim, int)
         or in_channels <= 0
         or edge_dim <= 0
     ):
-        in_channels, edge_dim = _infer_dims_from_graph(sample_graph, undirected=undirected)
+        in_channels, edge_dim = _dimensionen_aus_graph(sample_graph, undirected=undirected)
 
-    # Architecture params
-    hidden_channels = int(ckpt_args.get("hidden_channels", 64))
-    out_channels = int(ckpt_args.get("out_channels", 64))
-    num_layers = int(ckpt_args.get("num_layers", 3))
-    dropout = float(ckpt_args.get("dropout", 0.0))
+    # Architektur Parameter (default: 64,64,3,0.0)
+    hidden_channels = int(checkpoint_args.get("hidden_channels", 64))
+    out_channels = int(checkpoint_args.get("out_channels", 64))
+    num_layers = int(checkpoint_args.get("num_layers", 3))
+    dropout = float(checkpoint_args.get("dropout", 0.0))
 
-    num_steps = int(ckpt_args.get("num_steps", 10))
-    k = int(ckpt_args.get("k", -1))
-    detach = bool(ckpt_args.get("detach", False))
+    num_steps = int(checkpoint_args.get("num_steps", 10))
+    k = int(checkpoint_args.get("k", -1))                           #-1 Dense: Betrachtet alle möglichen Target-Knoten als Kandidaten. >=1: Beschränkt auf bese k Kandidaten pro Source-Knoten
+    detach = bool(checkpoint_args.get("detach", False))
 
     if override_num_steps is not None:
         num_steps = int(override_num_steps)
@@ -396,70 +349,74 @@ def build_model_from_checkpoint(
         detach=detach,
     ).to(device)
 
-    state_dict = ckpt["model_state"]
+    state_dict = checkpoint["model_state"]
     if not isinstance(state_dict, dict):
         raise ValueError("checkpoint['model_state'] must be a state_dict dict")
 
-    # Be strict by default: you want to know if architectures diverged.
+    #Strict=True: Keine Abweichungen zwischen gespeicherten Modell und aktuellem Modellcode akzeptieren
     model.load_state_dict(state_dict, strict=True)
     model.eval()
     return model
 
 
-# =============================================================================
-# Matching logic
-# =============================================================================
-
+# ------------------------------
+# MATCHING LOGIK
+# ------------------------------
 
 @dataclass
-class PreparedGraph:
+class VollerGraph:
     graph_json: TGraph
     data: Any  # PyG Data
     node_ids: List[Any]
     node_types: List[Any]
 
 
-def prepare_graph(g: TGraph, *, undirected: bool, device: torch.device) -> PreparedGraph:
-    d = gp.json_graph_to_pyg(g, undirected=undirected).to(device)
+def graph_vorbereiten(graph: TGraph, *, undirected: bool, device: torch.device) -> VollerGraph:
+    """
+    Aus TGraph einen @VollerGraph machen
+    """
+    d = gp.json_graph_to_pyg(graph, undirected=undirected).to(device)
     node_ids = list(getattr(d, "node_ids", []))
     node_types = list(getattr(d, "node_types", []))
-    return PreparedGraph(graph_json=g, data=d, node_ids=node_ids, node_types=node_types)
+    return VollerGraph(graph_json=graph, data=d, node_ids=node_ids, node_types=node_types)
 
 
 @torch.no_grad()
 def dgmc_similarity_matrix(
     model: DGMC,
     *,
-    src: PreparedGraph,
-    tgt: PreparedGraph,
+    source: VollerGraph,
+    target: VollerGraph,
     device: torch.device,
 ) -> torch.Tensor:
-    """Compute dense similarity S [n_src, n_tgt] for one graph pair."""
+    """
+    Vollständige Matrix S berechnen. Similarity-Score für jede Source-Node i und Target-Node j
+    """
 
-    x_s = src.data.x
-    ei_s = src.data.edge_index
-    ea_s = getattr(src.data, "edge_attr", None)
+    x_source = source.data.x
+    edge_indizes_source = source.data.edge_index
+    edge_attribute_source = getattr(source.data, "edge_attr", None)
 
-    x_t = tgt.data.x
-    ei_t = tgt.data.edge_index
-    ea_t = getattr(tgt.data, "edge_attr", None)
+    x_target = target.data.x
+    edge_indizes_target = target.data.edge_index
+    edge_attribute_target = getattr(target.data, "edge_attr", None)
 
-    ns = int(x_s.size(0))
-    nt = int(x_t.size(0))
+    ns = int(x_source.size(0))
+    nt = int(x_target.size(0))
 
-    batch_s = torch.zeros(ns, dtype=torch.long, device=device)
-    batch_t = torch.zeros(nt, dtype=torch.long, device=device)
+    source_batch = torch.zeros(ns, dtype=torch.long, device=device)
+    target_batch = torch.zeros(nt, dtype=torch.long, device=device)
+    #Korrespondenzmatrizen
+    S0, SL = model(x_source, edge_indizes_source, edge_attribute_source, source_batch, x_target, edge_indizes_target, edge_attribute_target, target_batch, y=None)
 
-    S0, SL = model(x_s, ei_s, ea_s, batch_s, x_t, ei_t, ea_t, batch_t, y=None)
-
-    # Prefer the refined score if refinement is enabled
+    #Wenn refined Matrix SL verfügbar ist, dann natürlich die nutzen
     S = SL if SL is not None else S0
 
-    # DGMC may return a sparse-ish container in some modes
+    # Wenn Matrix nicht voll ausgefüllt ist, wird sie in eine umgewandelt
     if hasattr(S, "to_dense"):
         S = S.to_dense()
 
-    # Safety: if padded, cut to true nt
+    # Wenn Padding angewendet wurde, dann auf richtiges nt zuschneiden
     if isinstance(S, torch.Tensor) and S.dim() == 2 and S.size(1) > nt:
         S = S[:, :nt]
 
@@ -470,114 +427,127 @@ def dgmc_similarity_matrix(
 
 
 def score_mean_rowmax(S: torch.Tensor) -> float:
+    """
+    Berechnet einen Graph-Score aus der Similarity-Matrix S,
+    indem für jede Source-Zeile der größten Ähnlichkeitswert genommen wird (beste Zuordnung pro Source-Knoten) und diese Maxima dann mittelt
+    Ist S leer, gibt sie -unendlich zurück.
+    """
     if S.numel() == 0:
         return float("-inf")
     return float(S.max(dim=1).values.mean().item())
 
 
 @torch.no_grad()
-def score_pair(
+def paar_scoren(
     model: DGMC,
     *,
-    template: PreparedGraph,
-    ist: PreparedGraph,
+    template: VollerGraph,
+    ist: VollerGraph,
     device: torch.device,
     score_mode: str,
 ) -> Tuple[float, torch.Tensor]:
-    """Return (score, S_template_to_ist).
-
-    We always return S(template->ist), because we use it for node-level Top-K output.
     """
-    S_t2i = dgmc_similarity_matrix(model, src=template, tgt=ist, device=device)
-    s1 = score_mean_rowmax(S_t2i)
+    Return (score, S_template_to_ist)
+    """
+    S_template2instance = dgmc_similarity_matrix(model, source=template, target=ist, device=device)     #Ähnlichkeitsmatrix zwischen Template und Ist-Graph
+    s1 = score_mean_rowmax(S_template2instance)                                                         #Score als Zahl
 
     if score_mode == "mean_rowmax":
-        return s1, S_t2i
+        return s1, S_template2instance
 
     if score_mode == "mean_rowmax_symmetric":
-        S_i2t = dgmc_similarity_matrix(model, src=ist, tgt=template, device=device)
-        s2 = score_mean_rowmax(S_i2t)
-        return 0.5 * (s1 + s2), S_t2i
+        S_instance2template = dgmc_similarity_matrix(model, source=ist, target=template, device=device)
+        s2 = score_mean_rowmax(S_instance2template)
+        return 0.5 * (s1 + s2), S_template2instance
 
     raise ValueError(f"Unknown score_mode: {score_mode}")
 
 
-def topk_from_S(
+def topk_node(
     S: torch.Tensor,
     *,
-    src: PreparedGraph,
-    tgt: PreparedGraph,
+    source: VollerGraph,
+    target: VollerGraph,
     k_top: int,
 ) -> List[Dict[str, Any]]:
-    """For each src node, return top-k target candidates."""
+    """
+    Für jede Source Node, die Top-k Kandidaten aus Target holen
+    """
     if S.dim() != 2:
         return []
 
-    ns, nt = int(S.size(0)), int(S.size(1))
-    if ns <= 0:
+    source_nodes, target_nodes = int(S.size(0)), int(S.size(1))
+    if source_nodes <= 0:
         return []
 
-    k_eff = int(min(max(int(k_top), 1), nt)) if nt > 0 else 0
+    k_anzahl = int(min(max(int(k_top), 1), target_nodes)) if target_nodes > 0 else 0
 
     out: List[Dict[str, Any]] = []
-    if k_eff == 0:
-        for i in range(ns):
+    if k_anzahl == 0:
+        for sn in range(source_nodes):
             out.append(
                 {
-                    "src_index": i,
-                    "src_node_id": src.node_ids[i] if i < len(src.node_ids) else None,
-                    "src_type": src.node_types[i] if i < len(src.node_types) else None,
+                    "src_index": sn,
+                    "src_node_id": source.node_ids[sn] if sn < len(source.node_ids) else None,
+                    "src_type": source.node_types[sn] if sn < len(source.node_types) else None,
                     "candidates": [],
                 }
             )
         return out
 
-    vals, idxs = torch.topk(S, k=k_eff, dim=1)
-    vals_cpu = vals.detach().cpu()
-    idxs_cpu = idxs.detach().cpu()
+    #Für jede Zeile von S (jeder Source-Knoten)
+    top_k_scores, target_node_indizes = torch.topk(S, k=k_anzahl, dim=1)
+    topk_auf_cpu = top_k_scores.detach().cpu()
+    target_node_auf_cpu = target_node_indizes.detach().cpu()
 
-    for i in range(ns):
-        cand_list = []
-        for r in range(k_eff):
-            j = int(idxs_cpu[i, r].item())
-            cand_list.append(
+    for sn in range(source_nodes):
+        kandidaten_liste = []
+        for tk in range(k_anzahl):
+            j = int(target_node_auf_cpu[sn, tk].item())
+            kandidaten_liste.append(
                 {
                     "tgt_index": j,
-                    "tgt_node_id": tgt.node_ids[j] if j < len(tgt.node_ids) else None,
-                    "tgt_type": tgt.node_types[j] if j < len(tgt.node_types) else None,
-                    "score": float(vals_cpu[i, r].item()),
+                    "tgt_node_id": target.node_ids[j] if j < len(target.node_ids) else None,
+                    "tgt_type": target.node_types[j] if j < len(target.node_types) else None,
+                    "score": float(topk_auf_cpu[sn, tk].item()),
                 }
             )
         out.append(
             {
-                "src_index": i,
-                "src_node_id": src.node_ids[i] if i < len(src.node_ids) else None,
-                "src_type": src.node_types[i] if i < len(src.node_types) else None,
-                "candidates": cand_list,
+                "src_index": sn,
+                "src_node_id": source.node_ids[sn] if sn < len(source.node_ids) else None,
+                "src_type": source.node_types[sn] if sn < len(source.node_types) else None,
+                "candidates": kandidaten_liste,
             }
         )
 
     return out
 
 
-def template_label(g: TGraph) -> Optional[str]:
-    ga = g.get("graph_attrs", {}) or {}
-    x = ga.get("lbs_code") or g.get("label") or g.get("graph_id")
+def template_label(graph: TGraph) -> Optional[str]:
+    """
+    Gibt ID zurück
+    """
+    graph_attribute = graph.get("graph_attrs", {}) or {}
+    x = graph_attribute.get("lbs_code") or graph.get("label") or graph.get("graph_id")
     return str(x) if x is not None else None
 
 
-# =============================================================================
-# CLI
-# =============================================================================
+# ------------------------------
+# MAIN
+# ------------------------------
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Match Ist graphs to templates with a trained DGMC model.")
+    p = argparse.ArgumentParser(description="Match Ist graphs to templates with DGMC.")
 
     p.add_argument("--ist_path", type=str, default=os.path.join("data", "ist_graphs_all.jsonl"))
     p.add_argument("--templates_path", type=str, default=os.path.join("data", "lbs_soll_graphs.jsonl"))
-    p.add_argument("--checkpoint", type=str, default=os.path.join("data", "dgmc_partial.pt"))
-    p.add_argument("--out_path", type=str, default=os.path.join("runs", "dgmc_matches_top3.jsonl"))
+    #p.add_argument("--checkpoint", type=str, default=os.path.join("data", "dgmc_partial.pt"))
+    p.add_argument("--checkpoint", type=str, default=os.path.join("data", "dgmc_perm.pt"))
+    #p.add_argument("--out_path", type=str, default=os.path.join("runs", "dgmc_matches_top3_partial.jsonl"))
+    p.add_argument("--out_path", type=str, default=os.path.join("runs", "dgmc_matches_top3_perm.jsonl"))
+
 
     p.add_argument("--device", type=str, default=("cuda" if torch.cuda.is_available() else "cpu"))
     p.add_argument("--undirected", action="store_true", help="Use undirected edges (should match training).")
@@ -591,20 +561,20 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="mean_rowmax",
         choices=["mean_rowmax", "mean_rowmax_symmetric"],
-        help="Graph-level ranking heuristic derived from DGMC similarity matrix.",
+        help="Graph-level ranking from DGMC similarity matrix.",
     )
 
-    # Debug: truncation
+    #Nur bestimmte Menge nutzen (Debug, vielleicht noch vor Abgabe rausnehmen)
     p.add_argument("--max_ist", type=int, default=0, help="Process only the first N ist graphs (0 = all).")
     p.add_argument("--max_templates", type=int, default=0, help="Use only the first N templates (0 = all).")
 
-    # Optional: DGMC inference overrides (should usually match training)
+    #DGMC Trainingsparameter kann man damit überschreiben
     p.add_argument("--override_num_steps", type=int, default=-999)
     p.add_argument("--override_k", type=int, default=-999)
     p.add_argument("--override_detach", action="store_true")
     p.add_argument("--no_override_detach", action="store_true")
 
-    # Evaluation (default ON, matching your baseline scripts)
+    # Evaluierung
     p.add_argument(
         "--bndl2mc_path",
         type=str,
@@ -615,15 +585,10 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-# =============================================================================
-# Main
-# =============================================================================
-
-
 def main() -> None:
     args = parse_args()
 
-    # directed/undirected flag resolution (keep your current default: undirected)
+    #Default undirected
     undirected = True
     if args.directed:
         undirected = False
@@ -632,17 +597,17 @@ def main() -> None:
 
     device = torch.device(args.device)
 
-    ist_path = _resolve_default(Path(args.ist_path))
-    tpl_path = _resolve_default(Path(args.templates_path))
-    ckpt_path = _resolve_default(Path(args.checkpoint))
+    ist_pfad = _lade_pfad(Path(args.ist_path))
+    template_pfadh = _lade_pfad(Path(args.templates_path))
+    modell_checkpoint_pfad = _lade_pfad(Path(args.checkpoint))
     out_path = Path(args.out_path)
 
-    if not ist_path.exists():
-        raise FileNotFoundError(f"Ist-Graph JSONL not found: {ist_path}")
-    if not tpl_path.exists():
-        raise FileNotFoundError(f"Template JSONL not found: {tpl_path}")
-    if not ckpt_path.exists():
-        raise FileNotFoundError(f"DGMC checkpoint not found: {ckpt_path}")
+    if not ist_pfad.exists():
+        raise FileNotFoundError(f"Ist-Graph JSONL not found: {ist_pfad}")
+    if not template_pfadh.exists():
+        raise FileNotFoundError(f"Template JSONL not found: {template_pfadh}")
+    if not modell_checkpoint_pfad.exists():
+        raise FileNotFoundError(f"DGMC checkpoint not found: {modell_checkpoint_pfad}")
 
     ensure_dir(out_path.parent)
 
@@ -650,28 +615,28 @@ def main() -> None:
     max_templates = None if int(args.max_templates) <= 0 else int(args.max_templates)
 
     if max_ist is not None:
-        print(f"[dgmc][note] --max_ist={max_ist} => the Ist file will NOT be processed completely.")
+        print(f"[dgmc][note] --max_ist={max_ist} : Not all Ist-Graphs will be processed.")
     if max_templates is not None:
-        print(f"[dgmc][note] --max_templates={max_templates} => the Templates file will NOT be processed completely.")
+        print(f"[dgmc][note] --max_templates={max_templates} : Not all Template-Graphs will be processed.")
 
-    templates = load_jsonl(tpl_path, max_lines=max_templates)
+    templates = load_jsonl(template_pfadh, max_lines=max_templates)
     if not templates:
         raise RuntimeError("No templates loaded (templates JSONL empty or invalid).")
 
-    # --- Evaluation data (optional) ---
-    pair_to_mcid: Dict[Tuple[str, str], str] = {}
+    # Evaluierungs-Infos
+    paar_mcid: Dict[Tuple[str, str], str] = {}
     bndl_arg = str(args.bndl2mc_path or "").strip()
     if bndl_arg:
-        bndl_path = _resolve_default(Path(bndl_arg))
+        bndl_path = _lade_pfad(Path(bndl_arg))
         if bndl_path.exists():
-            pair_to_mcid = load_bndl2mc_labels(bndl_path)
-            print(f"[dgmc] Loaded BNDL2MC pairs: {len(pair_to_mcid)} from {bndl_path}")
+            paar_mcid = label_laden(bndl_path)
+            print(f"[dgmc] Loaded BNDL2MC pairs: {len(paar_mcid)} from {bndl_path}")
         else:
             print(f"[dgmc][warn] BNDL2MC.csv not found at: {bndl_path} (evaluation disabled)")
 
-    # Build + load model
-    ckpt = _load_checkpoint(ckpt_path, device=device)
-
+    # Build und Modell laden
+    best_modell_checkpoint = _best_checkpoint_modell_laden(modell_checkpoint_pfad, device=device)
+    #Überschreiben, wenn festgelegt
     override_num_steps = None if args.override_num_steps == -999 else int(args.override_num_steps)
     override_k = None if args.override_k == -999 else int(args.override_k)
     override_detach: Optional[bool] = None
@@ -682,8 +647,8 @@ def main() -> None:
     if args.no_override_detach:
         override_detach = False
 
-    model = build_model_from_checkpoint(
-        ckpt,
+    model = modell_bauen(
+        best_modell_checkpoint,
         sample_graph=templates[0],
         undirected=undirected,
         device=device,
@@ -692,22 +657,22 @@ def main() -> None:
         override_detach=override_detach,
     )
 
-    # Pre-prepare templates once
-    prepared_templates: List[PreparedGraph] = [
-        prepare_graph(t, undirected=undirected, device=device) for t in templates
+    # Templates vorbereiten
+    prepared_templates: List[VollerGraph] = [
+        graph_vorbereiten(t, undirected=undirected, device=device) for t in templates
     ]
 
-    # Evaluation counters
+    # Evaluation Zähler
     eval_total = 0
     eval_top1 = 0
     eval_top3 = 0
 
-    # Prediction distribution
+    # Verteilung der Matches
     pred_top1_dist: Counter = Counter()
 
-    # Stream ist graphs (avoid loading everything into RAM)
+    # Iterieren
     written = 0
-    ist_iter = iter_jsonl(ist_path, max_lines=max_ist)
+    ist_iter = jsonl_iter(ist_pfad, max_lines=max_ist)
 
     print(
         f"[dgmc] device={device} | undirected={undirected} | ist_graphs={'ALL' if max_ist is None else max_ist} "
@@ -716,37 +681,37 @@ def main() -> None:
     )
 
     with out_path.open("w", encoding="utf-8") as f_out:
-        for idx, g_ist in enumerate(ist_iter, start=1):
-            ist_p = prepare_graph(g_ist, undirected=undirected, device=device)
+        for index_ist, ist_g in enumerate(ist_iter, start=1):
+            ist_p = graph_vorbereiten(ist_g, undirected=undirected, device=device)
 
-            tpl_scores: List[Tuple[float, int]] = []
+            template_scores: List[Tuple[float, int]] = []
 
-            best_i = -1
+            best_index = -1
             best_score = float("-inf")
-            best_S_t2i: Optional[torch.Tensor] = None
+            best_S_template2instance: Optional[torch.Tensor] = None
 
-            for ti, tpl_p in enumerate(prepared_templates):
-                sc, S_t2i = score_pair(
+            for template_index, prepared_template in enumerate(prepared_templates):
+                sc, S_t2i = paar_scoren(
                     model,
-                    template=tpl_p,
+                    template=prepared_template,
                     ist=ist_p,
                     device=device,
                     score_mode=args.score_mode,
                 )
 
-                tpl_scores.append((float(sc), ti))
+                template_scores.append((float(sc), template_index))
                 if sc > best_score:
                     best_score = float(sc)
-                    best_i = ti
-                    best_S_t2i = S_t2i
+                    best_index = template_index
+                    best_S_template2instance = S_t2i
 
-            tpl_scores.sort(key=lambda x: (-x[0], x[1]))
+            template_scores.sort(key=lambda x: (-x[0], x[1]))
             top_n = max(1, int(args.top_templates))
-            top_tpl = tpl_scores[:top_n]
+            top_templates = template_scores[:top_n]
 
             top_templates_out = []
-            for rank, (sc, ti) in enumerate(top_tpl, start=1):
-                t = templates[ti]
+            for rank, (sc, template_index) in enumerate(top_templates, start=1):
+                t = templates[template_index]
                 top_templates_out.append(
                     {
                         "rank": rank,
@@ -756,40 +721,40 @@ def main() -> None:
                     }
                 )
 
-            # Distribution over top-1 predictions
+            # Verteilung der Templates über Top-1 Picks
             if top_templates_out:
                 pred_top1_dist[str(top_templates_out[0].get("template_label") or "")] += 1
 
-            best_tpl = templates[best_i]
-            best_tpl_p = prepared_templates[best_i]
+            bestes_template = templates[best_index]
+            bestes_template_prepared = prepared_templates[best_index]
 
-            # Per-template-node Top-K candidates (best template only)
-            if best_S_t2i is None:
+            # Bestes Template Top-k Nodes
+            if best_S_template2instance is None:
                 topk = []
             else:
-                topk = topk_from_S(
-                    best_S_t2i, src=best_tpl_p, tgt=ist_p, k_top=int(args.top_matches)
+                topk = topk_node(
+                    best_S_template2instance, source=bestes_template_prepared, target=ist_p, k_top=int(args.top_matches)
                 )
 
-            # Ground truth (evaluation only; does NOT affect inference)
-            gt = infer_ground_truth_for_ist(g_ist, pair_to_mcid) if pair_to_mcid else None
-            if gt and gt.get("template_label"):
+            # Ground-Truth zur Evaluierung
+            ground_truth = infer_ground_truth_for_ist(ist_g, paar_mcid) if paar_mcid else None
+            if ground_truth and ground_truth.get("template_label"):
                 eval_total += 1
-                gt_label = str(gt["template_label"])
-                pred1 = str(top_templates_out[0].get("template_label") or "") if top_templates_out else ""
-                if pred1 == gt_label:
+                ground_truth_label = str(ground_truth["template_label"])
+                top_prediction = str(top_templates_out[0].get("template_label") or "") if top_templates_out else ""
+                if top_prediction == ground_truth_label:
                     eval_top1 += 1
-                pred_labels = [str(x.get("template_label") or "") for x in top_templates_out[:3]]
-                if gt_label in pred_labels:
+                prediction_labels = [str(x.get("template_label") or "") for x in top_templates_out[:3]]
+                if ground_truth_label in prediction_labels:
                     eval_top3 += 1
 
             res = {
-                "ist_graph_id": g_ist.get("graph_id"),
+                "ist_graph_id": ist_g.get("graph_id"),
                 "top_templates": top_templates_out,
-                "ground_truth": gt,
-                # DGMC-specific extras (kept for debugging/analysis):
-                "best_template_graph_id": best_tpl.get("graph_id"),
-                "best_template_label": template_label(best_tpl),
+                "ground_truth": ground_truth,
+                # DGMC-spezifisch für Debugging
+                "best_template_graph_id": bestes_template.get("graph_id"),
+                "best_template_label": template_label(bestes_template),
                 "best_score": float(best_score),
                 "topk": topk,
             }
@@ -797,30 +762,29 @@ def main() -> None:
             f_out.write(json.dumps(res, ensure_ascii=False) + "\n")
             written += 1
 
-            if idx % 50 == 0:
-                print(f"[dgmc] processed {idx} ist graphs")
+            if index_ist % 50 == 0:
+                print(f"[dgmc] processed {index_ist} ist graphs")
 
     print(f"[dgmc] wrote: {out_path}")
 
-    # Report prediction distribution (like your WL/GED logs)
-    total_preds = sum(int(v) for v in pred_top1_dist.values())
-    if total_preds > 0:
+    # Ranking Verteilung
+    anzahl_predictions = sum(int(v) for v in pred_top1_dist.values())
+    if anzahl_predictions > 0:
         print("[dgmc] top1 prediction distribution (processed Ist graphs):")
-        for lab, cnt in pred_top1_dist.most_common():
-            pct = 100.0 * float(cnt) / float(total_preds)
-            print(f"  - {lab}: {cnt} ({pct:.3f}%)")
+        for label_soll, anzahl in pred_top1_dist.most_common():
+            prozentsatz = 100.0 * float(anzahl) / float(anzahl_predictions)
+            print(f"  - {label_soll}: {anzahl} ({prozentsatz:.3f}%)")
 
-    # Report evaluation
+    # Evaluierungs-Report
     if eval_total > 0:
         print(
-            "[dgmc] evaluation on labelled subset | "
-            f"n={eval_total} | top1={eval_top1/eval_total:.3f} | top3={eval_top3/eval_total:.3f}"
+            "[dgmc] evaluation on labeled subset | "
+            f"n={eval_total} | hits@1={eval_top1/eval_total:.3f} | hits@3={eval_top3/eval_total:.3f}"
         )
     else:
-        if pair_to_mcid:
+        if paar_mcid:
             print(
-                "[dgmc][warn] evaluation skipped: no labelled graphs found that map to known template labels. "
-                "If you added more MCIDs, extend MCID_TO_TEMPLATE_LABEL."
+                "[dgmc][warn] evaluation skipped: no labeled graphs found that map to known template labels."
             )
         else:
             print("[dgmc] evaluation skipped (no BNDL2MC loaded).")

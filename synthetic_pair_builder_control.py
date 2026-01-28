@@ -1,71 +1,48 @@
 from __future__ import annotations
 
-"""synthetic_pair_builder_control.py
+"""
+synthetic_pair_builder_control.py
+Permutation-Vergleichsgruppe für DGMC
 
-Kontrollgruppe (Annäherung A) für DGMC-Experimente.
-
-Ziel
-----
-Eine *saubere* Baseline, die möglichst nah an "Permutation-only" ist:
-
+Wenn man so will "Permutation-Only-Baseline":
 - Graph B ist eine permutierte Kopie von Graph A (gleiche Knotenmenge)
-- Supervision im DGMC-Format: y = [[src_local...],[tgt_local...]] (vollständiges Matching)
-
-Optional kann (sehr gezielt) "Ist-Noise" zugeschaltet werden – aber **nur** auf
-Feature-Inputs, die die Pipeline tatsächlich in `graph_pipeline.py` encodiert.
-
-Warum y statt perm?
--------------------
-DGMC (Library/Paper) trainiert mit *sparse correspondences* y. Ein Permutationsvektor
-ist nur eine alternative Darstellung derselben Zuordnung und wird von deiner
-aktuellen `dgmc_dataset.py` nicht konsumiert. Daher schreibt dieses Skript y.
-
-Hinweis
--------
-Dieses Skript importiert Helper aus `synthetic_pair_builder.py` (Annäherung B),
-nutzt aber **nicht** dessen Pair-Orchestrierung, damit die Kontrollgruppe wirklich
-"clean" bleibt.
+- y = [[src_local...],[tgt_local...]] (vollständiges Matching, nicht partial wie in @synthetic_pair_builder.py)
 """
 
 import os
 import random
 from typing import Any, Dict, List
 
-# Re-use Helper aus Annäherung B.
 from synthetic_pair_builder import (
-    _print_quick_stats,
-    apply_attachment_ambiguity,
-    apply_attribute_dropout,
-    apply_edge_dropout,
-    apply_edge_less,
-    build_y_from_common_node_ids,
-    load_templates_jsonl,
-    permute_graph,
-    write_pairs_jsonl,
+    _print_stats,
+    attachment_beachten,
+    attribut_drop,
+    edge_drop,
+    edge_less_eigenschaft,
+    y_builder,
+    template_loader,
+    graph_permutierer,
+    paare_zu_jsonl,
 )
 
 TGraph = Dict[str, Any]
 TPair = Dict[str, Any]
 
 
-# -----------------------------------------------------------------------------
-# IMPORTANT: Control should only touch attributes that the *graph_pipeline* uses.
-#
-# Aktueller Pipeline-Stand (graph_pipeline.py):
-#   - Node: type one-hot + direction one-hot
-#   - TR fallback für direction: tr_type_code / art_der_technischen_ressource
-#
-# Deshalb droppen wir hier ausschließlich diese Keys.
-# -----------------------------------------------------------------------------
+# ------------------------------
+# ATTRIBUTE DROPPEN
+# ------------------------------
 
-DEFAULT_ATTR_DROPOUT_BY_TYPE_CONTROL: Dict[str, Dict[str, float]] = {
+#Optionaler Noise, aber diesmal auf 1:1-Korrespondenz (derzeit aus)
+ATTR_DROP_PROBABILITIES: Dict[str, Dict[str, float]] = {
     "MaLo": {"direction": 0.25},
     "MeLo": {"direction": 0.20},
     "TR": {"direction": 0.25, "tr_type_code": 0.10, "art_der_technischen_ressource": 0.10},
     "NeLo": {},
 }
 
-DEFAULT_EDGE_DROPOUT_BY_REL_CONTROL: Dict[str, float] = {
+#eh aus
+EDGE_DROP_PROBABILITIES: Dict[str, float] = {
     "MEMA": 0.10,
     "METR": 0.30,
     "MENE": 0.20,
@@ -73,110 +50,116 @@ DEFAULT_EDGE_DROPOUT_BY_REL_CONTROL: Dict[str, float] = {
     "*": 0.15,
 }
 
-
-def _scale_nested_probs(d: Dict[str, Dict[str, float]], factor: float) -> Dict[str, Dict[str, float]]:
-    factor = float(factor)
-    if factor <= 0.0:
-        return {k: {kk: 0.0 for kk in vv.keys()} for k, vv in d.items()}
-    return {k: {kk: float(v) * factor for kk, v in vv.items()} for k, vv in d.items()}
-
-
-def _scale_flat_probs(d: Dict[str, float], factor: float) -> Dict[str, float]:
-    factor = float(factor)
-    if factor <= 0.0:
-        return {k: 0.0 for k in d.keys()}
-    return {k: float(v) * factor for k, v in d.items()}
+#1. Tabelle von oben mit Faktor skalieren
+def _attr_drop_skalieren(prob_tabelle: Dict[str, Dict[str, float]], faktor: float) -> Dict[str, Dict[str, float]]:
+    """
+    Erste Tabelle @ATTR_DROP_PROBABILITIES mit Wahrscheinlichkeitsfaktor skalieren
+    """
+    faktor = float(faktor)
+    if faktor <= 0.0:
+        return {keys: {inner_key: 0.0 for inner_key in inner_dict.keys()} for keys, inner_dict in prob_tabelle.items()}
+    return {keys: {inner_key: float(drop_prob) * faktor for inner_key, drop_prob in inner_dict.items()} for keys, inner_dict in prob_tabelle.items()}
 
 
-def build_control_pairs_A(
+#2. Tabelle von oben mit Faktor skalieren
+def _edge_drop_skalieren(prob_tabelle: Dict[str, float], faktor: float) -> Dict[str, float]:
+    """
+    Wie @_attr_drop_skalieren, nur für die 2. Tabelle
+    """
+    faktor = float(faktor)
+    if faktor <= 0.0:
+        return {keys: 0.0 for keys in prob_tabelle.keys()}
+    return {keys: float(drop_prob) * faktor for keys, drop_prob in prob_tabelle.items()}
+
+
+def perm_paare_bauen(
     templates_path: str,
     out_path: str,
     *,
     seed: int = 42,
     num_pos_per_template: int = 60,
-    # -------------------------
-    # Optionaler Ist-Noise (nur Feature-relevant!)
-    # -------------------------
-    # Skalierungsfaktoren: 0.0 => aus, 1.0 => Control-Defaults oben.
-    edge_dropout_factor: float = 0.0,
-    attr_dropout_factor: float = 0.0,
-    # Edge-less Variante (entfernt alle Kanten) – nur sinnvoll, wenn du so einen Ist-Fall erwartest.
-    p_edge_less: float = 0.0,
-    # Attachment-Rules instanziieren/rewiren (falls graph_attrs["attachment_rules"] existiert)
-    p_apply_attachment: float = 0.0,
+    # Optionaler Noise
+    # Skalierungsfaktoren: 0.0 => aus, 1.0 => dann greift oben
+    edge_drop_faktor: float = 0.0,
+    attr_drop_faktor: float = 0.0,
+    edge_less_prob: float = 0.0,
+    # Attachment-Rules instanziieren/umhängen (falls es graph_attrs["attachment_rules"] gibt)
+    attachment_umhaengen_ins: float = 0.0,
     # Wenn True und keine Noise-Regel gegriffen hat: erzwinge MINDESTENS eine Feature-relevante Änderung.
     # Für eine Kontrollgruppe ist das i.d.R. False.
     ensure_nontrivial: bool = False,
     # Optional: zusätzlich perm mitschreiben (Debugging/Analyse). DGMC ignoriert es.
     include_perm_field: bool = False,
 ) -> None:
-    """Erzeugt Kontroll-Paare und schreibt JSONL."""
+    """
+    Baut synthetische Trainingspaare mit 1:1-Korrespondenz und schreibt sie in eine JSONL
+    """
 
     random.seed(seed)
 
-    templates = load_templates_jsonl(templates_path)
-    print("Geladene Template-Graphen:", len(templates))
+    templates = template_loader(templates_path)
+    print("Loaded Template-Graphs:", len(templates))
 
     # Pre-scale dropout tables once.
-    edge_drop_table = _scale_flat_probs(DEFAULT_EDGE_DROPOUT_BY_REL_CONTROL, edge_dropout_factor)
-    attr_drop_table = _scale_nested_probs(DEFAULT_ATTR_DROPOUT_BY_TYPE_CONTROL, attr_dropout_factor)
+    edge_drop_table = _edge_drop_skalieren(EDGE_DROP_PROBABILITIES, edge_drop_faktor)
+    attr_drop_table = _attr_drop_skalieren(ATTR_DROP_PROBABILITIES, attr_drop_faktor)
 
     pairs: List[TPair] = []
 
-    for g in templates:
+    for graph in templates:
         for _ in range(num_pos_per_template):
-            g_perm, perm = permute_graph(g)
+            g_perm, perm = graph_permutierer(graph)
             aug_meta: Dict[str, Any] = {}
 
-            # (1) Optional: Attachment-Ambiguity
-            if float(p_apply_attachment) > 0.0 and random.random() < float(p_apply_attachment):
-                added, rewired = apply_attachment_ambiguity(g_perm)
+            # Optionale Attachments
+            if float(attachment_umhaengen_ins) > 0.0 and random.random() < float(attachment_umhaengen_ins):
+                added, rewired = attachment_beachten(g_perm)
                 if added or rewired:
                     aug_meta["attachment"] = {"added": added, "rewired": rewired}
 
-            # (2) Optional: Edge-less
-            did_edge_less = False
-            if float(p_edge_less) > 0.0 and g_perm.get("edges") and random.random() < float(p_edge_less):
-                removed_edges = apply_edge_less(g_perm)
-                aug_meta["edge_less"] = {"removed": removed_edges}
-                did_edge_less = True
+            # Optional: Edge-less
+            edge_less_passiert = False
+            if float(edge_less_prob) > 0.0 and g_perm.get("edges") and random.random() < float(edge_less_prob):
+                entfernte_edges = edge_less_eigenschaft(g_perm)
+                aug_meta["edge_less"] = {"removed": entfernte_edges}
+                edge_less_passiert = True
 
-            # (3) Optional: Edge-dropout (nur wenn nicht edge-less)
-            if (not did_edge_less) and edge_dropout_factor > 0.0:
-                dropped = apply_edge_dropout(g_perm, drop_by_rel=edge_drop_table)
+            # Optional: Edge-Drop
+            if (not edge_less_passiert) and edge_drop_faktor > 0.0:
+                dropped = edge_drop(g_perm, edge_prob=edge_drop_table)
                 if dropped:
                     aug_meta["edge_dropout"] = {"dropped": dropped}
 
-            # (4) Optional: Attr-dropout (nur pipeline-relevante keys)
-            if attr_dropout_factor > 0.0:
-                dropped_attrs = apply_attribute_dropout(g_perm, probs_by_type=attr_drop_table)
-                if dropped_attrs:
-                    aug_meta["attr_dropout"] = {"dropped": dropped_attrs}
+            # Optional: Attribute-Drop
+            if attr_drop_faktor > 0.0:
+                dropped_attribute = attribut_drop(g_perm, attribut_prob=attr_drop_table)
+                if dropped_attribute:
+                    aug_meta["attr_dropout"] = {"dropped": dropped_attribute}
 
-            # (5) Optional: erzwinge eine Änderung (aber nur, wenn Noise prinzipiell aktiv ist)
+            # Änderung erzwingen, wenn Noise aktiv
             if ensure_nontrivial and not aug_meta:
-                forced_done = False
-                if attr_dropout_factor > 0.0:
-                    dropped_attrs = apply_attribute_dropout(
+                aenderung_erzwungen = False
+                if attr_drop_faktor > 0.0:
+                    dropped_attribute = attribut_drop(
                         g_perm,
-                        probs_by_type=_scale_nested_probs(DEFAULT_ATTR_DROPOUT_BY_TYPE_CONTROL, 1.0),
+                        attribut_prob=_attr_drop_skalieren(ATTR_DROP_PROBABILITIES, 1.0),
                     )
-                    if dropped_attrs:
-                        aug_meta["forced"] = {"type": "attr_dropout", "dropped": dropped_attrs}
-                        forced_done = True
-                if (not forced_done) and edge_dropout_factor > 0.0 and g_perm.get("edges"):
-                    dropped = apply_edge_dropout(
+                    if dropped_attribute:
+                        aug_meta["forced"] = {"type": "attr_dropout", "dropped": dropped_attribute}
+                        aenderung_erzwungen = True
+                if (not aenderung_erzwungen) and edge_drop_faktor > 0.0 and g_perm.get("edges"):
+                    dropped = edge_drop(
                         g_perm,
-                        drop_by_rel=_scale_flat_probs(DEFAULT_EDGE_DROPOUT_BY_REL_CONTROL, 1.0),
+                        edge_prob=_edge_drop_skalieren(EDGE_DROP_PROBABILITIES, 1.0),
                     )
                     if dropped:
                         aug_meta["forced"] = {"type": "edge_dropout", "dropped": dropped}
-                        forced_done = True
+                        aenderung_erzwungen = True
 
-            # DGMC-Supervision: vollständige 1:1 Zuordnung (weil keine Node-Varianz)
-            y = build_y_from_common_node_ids(g, g_perm)
+            # DGMC 1:1-Zuordnung
+            y = y_builder(graph, g_perm)
 
-            pair: TPair = {"graph_a": g, "graph_b": g_perm, "label": 1, "y": y}
+            pair: TPair = {"graph_a": graph, "graph_b": g_perm, "label": 1, "y": y}
             if include_perm_field:
                 pair["perm"] = perm
             if aug_meta:
@@ -186,9 +169,9 @@ def build_control_pairs_A(
 
     random.shuffle(pairs)
 
-    _print_quick_stats(pairs, supervision="y")
-    write_pairs_jsonl(pairs, out_path)
-    print("JSONL geschrieben nach:", out_path)
+    _print_stats(pairs, supervision="y")
+    paare_zu_jsonl(pairs, out_path)
+    print("JSONL written to:", out_path)
 
 
 if __name__ == "__main__":
@@ -197,16 +180,16 @@ if __name__ == "__main__":
     templates_path = os.path.join(base, "data", "lbs_soll_graphs.jsonl")
     out_path = os.path.join(base, "data", "synthetic_training_pairs_control.jsonl")
 
-    # Default: echte Kontrollgruppe (Permutation-only), aber mit y (DGMC-kompatibel)
-    build_control_pairs_A(
+    #Default
+    perm_paare_bauen(
         templates_path,
         out_path,
         seed=42,
         num_pos_per_template=60,
-        edge_dropout_factor=0.0,
-        attr_dropout_factor=0.0,
-        p_edge_less=0.0,
-        p_apply_attachment=0.0,
+        edge_drop_faktor=0.0,
+        attr_drop_faktor=0.0,
+        edge_less_prob=0.0,
+        attachment_umhaengen_ins=0.0,
         ensure_nontrivial=False,
         include_perm_field=False,
     )

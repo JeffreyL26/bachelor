@@ -1,0 +1,429 @@
+{
+  "T_ROLE": [
+    {
+      "ID": "ANE_SUMME",
+      "CATEGORY": "01",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage NeLo (Summenmessung)"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "NE"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "AMA_SUMME_V",
+      "CATEGORY": "01",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage MaLo Verbrauch (Summenmessung)"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "MA"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "AMA_SUMME_E",
+      "CATEGORY": "01",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage MaLo Erzeugung (Summenmessung)"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "MA"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "AME_SUMME_N_VE",
+      "CATEGORY": "01",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage MeLo Netzübergabe (Verbrauch & Erzeugung)"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "ME"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "AME_SUMME_N_V",
+      "CATEGORY": "01",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage MeLo Netzübergabe (Verbrauch)"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "ME"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "AME_SUMME_H_E",
+      "CATEGORY": "01",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Anlage MeLo Hinterschaltung (Erzeugung)"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "ME"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 0,
+      "LBS_OBJECT_LEVEL": 0
+    },
+    {
+      "ID": "NELO",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Netzlokation (flexibel)"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "NELO"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001256,
+      "LBS_OBJECT_LEVEL": 1
+    },
+    {
+      "ID": "ME_NET_VE",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "MeLo (Netzübergabe) Verbrauch & Erzeugung"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "ME"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001214,
+      "LBS_OBJECT_LEVEL": 1
+    },
+    {
+      "ID": "ME_NET_V",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "MeLo (Netzübergabe) Verbrauch"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "ME"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001032,
+      "LBS_OBJECT_LEVEL": 1
+    },
+    {
+      "ID": "ME_H_E",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "MeLo (Hinterschaltung) Erzeugung"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "ME"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001090,
+      "LBS_OBJECT_LEVEL": 2
+    },
+    {
+      "ID": "TR_V_1024",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "TR Verbrauch"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "TR"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001024,
+      "LBS_OBJECT_LEVEL": 1
+    },
+    {
+      "ID": "TR_V_1280",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "TR Verbrauch"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "TR"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001280,
+      "LBS_OBJECT_LEVEL": 1
+    },
+    {
+      "ID": "TR_E_1157",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "TR Erzeugung"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "TR"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001157,
+      "LBS_OBJECT_LEVEL": 2
+    },
+    {
+      "ID": "TR_VE_S_1165",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "TR Verbrauch & Erzeugung (Speicher)"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "TR"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001165,
+      "LBS_OBJECT_LEVEL": 2
+    },
+    {
+      "ID": "MA_V_1016",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "MaLo Verbrauch (starr)"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "MA"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001016,
+      "LBS_OBJECT_LEVEL": 1
+    },
+    {
+      "ID": "MA_V_1107",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "MaLo Verbrauch (flexibel)"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "MA"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001107,
+      "LBS_OBJECT_LEVEL": 2
+    },
+    {
+      "ID": "MA_E_1115",
+      "CATEGORY": "03",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "MaLo Erzeugung (flexibel)"
+        }
+      ],
+      "T_ATTR": [
+        {
+          "ATTR_CATEGORY": "UISTRUTYP",
+          "DIVISION": "",
+          "ATTR_VALUE": "MA"
+        }
+      ],
+      "ROLE_TYPE": 0,
+      "LBS_OBJECT_CODE": 9992000001115,
+      "LBS_OBJECT_LEVEL": 2
+    }
+  ],
+  "T_MC": [
+    {
+      "MCID": "SUMMENMESSUNG_SEP_ERZ",
+      "CONCEPT_CATEGORY": 1,
+      "CHECK_MAN": "",
+      "LBS_CODE": 9992000000125,
+      "EMPTY_OR_BUFFER": "",
+      "T_DESCR": [
+        {
+          "LANG": "D",
+          "DESCR": "Summenmessung mit mindestens einer separat gemessenen Erzeugung"
+        }
+      ],
+      "T_VAR": [
+        {
+          "MCVARID": "STANDARD",
+          "DATEFROM": "2000-01-01",
+          "DATETO": "9999-12-31",
+          "PRIORITY": 1,
+          "CHECK_VIEW_CAT": 0,
+          "T_DESCR": [
+            {
+              "LANG": "D",
+              "DESCR": "Standardvariante (Ver2-Stil, inkl. TR/NeLo)"
+            }
+          ],
+          "T_ROLE": [
+            { "ROLE_ID": "NELO", "FREQUENCY_MIN": 0, "FREQUENCY_MAX": 99, "LAYOUT": { "X": 150, "Y": 40, "STRAND": "" }, "T_IAV": [] },
+            { "ROLE_ID": "ME_NET_VE", "FREQUENCY_MIN": 1, "FREQUENCY_MAX": 99, "LAYOUT": { "X": 220, "Y": 120, "STRAND": "" }, "T_IAV": [] },
+            { "ROLE_ID": "ME_NET_V", "FREQUENCY_MIN": 0, "FREQUENCY_MAX": 99, "LAYOUT": { "X": 60, "Y": 120, "STRAND": "" }, "T_IAV": [] },
+            { "ROLE_ID": "ME_H_E", "FREQUENCY_MIN": 1, "FREQUENCY_MAX": 99, "LAYOUT": { "X": 340, "Y": 200, "STRAND": "" }, "T_IAV": [] },
+            { "ROLE_ID": "TR_V_1024", "FREQUENCY_MIN": 0, "FREQUENCY_MAX": 99, "LAYOUT": { "X": 60, "Y": 260, "STRAND": "" }, "T_IAV": [] },
+            { "ROLE_ID": "TR_V_1280", "FREQUENCY_MIN": 0, "FREQUENCY_MAX": 99, "LAYOUT": { "X": 220, "Y": 260, "STRAND": "" }, "T_IAV": [] },
+            { "ROLE_ID": "TR_E_1157", "FREQUENCY_MIN": 0, "FREQUENCY_MAX": 99, "LAYOUT": { "X": 320, "Y": 340, "STRAND": "" }, "T_IAV": [] },
+            { "ROLE_ID": "TR_VE_S_1165", "FREQUENCY_MIN": 0, "FREQUENCY_MAX": 99, "LAYOUT": { "X": 420, "Y": 340, "STRAND": "" }, "T_IAV": [] },
+            { "ROLE_ID": "MA_V_1016", "FREQUENCY_MIN": 1, "FREQUENCY_MAX": 1, "LAYOUT": { "X": 120, "Y": 320, "STRAND": "" }, "T_IAV": [] },
+            { "ROLE_ID": "MA_E_1115", "FREQUENCY_MIN": 1, "FREQUENCY_MAX": 99, "LAYOUT": { "X": 340, "Y": 420, "STRAND": "" }, "T_IAV": [] },
+            { "ROLE_ID": "MA_V_1107", "FREQUENCY_MIN": 0, "FREQUENCY_MAX": 99, "LAYOUT": { "X": 480, "Y": 420, "STRAND": "" }, "T_IAV": [] }
+          ],
+          "T_ROLEREL": [
+            { "OBJECT_ID_1": "ME_NET_VE", "OBJECT_ID_2": "NELO", "CARDINALITY": 0, "T_OBJRAT": [ { "ATTR_CATEGORY": "REL_TYPE", "DIVISION": "", "ATTR_VALUE": "MENE" } ] },
+            { "OBJECT_ID_1": "ME_NET_V", "OBJECT_ID_2": "NELO", "CARDINALITY": 0, "T_OBJRAT": [ { "ATTR_CATEGORY": "REL_TYPE", "DIVISION": "", "ATTR_VALUE": "MENE" } ] },
+            { "OBJECT_ID_1": "ME_NET_V", "OBJECT_ID_2": "MA_V_1016", "CARDINALITY": 0, "T_OBJRAT": [ { "ATTR_CATEGORY": "REL_TYPE", "DIVISION": "", "ATTR_VALUE": "MEMA" } ] },
+            { "OBJECT_ID_1": "ME_NET_VE", "OBJECT_ID_2": "MA_V_1016", "CARDINALITY": 0, "T_OBJRAT": [ { "ATTR_CATEGORY": "REL_TYPE", "DIVISION": "", "ATTR_VALUE": "MEMA" } ] },
+            { "OBJECT_ID_1": "ME_NET_VE", "OBJECT_ID_2": "ME_H_E", "CARDINALITY": 0, "T_OBJRAT": [ { "ATTR_CATEGORY": "REL_TYPE", "DIVISION": "", "ATTR_VALUE": "MEME" } ] },
+            { "OBJECT_ID_1": "ME_NET_V", "OBJECT_ID_2": "TR_V_1024", "CARDINALITY": 0, "T_OBJRAT": [ { "ATTR_CATEGORY": "REL_TYPE", "DIVISION": "", "ATTR_VALUE": "METR" } ] },
+            { "OBJECT_ID_1": "ME_NET_VE", "OBJECT_ID_2": "TR_V_1280", "CARDINALITY": 0, "T_OBJRAT": [ { "ATTR_CATEGORY": "REL_TYPE", "DIVISION": "", "ATTR_VALUE": "METR" } ] },
+            { "OBJECT_ID_1": "ME_H_E", "OBJECT_ID_2": "TR_E_1157", "CARDINALITY": 0, "T_OBJRAT": [ { "ATTR_CATEGORY": "REL_TYPE", "DIVISION": "", "ATTR_VALUE": "METR" } ] },
+            { "OBJECT_ID_1": "ME_H_E", "OBJECT_ID_2": "TR_VE_S_1165", "CARDINALITY": 0, "T_OBJRAT": [ { "ATTR_CATEGORY": "REL_TYPE", "DIVISION": "", "ATTR_VALUE": "METR" } ] },
+            { "OBJECT_ID_1": "ME_H_E", "OBJECT_ID_2": "MA_E_1115", "CARDINALITY": 0, "T_OBJRAT": [ { "ATTR_CATEGORY": "REL_TYPE", "DIVISION": "", "ATTR_VALUE": "MEMA" } ] },
+            { "OBJECT_ID_1": "ME_H_E", "OBJECT_ID_2": "MA_V_1107", "CARDINALITY": 0, "T_OBJRAT": [ { "ATTR_CATEGORY": "REL_TYPE", "DIVISION": "", "ATTR_VALUE": "MEMA" } ] }
+          ],
+          "T_ICHK": []
+        }
+      ]
+    }
+  ],
+  "T_AV": [],
+  "_lbs_optionality": {
+    "lbs_code": "9992000000125",
+    "lbs_objects": [
+      { "object_code": "9992000001256", "object_type": "NeLo", "level": 1, "min_occurs": 0, "max_occurs": "N", "flexibility": "flexibel" },
+      { "object_code": "9992000001214", "object_type": "MeLo", "level": 1, "min_occurs": 1, "max_occurs": "N", "flexibility": "flexibel", "melo_function": "N", "direction": "both", "reference_to_nelo": "9992000001256" },
+      { "object_code": "9992000001032", "object_type": "MeLo", "level": 1, "min_occurs": 0, "max_occurs": "N", "flexibility": "flexibel", "melo_function": "N", "direction": "consumption", "reference_to_nelo": "9992000001256" },
+      { "object_code": "9992000001090", "object_type": "MeLo", "level": 2, "min_occurs": 1, "max_occurs": "N", "flexibility": "flexibel", "melo_function": "H", "direction": "generation", "reference_to_melo": "9992000001214" },
+      { "object_code": "9992000001024", "object_type": "TR", "level": 1, "min_occurs": 0, "max_occurs": "N", "flexibility": "flexibel", "direction": "consumption", "reference_to_melo": "9992000001032" },
+      { "object_code": "9992000001280", "object_type": "TR", "level": 1, "min_occurs": 0, "max_occurs": "N", "flexibility": "flexibel", "direction": "consumption", "reference_to_melo": "9992000001214" },
+      { "object_code": "9992000001157", "object_type": "TR", "level": 2, "min_occurs": 0, "max_occurs": "N", "flexibility": "flexibel", "direction": "generation", "reference_to_melo": "9992000001090" },
+      { "object_code": "9992000001165", "object_type": "TR", "level": 2, "min_occurs": 0, "max_occurs": "N", "flexibility": "flexibel", "direction": "both", "reference_to_melo": "9992000001090" },
+      { "object_code": "9992000001016", "object_type": "MaLo", "level": 1, "min_occurs": 1, "max_occurs": 1, "flexibility": "starr", "direction": "consumption", "reference_to_melo": [ "9992000001214", "9992000001032" ] },
+      { "object_code": "9992000001107", "object_type": "MaLo", "level": 2, "min_occurs": 0, "max_occurs": "N", "flexibility": "flexibel", "direction": "consumption", "reference_to_melo": "9992000001090" },
+      { "object_code": "9992000001115", "object_type": "MaLo", "level": 2, "min_occurs": 1, "max_occurs": "N", "flexibility": "flexibel", "direction": "generation", "reference_to_melo": "9992000001090" }
+    ],
+    "constraints": {
+      "reference_rules": [
+        { "if_object_code": "9992000001032", "condition": "occurs>1", "then_reference_to": "9992000001016"},
+        { "if_object_code": "9992000001032", "condition": "occurs>1 AND nelo_id_present", "then_reference_to": "9992000001256"},
+        { "if_object_code": "9992000001214", "condition": "occurs>1", "then_reference_to": "9992000001016"},
+        { "if_object_code": "9992000001214", "condition": "occurs>1", "then_reference_to": "9992000001090"},
+        { "if_object_code": "9992000001214", "condition": "occurs>1 AND nelo_id_present", "then_reference_to": "9992000001256"},
+        { "if_object_code": "9992000001090", "condition": "occurs>1", "then_reference_to": "9992000001115"},
+        { "if_object_code": "9992000001090", "condition": "occurs>1", "then_reference_to": "9992000001107"}
+      ]
+    }
+  }
+}

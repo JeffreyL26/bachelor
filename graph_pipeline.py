@@ -24,35 +24,32 @@ JSON-Graph hat die Form:
 GNN kann mit solchen Strings nicht anfangen, also übersetzen wirr in Tensor mit Features
 """
 # Knotentypen One-Hot-Encoding
-NODE_TYPES = {
+NODE_TYPEN = {
     "MaLo": 0,
     "MeLo": 1,
     "TR":   2,
     "NeLo": 3,
 }
-NUM_NODE_TYPES = len(NODE_TYPES)
+NUM_NODE_TYPES = len(NODE_TYPEN)
 
-# Richtung (MaLo/TR/MeLo): Verbrauch/Einspeisung/Bidirektional (z.B. Speicher-TR)
-# Hinweis: In den Templates taucht für TR u.a. "consumption+generation(storage)" auf.
-# Wir normalisieren verschiedene Schreibweisen auf {consumption, generation, both}.
 DIRECTIONS = {
     "consumption": 0,
     "generation":  1,
     "both":        2,
     # alles andere → unknown
 }
-DIR_UNKNOWN_INDEX = len(DIRECTIONS)
+DIRECTION_UNKNOWN_INDEX = len(DIRECTIONS)
 NUM_DIRECTIONS = len(DIRECTIONS) + 1  # + unknown
 
 # Kanten-Typen
-EDGE_TYPES = {
+EDGE_TYPEN = {
     "MEMA": 0,
     "METR": 1,
     "MENE": 2,
-    "MEME": 3,
+    "MEME": 3,                      # derzeit eigentlich egal. Mal sehen, ob es dafür noch Verwendung geben wird
 }
-EDGE_UNKNOWN_INDEX = len(EDGE_TYPES)
-NUM_EDGE_TYPES = len(EDGE_TYPES) + 1
+EDGE_UNKNOWN_INDEX = len(EDGE_TYPEN)
+NUM_EDGE_TYPES = len(EDGE_TYPEN) + 1
 
 
 # ------------------------------
@@ -72,17 +69,15 @@ def _one_hot(index: int, length: int) -> List[float]:
     return v
 
 
-def _normalize_direction(raw: Any) -> Optional[str]:
+def _direction_normalizer(raw: Any) -> Optional[str]:
     """
     Normalisiert unterschiedliche Schreibweisen von Richtungen.
 
     Erwartete kanonische Rückgabe:
       - "consumption"
       - "generation"
-      - "both"        (z.B. Speicher-TR: consumption+generation(storage))
-      - None          (unbekannt / nicht ableitbar)
-
-    Wir sind bewusst tolerant, weil die Quellen teils unterschiedliche Keys/Strings verwenden.
+      - "both"
+      - None
     """
     if raw is None:
         return None
@@ -92,7 +87,7 @@ def _normalize_direction(raw: Any) -> Optional[str]:
 
     s_low = s.lower()
 
-    # TR-Art-Codes (falls sie direkt als "direction" / "tr_direction" durchgereicht werden)
+    # TR (falls sie direkt als "direction" oder "tr_direction" durchgereicht werden), s. UTILMD
     s_up = s.upper()
     if s_up == "Z17":
         return "consumption"
@@ -101,20 +96,18 @@ def _normalize_direction(raw: Any) -> Optional[str]:
     if s_up == "Z56":
         return "both"
 
-    # Storage/Speicher (falls als Text auftaucht)
+    # Storage/Speicher
     if "storage" in s_low or "speicher" in s_low:
         return "both"
 
-
-    # Harte Treffer (bereits kanonisch)
     if s_low in ("consumption", "generation", "both"):
         return s_low
 
-    # Kombinierte Schreibweisen (Templates: consumption+generation(storage))
+    # Kombinierte Schreibweise
     if ("consumption" in s_low and "generation" in s_low) or ("einspeis" in s_low and "ausspeis" in s_low):
         return "both"
 
-    # Deutsche Heuristiken (falls mal durchrutscht)
+    #Keine Ahnung, ob alles richtig geschrieben wurde, also lieber mal Fallbacks
     if "einspeis" in s_low or "erzeug" in s_low:
         return "generation"
     if "ausspeis" in s_low or "bezug" in s_low or "verbrauch" in s_low:
@@ -135,34 +128,31 @@ def _encode_node_features(node: Dict[str, Any]) -> List[float]:
     }
     :param node: Knoten-Dict
     """
-    ntype = node.get("type")                                        # Knotentyp
+    node_typ = node.get("type")                                        # Knotentyp
     attrs = node.get("attrs", {}) or {}                             # Attributdict
 
     # Knotentyp zu One-Hot
-    type_idx = NODE_TYPES.get(ntype, None)
+    type_idx = NODE_TYPEN.get(node_typ, None)
     if type_idx is None:
-        # Unbekannter Typ bedeutet alles 0, optional erweitern
+        # Unbekannter Typ bedeutet alles 0
         type_vec = [0.0] * NUM_NODE_TYPES
     else:
         type_vec = _one_hot(type_idx, NUM_NODE_TYPES)
 
-    # Richtung (MaLo/TR/MeLo): kann je nach Quelle unter verschiedenen Keys liegen.
+    # Richtung (MaLo/TR/MeLo): je nach Quelle unterschiedliche Keys
     raw_dir = attrs.get("direction")
-    if raw_dir is None and ntype == "TR":
+    if raw_dir is None and node_typ == "TR":
         raw_dir = attrs.get("tr_direction")
-    if raw_dir is None and ntype == "TR":
+    if raw_dir is None and node_typ == "TR":
         # Falls der Converter nur den Typcode mitgibt (Z17/Z50/Z56), können wir daraus
-        # ebenfalls eine Richtung ableiten.
+        # ebenfalls eine Richtung ableiten:
         raw_dir = attrs.get("tr_type_code") or attrs.get("art_der_technischen_ressource")
-    if raw_dir is None and ntype in ("MaLo", "MeLo"):
+    if raw_dir is None and node_typ in ("MaLo", "MeLo"):
         raw_dir = attrs.get("direction_hint")
 
-    canon_dir = _normalize_direction(raw_dir)
-    dir_idx = DIRECTIONS.get(canon_dir, DIR_UNKNOWN_INDEX)
+    canon_dir = _direction_normalizer(raw_dir)
+    dir_idx = DIRECTIONS.get(canon_dir, DIRECTION_UNKNOWN_INDEX)
     dir_vec = _one_hot(dir_idx, NUM_DIRECTIONS)
-
-    # LBS_OBJECT_LEVEL für Template-Graphen, einfache Zahl (bei Ist-Konstrukte default 0.0)
-    #level = float(attrs.get("level", 0.0))
 
     # Konkatenation aller Feature-Blöcke:
     # 4 Knotentypen + 4 Richtungen = 8
@@ -175,7 +165,7 @@ def _encode_edge_attr(rel: str) -> List[float]:
     "MEMA", "METR", "MENE", "MEME".
     :param rel: Kanten-Typ
     """
-    idx = EDGE_TYPES.get(rel, EDGE_UNKNOWN_INDEX)
+    idx = EDGE_TYPEN.get(rel, EDGE_UNKNOWN_INDEX)
     return _one_hot(idx, NUM_EDGE_TYPES)
 
 
@@ -185,11 +175,11 @@ def _encode_edge_attr(rel: str) -> List[float]:
 
 def json_graph_to_pyg(
     g: Dict[str, Any],
-    undirected: bool = True,                                        # Damit das GNN in beide Richtungen Nachrichten senden kann
+    undirected: bool = True,                                        # Damit das GNN in beide Richtungen Nachrichten senden kann: Message Passing
 ) -> Data:
     """
-    Konvertiert einen Graphen im JSON-Format (ist_graphs_small.jsonl
-    oder lbs_templates.jsonl) in ein torch_geometric.data.Data-Objekt
+    Konvertiert einen Graphen im JSON-Format (ist_graphs_all.jsonl
+    oder lbs_soll_graphs.jsonl) in ein torch_geometric.data.Data-Objekt
 
     Erwartetes dict-Format:
     {

@@ -1,26 +1,17 @@
 from __future__ import annotations
 
 """
-synthetic_pair_builder.py  (Annäherung B)
+synthetic_pair_builder.py
+Erzeugt synthetische Trainingspaare für DGMC, die nur Variationen enthalten,
+graph_pipeline.py als Features sieht:
+  - Nodes: Type + direction
+  - Edges: rel als One-Hot
 
-Ziel
-----
-Erzeugt synthetische Trainingspaare für DGMC, die **nur** Variationen enthalten,
-die deine aktuelle `graph_pipeline.py` auch wirklich als Features sieht:
+Es werden also keine Attribute wie "function", "dynamic" oder so gedroppt, diese
+sind exklusiv in dne Templates
 
-  - Node-Features: Knotentyp + Richtung (direction; bei TR zusätzlich Fallbacks)
-  - Edge-Features: Kantenrelation (rel) als One-Hot
-
-Konsequenz:
-  - Wir droppen / verändern keine Attribute wie "function", "dynamic", ...,
-    solange sie nicht in der Pipeline encodiert werden.
-  - Damit wird vermieden, dass Graph-B im JSON zwar "anders" aussieht, DGMC aber
-    exakt dieselben Eingabe-Features bekommt (-> Training liefert dann kaum Signal).
-
-Hinweis:
-  - Optionality (min_occurs/max_occurs/flexibility/optional) wird weiterhin als
-    Generator-Logik genutzt (Node-Dropout / Extra-Nodes), aber **nicht** als
-    Augmentation "für DGMC" manipuliert.
+Optionality-Block (min_occurs, max_occurs,flexibility, optional) wird in
+Generator-Logik genutzt (Node droppen oder Extra-Nodes)
 """
 
 import copy
@@ -34,37 +25,36 @@ TGraph = Dict[str, Any]
 TPair = Dict[str, Any]
 
 
-# =============================================================================
-# Pipeline-relevante Attribute (müssen mit graph_pipeline.py zusammenpassen!)
-# =============================================================================
+# ------------------------------
+# PIPELINE-ATTRIBUTE
+# ------------------------------
 
-# graph_pipeline encodiert direction so:
-#   raw_dir = attrs["direction"]
-#   bei TR: fallback attrs["tr_type_code"] oder attrs["art_der_technischen_ressource"]
-PIPELINE_NODE_ATTR_KEYS_BY_TYPE: Dict[str, set[str]] = {
+PIPELINE_NODE_ATTRIBUTE: Dict[str, set[str]] = {
     "MaLo": {"direction"},
     "MeLo": {"direction"},
     "TR": {"direction", "tr_type_code", "art_der_technischen_ressource"},
     "NeLo": set(),
 }
-PIPELINE_NODE_ATTR_KEYS_ALL: set[str] = set().union(*PIPELINE_NODE_ATTR_KEYS_BY_TYPE.values())
+PIPELINE_NODE_ATTRIBUTE_SCHLUESSEL: set[str] = set().union(*PIPELINE_NODE_ATTRIBUTE.values())
 
 
 def _filter_pipeline_node_attrs(ntype: str, attrs: Dict[str, Any]) -> Dict[str, Any]:
-    """Keep only those node attrs that the current graph_pipeline actually encodes."""
-    keys = PIPELINE_NODE_ATTR_KEYS_BY_TYPE.get(str(ntype), set())
-    if not keys or not isinstance(attrs, dict):
-        return {}
-    return {k: attrs[k] for k in keys if k in attrs}
-
-
-# =============================================================================
-# IO: Templates laden und permutieren
-# =============================================================================
-
-def load_templates_jsonl(path: str) -> List[TGraph]:
     """
-    Lädt normalisierte Template-Graphen aus einer JSONL-Datei.
+    Nur besagte Attribute behalten
+    """
+    schluessel = PIPELINE_NODE_ATTRIBUTE.get(str(ntype), set())
+    if not schluessel or not isinstance(attrs, dict):
+        return {}
+    return {s: attrs[s] for s in schluessel if s in attrs}
+
+
+# ------------------------------
+# TEMPLATES LADEN & PERMUTIEREN
+# ------------------------------
+
+def template_loader(path: str) -> List[TGraph]:
+    """
+    Lädt normalisierte Template-Graphen aus der JSONL
 
     Erwartetes Format pro Zeile:
       {"graph_id": ..., "label": ..., "nodes": [...], "edges": [...], "graph_attrs": {...}}
@@ -79,73 +69,69 @@ def load_templates_jsonl(path: str) -> List[TGraph]:
     return graphs
 
 
-def permute_graph(g: TGraph) -> Tuple[TGraph, List[int]]:
+def graph_permutierer(g: TGraph) -> Tuple[TGraph, List[int]]:
     """
     Erzeugt eine permutierte Kopie eines Graphen:
-      - die Knotenreihenfolge wird zufällig vertauscht
+      - Knotenreihenfolge wird zufällig vertauscht
       - Knoten-IDs bleiben gleich
-      - Kanten bleiben über (src/dst)-IDs definiert
+      - Kanten bleiben über src/dst-IDs definiert
 
-    Zusätzlich wird eine Permutationsliste zurückgegeben:
-      perm[i] = Index des Knoten i (im Original) in der neuen Knotenliste.
-
-    Hinweis:
-      - Deep-Copy, damit spätere Augmentierungen das Original nicht mutieren.
+    :return: Permutationsliste mit perm[i] = Index des Knoten i (im Original) in der neuen Knotenliste
+    :param: Besagter Graph
     """
     nodes = list(g.get("nodes") or [])
     n = len(nodes)
 
-    order = list(range(n))
-    random.shuffle(order)
+    reihenfolge = list(range(n))
+    random.shuffle(reihenfolge)
 
-    new_nodes = [copy.deepcopy(nodes[i]) for i in order]
-    id_to_new_idx = {node.get("id"): idx for idx, node in enumerate(new_nodes) if node.get("id") is not None}
+    neue_nodes = [copy.deepcopy(nodes[i]) for i in reihenfolge]
+    id_zu_neuer_id = {node.get("id"): idx for idx, node in enumerate(neue_nodes) if node.get("id") is not None}
 
     perm: List[int] = []
     for i in range(n):
-        nid = nodes[i].get("id")
-        perm.append(id_to_new_idx.get(nid, -1))
+        node_id = nodes[i].get("id")
+        perm.append(id_zu_neuer_id.get(node_id, -1))
 
-    new_g: TGraph = {
+    neuer_graph: TGraph = {
         "graph_id": f'{g.get("graph_id", "")}|perm',
         "label": g.get("label"),
-        "nodes": new_nodes,
+        "nodes": neue_nodes,
         "edges": copy.deepcopy(list(g.get("edges", []))),
         "graph_attrs": copy.deepcopy(dict(g.get("graph_attrs", {}))),
     }
-    return new_g, perm
+    return neuer_graph, perm
 
 
-# =============================================================================
-# Utils: Optionals / Constraints aus Template-Attrs (min/max/optional/flexibility)
-# =============================================================================
+# ------------------------------
+# CONSTRAINT WERKZEUGE
+# ------------------------------
 
-def _as_int(value: Any, default: int = 0) -> int:
+def _als_int(wert: Any, default: int = 0) -> int:
     try:
-        return int(value)
+        return int(wert)
     except Exception:
         return default
 
 
-def _is_unbounded_max(value: Any) -> bool:
-    if value is None:
+def _is_keine_obergrenze(wert: Any) -> bool:
+    if wert is None:
         return False
-    if isinstance(value, str) and value.strip().upper() == "N":
+    if isinstance(wert, str) and wert.strip().upper() == "N":
         return True
     return False
 
 
 def _node_optionality(node: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Extrahiert optionale Metainfos aus node["attrs"] (falls vorhanden).
-    Diese Keys existieren in deinen Soll-Graphen (_lbs_optionality):
+    Extrahiert optionale Metainfos aus node["attrs"], wenn da
+    Diese Keys existieren in einem Soll-Graphen (_lbs_optionality):
       - min_occurs (int)
-      - max_occurs (int oder "N")
+      - max_occurs (int bzw."N")
       - flexibility ("starr"/"flexibel")
       - optional (bool)
 
-    Wichtig: Diese Meta-Infos werden hier nur als Generator-Logik benutzt.
-    DGMC bekommt daraus aktuell keine Features (graph_pipeline encodiert sie nicht).
+    Nicht relevant für DGMC, nur für Paar-Generator
     """
     attrs = node.get("attrs") or {}
     if not isinstance(attrs, dict):
@@ -153,15 +139,15 @@ def _node_optionality(node: Dict[str, Any]) -> Dict[str, Any]:
 
     min_occurs = attrs.get("min_occurs")
     max_occurs = attrs.get("max_occurs")
-    optional_flag = attrs.get("optional")
+    optional_check = attrs.get("optional")
 
-    is_optional = bool(optional_flag) if optional_flag is not None else (_as_int(min_occurs, 0) == 0)
+    is_optional = bool(optional_check) if optional_check is not None else (_als_int(min_occurs, 0) == 0)
 
     flexibility = attrs.get("flexibility")
     flex = str(flexibility).lower().strip() if isinstance(flexibility, str) else ""
 
     max_int = None
-    if _is_unbounded_max(max_occurs):
+    if _is_keine_obergrenze(max_occurs):
         max_int = None
     else:
         if isinstance(max_occurs, int):
@@ -173,64 +159,55 @@ def _node_optionality(node: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "is_optional": is_optional,
-        "min_occurs": _as_int(min_occurs, 0),
+        "min_occurs": _als_int(min_occurs, 0),
         "max_occurs": max_int,          # None = unbounded/unknown
-        "max_is_unbounded": _is_unbounded_max(max_occurs),
+        "max_is_unbounded": _is_keine_obergrenze(max_occurs),
         "is_flexible": flex.startswith("flex"),
     }
 
 
-def _edge_key(e: Dict[str, Any]) -> Tuple[str, str, str]:
-    return (str(e.get("src")), str(e.get("dst")), str(e.get("rel")))
+def _edge_schluessel(edge: Dict[str, Any]) -> Tuple[str, str, str]:
+    return (str(edge.get("src")), str(edge.get("dst")), str(edge.get("rel")))
 
 
-def _recount_types(nodes: List[Dict[str, Any]]) -> Dict[str, int]:
-    counts = {"MaLo": 0, "MeLo": 0, "TR": 0, "NeLo": 0}
+def _typ_zaehler(nodes: List[Dict[str, Any]]) -> Dict[str, int]:
+    anzahl = {"MaLo": 0, "MeLo": 0, "TR": 0, "NeLo": 0}
     for n in nodes:
         t = n.get("type")
-        if t in counts:
-            counts[t] += 1
-    return counts
+        if t in anzahl:
+            anzahl[t] += 1
+    return anzahl
 
 
 def _sync_graph_attrs_counts(g: TGraph) -> None:
     """
-    Hält optionale Zählwerte in graph_attrs konsistent, wenn Knoten entfernt/ergänzt wurden.
-
-    WICHTIG:
-      - Bei deinen neuen Soll-Graphen sind *_min/_max Template-Constraints und sollen
-        **nicht** verändert werden.
-      - Wir aktualisieren daher nur *_count Keys, falls sie existieren (legacy/debugging).
+    Hält optionale Zählwerte in graph_attrs konsistent, wenn Knoten entfernt/ergänzt wurden
     """
-    ga = g.get("graph_attrs")
-    if not isinstance(ga, dict):
+    graph_attribute = g.get("graph_attrs")
+    if not isinstance(graph_attribute, dict):
         return
 
     nodes = g.get("nodes", [])
     if not isinstance(nodes, list):
         return
 
-    counts = _recount_types(nodes)
+    counts = _typ_zaehler(nodes)
 
-    if "malo_count" in ga:
-        ga["malo_count"] = counts["MaLo"]
-    if "melo_count" in ga:
-        ga["melo_count"] = counts["MeLo"]
-    if "tr_count" in ga:
-        ga["tr_count"] = counts["TR"]
-    if "nelo_count" in ga:
-        ga["nelo_count"] = counts["NeLo"]
+    if "malo_count" in graph_attribute:
+        graph_attribute["malo_count"] = counts["MaLo"]
+    if "melo_count" in graph_attribute:
+        graph_attribute["melo_count"] = counts["MeLo"]
+    if "tr_count" in graph_attribute:
+        graph_attribute["tr_count"] = counts["TR"]
+    if "nelo_count" in graph_attribute:
+        graph_attribute["nelo_count"] = counts["NeLo"]
 
 
-# =============================================================================
-# Optional: Template-Meta aus Graph-B entfernen (macht B "Ist-näher")
-# =============================================================================
+# ------------------------------
+# METADATA AUS SYN.-GRAPH RAUS
+# ------------------------------
 
-# Diese Keys sind Template-spezifisch und in echten Ist-Graphen typischerweise nicht enthalten.
-# Sie beeinflussen DGMC aktuell NICHT (graph_pipeline encodiert sie nicht),
-# aber:
-#   - realistischere Graph-B JSONs
-#   - verhindert Leakage, falls du später weitere Attrs als Features addierst
+# Keys sind nur in Templates und nicht in Ist-Graphen
 TEMPLATE_META_ATTR_KEYS: set[str] = {
     "min_occurs",
     "max_occurs",
@@ -242,18 +219,16 @@ TEMPLATE_META_ATTR_KEYS: set[str] = {
 }
 
 
-def strip_template_meta_attrs(
+def template_meta_entferner(
     g: TGraph,
     keys: set[str] = TEMPLATE_META_ATTR_KEYS,
 ) -> int:
     """
-    Entfernt Template-spezifische Meta-Attribute aus allen Nodes eines Graphen (in-place).
-
-    Hinweis: Das ist *Cleaning*, kein Trainingssignal (DGMC sieht es aktuell nicht).
+    Entfernt Template-spezifische Meta-Attribute aus allen Nodes eines Graphen
     """
     removed = 0
-    for node in g.get("nodes", []) or []:
-        attrs = node.get("attrs")
+    for knoten in g.get("nodes", []) or []:
+        attrs = knoten.get("attrs")
         if not isinstance(attrs, dict):
             continue
         for k in list(attrs.keys()):
@@ -263,41 +238,36 @@ def strip_template_meta_attrs(
     return removed
 
 
-# =============================================================================
-# Phase A: Attribute-/Edge-Augmentation (Ist-Noise)
-# =============================================================================
+# ------------------------------
+# ATTRIBUTE DROP
+# ------------------------------
 
-# Attribute-Dropout: fehlende direction-Infos simulieren.
-# Achtung: Wir droppen nur Keys, die die graph_pipeline tatsächlich verwendet.
-DEFAULT_ATTR_DROPOUT_BY_TYPE: Dict[str, Dict[str, float]] = {
+#fehlende direction-Infos simulieren
+ATTR_DROP_PROBABILITIES: Dict[str, Dict[str, float]] = {
     "MaLo": {"direction": 0.25},
     "MeLo": {"direction": 0.20},
-    # TR: pipeline kann direction auch aus tr_type_code / art_der_technischen_ressource ableiten.
-    # Wenn du "direction" droppst, aber der Code bleibt, ändert sich das Feature evtl. nicht.
-    # Deshalb droppen wir diese Fallback-Keys ebenfalls (mit kleinerer Wahrscheinlichkeit).
+    #fallback-keys
     "TR": {"direction": 0.25, "tr_type_code": 0.10, "art_der_technischen_ressource": 0.10},
     "NeLo": {},
 }
 
-# Edge-Dropout: beeinflusst direkt edge_index/edge_attr (Pipeline!)
-DEFAULT_EDGE_DROPOUT_BY_REL: Dict[str, float] = {
-    "MEMA": 0.10,
-    "METR": 0.30,
-    "MENE": 0.20,
-    "MEME": 0.10,
-    "*": 0.15,  # fallback für unbekannte rels
+# beeinflusst direkt edge_index/edge_attr in pipeline
+# Alle auf 0, da Struktur für uns wichtigstes Signal ist
+EDGE_DROP_PROPBABILITIES: Dict[str, float] = {
+    "MEMA": 0.0,
+    "METR": 0.0,
+    "MENE": 0.0,
+    "MEME": 0.0,
+    "*": 0.0,  # fallback für unbekannte rels
 }
 
 
-def apply_attribute_dropout(
+def attribut_drop(
     g: TGraph,
-    probs_by_type: Dict[str, Dict[str, float]] = DEFAULT_ATTR_DROPOUT_BY_TYPE
+    attribut_prob: Dict[str, Dict[str, float]] = ATTR_DROP_PROBABILITIES
 ) -> int:
     """
-    Entfernt ausgewählte Attribute aus node["attrs"], um fehlende Information zu simulieren.
-
-    WICHTIG:
-      - Es werden nur Pipeline-relevante Attribute entfernt (direction und TR-Fallbacks).
+    Entfernt direction aus node["attrs"], um fehlende Information zu simulieren
     """
     dropped = 0
     for node in g.get("nodes", []):
@@ -306,61 +276,62 @@ def apply_attribute_dropout(
         if not isinstance(attrs, dict):
             continue
 
-        probs = probs_by_type.get(ntype, {})
+        probs = attribut_prob.get(ntype, {})
         for key, p in probs.items():
-            if key not in PIPELINE_NODE_ATTR_KEYS_ALL:
+            if key not in PIPELINE_NODE_ATTRIBUTE_SCHLUESSEL:
                 continue
             if key in attrs and random.random() < float(p):
                 del attrs[key]
                 dropped += 1
     return dropped
 
-
-def apply_edge_dropout(
+#derzeit nicht in Benutzung
+def edge_drop(
     g: TGraph,
-    drop_by_rel: Dict[str, float] = DEFAULT_EDGE_DROPOUT_BY_REL
+    edge_prob: Dict[str, float] = EDGE_DROP_PROPBABILITIES
 ) -> int:
     """
-    Entfernt zufällig Kanten aus g["edges"] (in-place) -> Pipeline sieht das.
+    Entfernt zufällig Kanten aus g["edges"]
     """
     edges = list(g.get("edges", []))
     if not edges:
         return 0
 
-    kept: List[Dict[str, Any]] = []
+    behalten: List[Dict[str, Any]] = []
     dropped = 0
     for e in edges:
         if not isinstance(e, dict):
             continue
         rel = e.get("rel") or e.get("type") or e.get("edge_type")
         rel = str(rel).strip().upper() if rel is not None else None
-        p = float(drop_by_rel.get(rel, drop_by_rel.get("*", 0.0)))
+        p = float(edge_prob.get(rel, edge_prob.get("*", 0.0)))
         if p > 0.0 and random.random() < p:
             dropped += 1
             continue
 
-        # normalisiere auf "rel", damit downstream konsistent ist
+        #normalisieren auf "rel"
         e2 = dict(e)
         if rel is not None:
             e2["rel"] = rel
-        kept.append(e2)
+        behalten.append(e2)
 
-    g["edges"] = kept
+    g["edges"] = behalten
     return dropped
 
-
-def apply_edge_less(g: TGraph) -> int:
-    """Entfernt alle Kanten (edge-less Variante) -> Pipeline sieht das."""
+def edge_less_eigenschaft(g: TGraph) -> int:
+    """
+    Entfernt alle Kanten (edge-less Variante)
+    """
     n = len(g.get("edges", []))
     g["edges"] = []
     return n
 
 
-# =============================================================================
-# Phase B: Partial Matching (Node-Varianz)
-# =============================================================================
+# ------------------------------
+# PARTIELLES MATCHING
+# ------------------------------
 
-DEFAULT_NODE_DROPOUT_BASE_BY_TYPE: Dict[str, float] = {
+NODE_DROP_PROBABILITIES: Dict[str, float] = {
     "TR": 0.18,
     "NeLo": 0.06,
     "MaLo": 0.05,
@@ -370,26 +341,22 @@ DEFAULT_NODE_DROPOUT_BASE_BY_TYPE: Dict[str, float] = {
 
 def _node_dropout_prob(
     node: Dict[str, Any],
-    base_by_type: Dict[str, float],
-    respect_min_occurs: bool = True,
+    standard: Dict[str, float],
+    min_occurs_beachten: bool = True,
 ) -> float:
     """
-    Bestimmt Dropout-Wahrscheinlichkeit für einen konkreten Node.
-
-    Idee:
-      - Baseline pro Typ
-      - Optionality/Flexibilität erhöhen Dropout
-      - Mandatory Nodes (min_occurs>=1) werden stark geschützt
+    Bestimmt Dropout-Wahrscheinlichkeit für node
+    Mit Baseline pro Typ, um Pflichtkardinalitäten zu erfüllen
     """
-    t = str(node.get("type"))
-    p = float(base_by_type.get(t, 0.0))
+    node_type = str(node.get("type"))
+    p = float(standard.get(node_type, 0.0))
 
     opt = _node_optionality(node)
 
-    if respect_min_occurs and opt["min_occurs"] >= 1 and not opt["is_optional"]:
-        p *= 0.15  # Mandatory -> stark schützen
+    if min_occurs_beachten and opt["min_occurs"] >= 1 and not opt["is_optional"]:
+        p *= 0.15  # Pflicht
     else:
-        p *= 1.15  # Optional -> leicht erhöhen
+        p *= 1.15  # Optional
 
     if opt["is_flexible"]:
         p *= 1.10
@@ -400,50 +367,48 @@ def _node_dropout_prob(
     return max(0.0, min(0.90, p))
 
 
-def apply_node_dropout(
+def node_drop(
     g: TGraph,
-    base_by_type: Dict[str, float] = DEFAULT_NODE_DROPOUT_BASE_BY_TYPE,
-    ensure_keep_types: Tuple[str, ...] = ("MaLo", "MeLo"),
-    respect_min_occurs: bool = True,
+    standard: Dict[str, float] = NODE_DROP_PROBABILITIES,
+    typen_behalten: Tuple[str, ...] = ("MaLo", "MeLo"),
+    min_occurs_beachten: bool = True,
 ) -> Dict[str, Any]:
     """
-    Entfernt zufällig Nodes aus g["nodes"] (in-place) und bereinigt betroffene Kanten.
+    Entfernt zufällig Nodes aus g["nodes"] und behandelt Kanten entsprechend
 
-    -> Pipeline sieht das (andere Graph-Struktur / andere Knotenzahl).
-
-    :return: Meta-Infos: {"dropped_node_ids": [...], "dropped_counts": {...}}
+    :return: Meta-Infos für Tracking: {"dropped_node_ids": [...], "dropped_counts": {...}}
     """
     nodes = list(g.get("nodes", []))
     if not nodes:
         return {}
 
-    ids_by_type: Dict[str, List[str]] = {}
+    ids_nach_typ: Dict[str, List[str]] = {}
     for n in nodes:
         t = n.get("type")
         nid = n.get("id")
         if t is None or nid is None:
             continue
-        ids_by_type.setdefault(str(t), []).append(str(nid))
+        ids_nach_typ.setdefault(str(t), []).append(str(nid))
 
     drop_ids: set[str] = set()
     for n in nodes:
         nid = n.get("id")
         if nid is None:
             continue
-        p = _node_dropout_prob(n, base_by_type, respect_min_occurs=respect_min_occurs)
+        p = _node_dropout_prob(n, standard, min_occurs_beachten=min_occurs_beachten)
         if p > 0.0 and random.random() < p:
             drop_ids.add(str(nid))
 
-    # Mindest-Kern-Struktur bewahren:
-    for t in ensure_keep_types:
+    # Kern bewahren (Min)
+    for t in typen_behalten:
         t = str(t)
-        existing = ids_by_type.get(t, [])
-        if not existing:
+        vorhanden = ids_nach_typ.get(t, [])
+        if not vorhanden:
             continue
-        kept = [nid for nid in existing if nid not in drop_ids]
-        if kept:
+        behalten = [nid for nid in vorhanden if nid not in drop_ids]
+        if behalten:
             continue
-        drop_ids.discard(random.choice(existing))
+        drop_ids.discard(random.choice(vorhanden))
 
     if not drop_ids:
         return {}
@@ -468,7 +433,7 @@ def apply_node_dropout(
     dropped_counts: Dict[str, int] = {}
     for nid in drop_ids:
         found_t = None
-        for t, ids in ids_by_type.items():
+        for t, ids in ids_nach_typ.items():
             if nid in ids:
                 found_t = t
                 break
@@ -477,8 +442,10 @@ def apply_node_dropout(
     return {"dropped_node_ids": sorted(drop_ids), "dropped_counts": dropped_counts}
 
 
-def _make_unique_id(existing_ids: set[str], base: str) -> str:
-    """Erzeugt eine neue ID, die garantiert nicht in existing_ids vorkommt."""
+def _id_generator(existing_ids: set[str], base: str) -> str:
+    """
+    ID erstellen, die garantiert nicht in existing_ids vorkommt
+    """
     base = base or "NODE"
     for _ in range(1000):
         suffix = random.randint(1000, 9999)
@@ -493,8 +460,10 @@ def _make_unique_id(existing_ids: set[str], base: str) -> str:
         i += 1
 
 
-def _candidate_melo_sources_for_dst(g: TGraph, dst_id: str, rel: str) -> List[str]:
-    """Findet MeLo-Quellen für eine Kante mit gegebenem rel, die auf dst_id zeigt."""
+def _melo_finder(g: TGraph, dst_id: str, rel: str) -> List[str]:
+    """
+    Findet MeLo-Quellen für eine Kante mit gegebenem rel, die auf dst_id zeigt
+    """
     rel = str(rel).upper()
     out: List[str] = []
     for e in g.get("edges", []) or []:
@@ -508,99 +477,94 @@ def _candidate_melo_sources_for_dst(g: TGraph, dst_id: str, rel: str) -> List[st
     return out
 
 
-def apply_extra_nodes_from_optionality(
+def node_add(
     g: TGraph,
-    p_add: float = 0.25,
-    max_extra_total: int = 3,
-    allowed_types: Tuple[str, ...] = ("TR",),
-    inherit_attrs: bool = True,
-    p_blank_direction: float = 0.35,
+    adding_prob: float = 0.25,
+    max_extra: int = 3,
+    erlaubte_nodes: Tuple[str, ...] = ("TR",),
+    attribute_erben: bool = True,
+    neue_nodes_unknown_dir: float = 0.05,
 ) -> Dict[str, Any]:
     """
     Fügt zusätzliche Nodes hinzu, aber NUR dort, wo das Template es plausibel macht:
       - max_occurs unbounded ("N") oder >1
-      - und (falls vorhanden) flexibility="flexibel"
-
-    Pipeline-Konsistenz:
-      - Neue Nodes bekommen nur Pipeline-relevante Attrs (direction, TR-Fallbacks).
-      - Optional kann direction "weggera(s)cht" werden (unknown direction).
+      - und flexibility="flexibel"
 
     Für jeden neuen Node wird eine passende Kante von einem MeLo hinzugefügt:
       - TR  -> METR
       - MaLo-> MEMA
       - NeLo-> MENE
     """
-    if max_extra_total <= 0:
+    if max_extra <= 0:
         return {}
 
     nodes = list(g.get("nodes", []))
     if not nodes:
         return {}
 
-    if random.random() > float(p_add):
+    if random.random() > float(adding_prob):
         return {}
 
-    existing_ids = {str(n.get("id")) for n in nodes if n.get("id") is not None}
+    vorhandene_ids = {str(n.get("id")) for n in nodes if n.get("id") is not None}
     melo_ids = [str(n.get("id")) for n in nodes if n.get("type") == "MeLo" and n.get("id") is not None]
 
-    # Kandidaten, die überhaupt "mehrfach" vorkommen dürfen
-    candidates: List[Dict[str, Any]] = []
+    #Kandidaten, die überhaupt mehrfach vorkommen dürfen
+    kandidaten: List[Dict[str, Any]] = []
     for n in nodes:
         t = str(n.get("type"))
-        if t not in allowed_types:
+        if t not in erlaubte_nodes:
             continue
         opt = _node_optionality(n)
         if not (opt["max_is_unbounded"] or (opt["max_occurs"] is not None and opt["max_occurs"] > 1)):
             continue
         if "flexibility" in (n.get("attrs") or {}) and not opt["is_flexible"]:
             continue
-        candidates.append(n)
+        kandidaten.append(n)
 
-    if not candidates:
+    if not kandidaten:
         return {}
 
     edges = list(g.get("edges", []))
-    edge_set = {_edge_key(e) for e in edges if isinstance(e, dict)}
+    edge_set = {_edge_schluessel(e) for e in edges if isinstance(e, dict)}
 
     added_ids: List[str] = []
     attached = 0
 
-    k_total = random.randint(1, max_extra_total)
+    k_total = random.randint(1, max_extra)
     for _ in range(k_total):
-        src_node = random.choice(candidates)
+        src_node = random.choice(kandidaten)
         t = str(src_node.get("type"))
         src_id = str(src_node.get("id"))
 
-        new_id = _make_unique_id(existing_ids, base=t)
-        existing_ids.add(new_id)
+        new_id = _id_generator(vorhandene_ids, base=t)
+        vorhandene_ids.add(new_id)
 
-        # attrs: nur Pipeline-relevante Keys übernehmen
-        new_attrs: Dict[str, Any] = {}
-        if inherit_attrs and isinstance(src_node.get("attrs"), dict):
-            new_attrs = _filter_pipeline_node_attrs(t, copy.deepcopy(src_node["attrs"]))
+        #nur Pipeline-relevante Keys übernehmen
+        neue_attribute: Dict[str, Any] = {}
+        if attribute_erben and isinstance(src_node.get("attrs"), dict):
+            neue_attribute = _filter_pipeline_node_attrs(t, copy.deepcopy(src_node["attrs"]))
 
-        # Optional: direction "verschwindet" (unknown direction) -> Pipeline sieht das
-        if new_attrs and random.random() < float(p_blank_direction):
-            # Bei TR sind mehrere Keys pipeline-relevant -> wir entfernen sie gemeinsam,
-            # sonst könnte die Richtung über Fallbacks trotzdem gleich bleiben.
-            for k in list(new_attrs.keys()):
-                if k in PIPELINE_NODE_ATTR_KEYS_BY_TYPE.get(t, set()):
-                    del new_attrs[k]
+        #Optional: direction unknown
+        if neue_attribute and random.random() < float(neue_nodes_unknown_dir):
+            #sonst könnte die Richtung bei TR über Fallbacks trotzdem gleich bleiben.
+            for k in list(neue_attribute.keys()):
+                if k in PIPELINE_NODE_ATTRIBUTE.get(t, set()):
+                    del neue_attribute[k]
 
-        nodes.append({"id": new_id, "type": t, "attrs": new_attrs})
+        nodes.append({"id": new_id, "type": t, "attrs": neue_attribute})
         added_ids.append(new_id)
 
-        # passende Relationen
+        #passende Relationen
         rel = {"TR": "METR", "MaLo": "MEMA", "NeLo": "MENE"}.get(t)
         if rel and melo_ids:
-            src_candidates = _candidate_melo_sources_for_dst(g, dst_id=src_id, rel=rel)
+            src_candidates = _melo_finder(g, dst_id=src_id, rel=rel)
             src_candidates = [s for s in src_candidates if s in melo_ids] or melo_ids
             melo_src = random.choice(src_candidates)
 
-            new_e = {"src": melo_src, "dst": new_id, "rel": rel}
-            k_e = _edge_key(new_e)
+            neue_edge = {"src": melo_src, "dst": new_id, "rel": rel}
+            k_e = _edge_schluessel(neue_edge)
             if k_e not in edge_set:
-                edges.append(new_e)
+                edges.append(neue_edge)
                 edge_set.add(k_e)
                 attached += 1
 
@@ -611,20 +575,20 @@ def apply_extra_nodes_from_optionality(
     return {"added": len(added_ids), "added_ids": added_ids, "attached_edges": attached}
 
 
-# =============================================================================
-# Attachment-Mehrdeutigkeit aus Template-Regeln (graph_attrs["attachment_rules"])
-# =============================================================================
+# ------------------------------
+# ATTACHMENT RULES BEACHTEN
+# ------------------------------
 
-def apply_attachment_ambiguity(
+def attachment_beachten(
     g: TGraph,
-    p_instantiate_from_rules: float = 0.90,
-    p_rewire_existing: float = 0.35,
-    only_rewire_when_rules_exist: bool = True,
+    instantiate_prob: float = 0.40,
+    umhaengen_existierend_prob: float = 0.2,
+    nur_umhaengen_wenn_regeln_zutreffen: bool = True,
 ) -> Tuple[int, int]:
     """
-    Attachment-Mehrdeutigkeit abbilden (Kanten verändern/hinzufügen) -> Pipeline sieht das.
+    Kanten ergänzen oder bestehende umhängen
 
-    return: (added_edges, rewired_edges)
+    :return (added_edges, rewired_edges)
     """
     nodes = g.get("nodes", [])
     node_ids = {n.get("id") for n in nodes}
@@ -637,75 +601,79 @@ def apply_attachment_ambiguity(
     if not isinstance(rules, list) or not rules:
         return 0, 0
 
-    allowed_rels = {"METR", "MENE", "MEMA"}
+    erlaubte_kanten = {"METR", "MENE", "MEMA"}
 
-    rule_map: Dict[Tuple[str, str], List[str]] = {}
+    regel_map: Dict[Tuple[str, str], List[str]] = {}
+
+    #valide Kandidaten anhand Regeln
     for r in rules:
         if not isinstance(r, dict):
             continue
         rel = r.get("rel")
         rel = str(rel).strip().upper() if rel is not None else None
         obj = r.get("object_code")
-        cands = r.get("target_candidates") or []
-        if rel not in allowed_rels:
+        kandidaten = r.get("target_candidates") or []
+        if rel not in erlaubte_kanten:
             continue
-        if not obj or not isinstance(cands, list):
+        if not obj or not isinstance(kandidaten, list):
             continue
-        valid_cands = [c for c in cands if c in node_ids]
-        if not valid_cands:
+        valide_kandidaten = [c for c in kandidaten if c in node_ids]
+        if not valide_kandidaten:
             continue
-        rule_map[(rel, obj)] = valid_cands
+        regel_map[(rel, obj)] = valide_kandidaten
 
-    if not rule_map:
+    if not regel_map:
         return 0, 0
 
     edges = list(g.get("edges", []))
-    edge_set = {_edge_key(e) for e in edges if isinstance(e, dict)}
+    edge_set = {_edge_schluessel(e) for e in edges if isinstance(e, dict)}
 
     added = 0
-    for (rel, obj), cands in rule_map.items():
+    for (rel, obj), kandidaten in regel_map.items():
         if obj not in node_ids:
             continue
         already = any((str(e.get("rel", "")).upper() == rel and e.get("dst") == obj) for e in edges if isinstance(e, dict))
         if already:
             continue
-        if random.random() > p_instantiate_from_rules:
+        if random.random() > instantiate_prob:
             continue
 
-        src = random.choice(cands)
+        src = random.choice(kandidaten)
         new_e = {"src": src, "dst": obj, "rel": rel}
-        k = _edge_key(new_e)
+        k = _edge_schluessel(new_e)
         if k not in edge_set:
             edges.append(new_e)
             edge_set.add(k)
             added += 1
 
-    rewired = 0
+    umgebaut = 0
+
+    #durch alle edges und die mit den Regeln umbauen
     for e in edges:
         if not isinstance(e, dict):
             continue
         rel = str(e.get("rel", "")).upper()
         dst = e.get("dst")
         src = e.get("src")
-        if rel not in allowed_rels:
+        if rel not in erlaubte_kanten:
             continue
 
         key = (rel, dst)
-        if key not in rule_map:
-            if only_rewire_when_rules_exist:
+        if key not in regel_map:
+            if nur_umhaengen_wenn_regeln_zutreffen:
                 continue
-            cands = [m for m in melo_ids if m != src]
+            kandidaten = [m for m in melo_ids if m != src]
         else:
-            cands = [c for c in rule_map[key] if c != src]
+            kandidaten = [c for c in regel_map[key] if c != src]
 
-        if not cands:
+        if not kandidaten:
             continue
-        if random.random() > p_rewire_existing:
+        if random.random() > umhaengen_existierend_prob:
             continue
 
         new_src = None
         for _ in range(5):
-            cand = random.choice(cands)
+            cand = random.choice(kandidaten)
             tentative = (str(cand), str(dst), str(rel))
             if tentative not in edge_set:
                 new_src = cand
@@ -713,45 +681,41 @@ def apply_attachment_ambiguity(
         if new_src is None:
             continue
 
-        old_key = _edge_key(e)
-        edge_set.discard(old_key)
+        alter_key = _edge_schluessel(e)
+        edge_set.discard(alter_key)
         e["src"] = new_src
         e["rel"] = rel
-        edge_set.add(_edge_key(e))
-        rewired += 1
+        edge_set.add(_edge_schluessel(e))
+        umgebaut += 1
 
     g["edges"] = edges
-    return added, rewired
+    return added, umgebaut
 
 
-# =============================================================================
-# Phase A Orchestrierung
-# =============================================================================
+# ------------------------------
+# ÄNDERUNGEN HERVORRUFEN
+# ------------------------------
 
-def _force_one_change(g: TGraph) -> Dict[str, Any]:
+def _aenderung_erzwingen(g: TGraph) -> Dict[str, Any]:
     """
-    Fallback, falls durch Zufall in einem Paar keine pipeline-wirksame Augmentation gegriffen hat.
-
-    -> Wir erzwingen ausschließlich Änderungen, die die Pipeline auch sieht:
-       (a) direction / TR-Fallbacks löschen oder
-       (b) eine Kante entfernen
+    Dafür sorgen, dass in einem Paar mindestens eie Änderung ist
     """
-    # 1) Pipeline-relevante Node-Attrs löschen
-    candidates: List[Tuple[Dict[str, Any], str]] = []
+    # Node-Attribute löschen
+    kandidaten: List[Tuple[Dict[str, Any], str]] = []
     for node in g.get("nodes", []):
         attrs = node.get("attrs")
         if not isinstance(attrs, dict):
             continue
-        for key in PIPELINE_NODE_ATTR_KEYS_ALL:
+        for key in PIPELINE_NODE_ATTRIBUTE_SCHLUESSEL:
             if key in attrs:
-                candidates.append((node, key))
+                kandidaten.append((node, key))
 
-    if candidates:
-        node, key = random.choice(candidates)
+    if kandidaten:
+        node, key = random.choice(kandidaten)
         del node["attrs"][key]
         return {"forced": {"type": "attr_dropout", "node_id": node.get("id"), "attr": key}}
 
-    # 2) Falls keine pipeline-relevanten Attrs droppbar sind: droppe eine Kante
+    # Falls das nicht geklappt hat, Kante droppen
     edges = g.get("edges", [])
     if isinstance(edges, list) and edges:
         removed = edges.pop(random.randrange(len(edges)))
@@ -761,200 +725,201 @@ def _force_one_change(g: TGraph) -> Dict[str, Any]:
     return {}
 
 
-def augment_graph_phase_a(
+def graph_noisifizierer(
     g: TGraph,
-    p_edge_less: float = 0.05,
-    p_apply_attachment: float = 0.70,
-    ensure_nontrivial: bool = True,
+    edge_less_prob: float = 0.05,
+    attachment_prob: float = 0.70,
+    nontrivial: bool = True,                #Wenn attachment rules keine Änderungen bewirken (weil keine Regeln), nochmal versuchen bis Änderungen oder unmöglich
 ) -> Dict[str, Any]:
     """
-    Phase A (Ist-Noise) – alles pipeline-wirksam:
-      (1) Attachment-Mehrdeutigkeit (Kanten hinzufügen/rewiren)
-      (2) Edge-less Varianten
-      (3) Edge-Dropout
-      (4) direction-Attribute-Dropout
+      -Kanten hinzufügen oder umhängen
+      -Edge-less Varianten
+      -Edge-Drop
+      -direction-Attribute-Drop
     """
     meta: Dict[str, Any] = {}
 
-    if random.random() < p_apply_attachment:
-        added, rewired = apply_attachment_ambiguity(g)
+    if random.random() < attachment_prob:
+        added, rewired = attachment_beachten(g)
         if added or rewired:
             meta["attachment"] = {"added": added, "rewired": rewired}
 
-    if g.get("edges") and random.random() < p_edge_less:
-        removed = apply_edge_less(g)
+    if g.get("edges") and random.random() < edge_less_prob:
+        removed = edge_less_eigenschaft(g)
         meta["edge_less"] = {"removed": removed}
     else:
-        dropped = apply_edge_dropout(g)
+        dropped = edge_drop(g)
         if dropped:
             meta["edge_dropout"] = {"dropped": dropped}
 
-    attr_dropped = apply_attribute_dropout(g)
+    attr_dropped = attribut_drop(g)
     if attr_dropped:
         meta["attr_dropout"] = {"dropped": attr_dropped}
 
-    if ensure_nontrivial and not meta:
-        meta.update(_force_one_change(g))
+    if nontrivial and not meta:
+        meta.update(_aenderung_erzwingen(g))
 
     return meta
 
 
-# =============================================================================
-# Supervision
-# =============================================================================
+# ------------------------------
+# DGMC INPUT
+# ------------------------------
 
-def build_y_from_common_node_ids(g_a: TGraph, g_b: TGraph) -> List[List[int]]:
+def y_builder(g_a: TGraph, g_b: TGraph) -> List[List[int]]:
     """
-    Partial Matching Supervision:
-    y = [src_indices, tgt_indices] für Nodes, die in beiden Graphen vorkommen (gleiche "id").
+    Partial Matching:
+    y = [src_indices, tgt_indices] für Nodes, die in beiden Graphen vorkommen (gleiche "id")
 
     - robust gegenüber unterschiedlicher Knotenzahl (Nodes können gedroppt/added sein)
-    - Reihenfolge: sortiert nach src_index, damit stabil/debuggbar
+    - Reihenfolge: sortiert nach src_index, damit stabil
     """
-    nodes_a = g_a.get("nodes", [])
-    nodes_b = g_b.get("nodes", [])
-    if not isinstance(nodes_a, list) or not isinstance(nodes_b, list):
+    nodes1 = g_a.get("nodes", [])
+    nodes2 = g_b.get("nodes", [])
+    if not isinstance(nodes1, list) or not isinstance(nodes2, list):
         return [[], []]
 
-    id_to_a: Dict[str, int] = {}
-    for i, n in enumerate(nodes_a):
+    id_zu_a: Dict[str, int] = {}
+    for i, n in enumerate(nodes1):
         nid = n.get("id")
         if nid is not None:
-            id_to_a[str(nid)] = i
+            id_zu_a[str(nid)] = i
 
-    id_to_b: Dict[str, int] = {}
-    for j, n in enumerate(nodes_b):
+    id_zu_b: Dict[str, int] = {}
+    for j, n in enumerate(nodes2):
         nid = n.get("id")
         if nid is not None:
-            id_to_b[str(nid)] = j
+            id_zu_b[str(nid)] = j
 
-    common = [nid for nid in id_to_a.keys() if nid in id_to_b]
-    common.sort(key=lambda nid: id_to_a[nid])
+    gemeinsam = [nid for nid in id_zu_a.keys() if nid in id_zu_b]
+    gemeinsam.sort(key=lambda nid: id_zu_a[nid])
 
-    src_idx = [id_to_a[nid] for nid in common]
-    tgt_idx = [id_to_b[nid] for nid in common]
-    return [src_idx, tgt_idx]
+    src_index = [id_zu_a[nid] for nid in gemeinsam]
+    tgt_index = [id_zu_b[nid] for nid in gemeinsam]
+    return [src_index, tgt_index]
 
 
-# =============================================================================
-# Paar-Generator
-# =============================================================================
+# ------------------------------
+# PAARE GENERIEREN
+# ------------------------------
 
 def build_synthetic_pairs(
     templates: List[TGraph],
     num_pos_per_template: int = 50,
     include_negative_pairs: bool = False,
     max_neg_pairs: Optional[int] = 0,
-    # Phase-A Steuerparameter
+    #Noise-Steuerung
     p_edge_less: float = 0.05,
     p_apply_attachment: float = 0.70,
     ensure_nontrivial: bool = True,
-    # Supervision
+    #Partial Matching
     supervision: str = "y",   # "y" (partial matching) oder "perm" (klassisch)
-    # Phase B (nur sinnvoll bei supervision="y")
-    p_node_dropout: float = 0.50,
+    #Bei Partial Matching:
+    node_drop_prob: float = 0.50,
     respect_min_occurs: bool = True,
-    p_add_extra_nodes: float = 0.25,
-    max_extra_nodes_total: int = 3,
+    node_add_prob: float = 0.25,
+    max_extra_nodes: int = 3,
     extra_node_types: Tuple[str, ...] = ("TR",),
-    # Optional: Template-Meta aus Graph B entfernen
-    strip_template_meta_in_b: bool = True,
+    #Meta für Templates entfernen
+    template_meta_raus: bool = True,
 ) -> List[TPair]:
     """
-    Positive Paare (label=1):
+    Nur positive Paare (label=1) nutzen, negative bei DGMC nicht nötig:
       - (Template, permutierte Kopie)
-      - Phase A: pipeline-wirksame Noise (edges + direction)
-      - Phase B: Node-Dropout + Extra-Nodes (pipeline-wirksam über Struktur)
+      - Noise (edges und direction)
+      - Nodes mehr/weniger
 
-    Supervision:
-      - supervision="perm": perm-Vektor (gleiche Knotenzahl nötig)
+    Supervision, also Ground-Truth:
+      - supervision="perm": Permutations-Vektor (gleiche Knotenzahl nötig)
       - supervision="y": y=[src_indices, tgt_indices] (partial matching)
-
-    Negative Paare (optional):
-      - Für DGMC supervised matching in der Regel nicht nötig.
     """
     if supervision not in ("perm", "y"):
         raise ValueError("supervision must be 'perm' or 'y'")
 
     pairs: List[TPair] = []
 
-    # Positive Paare
-    for g in templates:
+    #Positive Paare
+    for graphs in templates:
         for _ in range(num_pos_per_template):
-            g_perm, perm = permute_graph(g)
+            g_perm, perm = graph_permutierer(graphs)
 
-            aug_meta = augment_graph_phase_a(
+            aug_meta = graph_noisifizierer(
                 g_perm,
-                p_edge_less=p_edge_less,
-                p_apply_attachment=p_apply_attachment,
-                ensure_nontrivial=ensure_nontrivial,
+                edge_less_prob=p_edge_less,
+                attachment_prob=p_apply_attachment,
+                nontrivial=ensure_nontrivial,
             )
 
             if supervision == "y":
-                # a) Node-Dropout (optional)
-                if random.random() < p_node_dropout:
-                    nd_meta = apply_node_dropout(
+                # Node-Dropout (optional)
+                if random.random() < node_drop_prob:
+                    dropped_node_meta = node_drop(
                         g_perm,
-                        base_by_type=DEFAULT_NODE_DROPOUT_BASE_BY_TYPE,
-                        respect_min_occurs=respect_min_occurs,
+                        standard=NODE_DROP_PROBABILITIES,
+                        min_occurs_beachten=respect_min_occurs,
                     )
-                    if nd_meta:
-                        aug_meta["node_dropout"] = nd_meta
+                    if dropped_node_meta:
+                        aug_meta["node_dropout"] = dropped_node_meta
 
-                # b) Extra Nodes (optional, optionality-aware)
-                en_meta = apply_extra_nodes_from_optionality(
+                # Extra nodes (optional), entsprechend Kardinalitäten
+                extra_node_meta = node_add(
                     g_perm,
-                    p_add=p_add_extra_nodes,
-                    max_extra_total=max_extra_nodes_total,
-                    allowed_types=extra_node_types,
+                    adding_prob=node_add_prob,
+                    max_extra=max_extra_nodes,
+                    erlaubte_nodes=extra_node_types,
                 )
-                if en_meta:
-                    aug_meta["extra_nodes"] = en_meta
+                if extra_node_meta:
+                    aug_meta["extra_nodes"] = extra_node_meta
 
-            # Optional: Template-Meta entfernen (cleaning, nicht pipeline-wirksam)
-            if strip_template_meta_in_b:
-                removed_meta = strip_template_meta_attrs(g_perm)
+            #Template-Metadaten raus
+            if template_meta_raus:
+                removed_meta = template_meta_entferner(g_perm)
                 if removed_meta:
                     aug_meta["strip_template_meta"] = {"removed": removed_meta}
 
-            pair: TPair = {"graph_a": g, "graph_b": g_perm, "label": 1}
+            paar: TPair = {"graph_a": graphs, "graph_b": g_perm, "label": 1}
 
             if supervision == "perm":
-                pair["perm"] = perm
+                paar["perm"] = perm
             else:
-                pair["y"] = build_y_from_common_node_ids(g, g_perm)
+                paar["y"] = y_builder(graphs, g_perm)
 
             if aug_meta:
-                pair["aug"] = aug_meta
+                paar["aug"] = aug_meta
 
-            pairs.append(pair)
+            pairs.append(paar)
 
-    # Negative Paare (optional)
+    #Negative Paare eig unnötig TODO
     if include_negative_pairs:
-        neg_candidates: List[TPair] = []
+        neg_kandidaten: List[TPair] = []
         for i, g1 in enumerate(templates):
             for j, g2 in enumerate(templates):
                 if i >= j:
                     continue
                 if g1.get("label") == g2.get("label"):
                     continue
-                neg_pair: TPair = {"graph_a": g1, "graph_b": g2, "label": 0}
+                neg_paare: TPair = {"graph_a": g1, "graph_b": g2, "label": 0}
                 if supervision == "perm":
-                    neg_pair["perm"] = None
+                    neg_paare["perm"] = None
                 else:
-                    neg_pair["y"] = None
-                neg_candidates.append(neg_pair)
+                    neg_paare["y"] = None
+                neg_kandidaten.append(neg_paare)
 
-        random.shuffle(neg_candidates)
+        random.shuffle(neg_kandidaten)
         if max_neg_pairs is not None:
-            neg_candidates = neg_candidates[:max_neg_pairs]
-        pairs.extend(neg_candidates)
+            neg_kandidaten = neg_kandidaten[:max_neg_pairs]
+        pairs.extend(neg_kandidaten)
 
     random.shuffle(pairs)
     return pairs
 
 
-def write_pairs_jsonl(pairs: List[TPair], out_path: str) -> None:
+def paare_zu_jsonl(pairs: List[TPair], out_path: str) -> None:
+    """
+    Schreibt die gebauten Paare in eine JSONL-Datei
+    :param pairs: Die Menge der Paare
+    :param out_path: Ausgabe/Speicherpfad
+    """
     out_dir = os.path.dirname(out_path) or "."
     os.makedirs(out_dir, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
@@ -962,42 +927,46 @@ def write_pairs_jsonl(pairs: List[TPair], out_path: str) -> None:
             f.write(json.dumps(p, ensure_ascii=False) + "\n")
 
 
-def _print_quick_stats(pairs: List[TPair], supervision: str = "y") -> None:
+def _print_stats(pairs: List[TPair], supervision: str = "y") -> None:
+    """
+    Konsolenausgabe über Infos zu den Paaren
+    :param supervision: Welche Konfiguration man nutzt (y|perm)
+    """
     pos = [p for p in pairs if p.get("label") == 1]
     neg = [p for p in pairs if p.get("label") == 0]
-    pos_with_aug = [p for p in pos if p.get("aug")]
+    pos_mit_aug = [p for p in pos if p.get("aug")]
 
-    def count_aug(key: str) -> int:
-        return sum(1 for p in pos_with_aug if key in (p.get("aug") or {}))
+    def augmentations_zaehler(key: str) -> int:
+        return sum(1 for p in pos_mit_aug if key in (p.get("aug") or {}))
 
     print("Paare gesamt:", len(pairs), "| pos:", len(pos), "| neg:", len(neg))
-    print("Positive Paare mit aug:", len(pos_with_aug), f"({len(pos_with_aug)/max(1,len(pos))*100:.1f}%)")
-    print("  - attr_dropout:", count_aug("attr_dropout"))
-    print("  - edge_dropout:", count_aug("edge_dropout"))
-    print("  - edge_less:", count_aug("edge_less"))
-    print("  - attachment:", count_aug("attachment"))
-    print("  - node_dropout:", count_aug("node_dropout"))
-    print("  - extra_nodes:", count_aug("extra_nodes"))
-    print("  - forced:", count_aug("forced"))
-    print("  - strip_template_meta:", count_aug("strip_template_meta"))
+    print("Positive Paare mit aug:", len(pos_mit_aug), f"({len(pos_mit_aug)/max(1,len(pos))*100:.1f}%)")
+    print("  - attr_dropout:", augmentations_zaehler("attr_dropout"))
+    print("  - edge_dropout:", augmentations_zaehler("edge_dropout"))
+    print("  - edge_less:", augmentations_zaehler("edge_less"))
+    print("  - attachment:", augmentations_zaehler("attachment"))
+    print("  - node_dropout:", augmentations_zaehler("node_dropout"))
+    print("  - extra_nodes:", augmentations_zaehler("extra_nodes"))
+    print("  - forced:", augmentations_zaehler("forced"))
+    print("  - strip_template_meta:", augmentations_zaehler("strip_template_meta"))
 
     if supervision == "y":
         ratios = []
-        size_diffs = 0
+        groessen_diff = 0
         for p in pos:
             ga = p.get("graph_a", {})
             gb = p.get("graph_b", {})
-            na = len((ga.get("nodes") or [])) if isinstance(ga.get("nodes"), list) else 0
-            nb = len((gb.get("nodes") or [])) if isinstance(gb.get("nodes"), list) else 0
-            if na != nb:
-                size_diffs += 1
+            anzahl_a = len((ga.get("nodes") or [])) if isinstance(ga.get("nodes"), list) else 0
+            anzahl_b = len((gb.get("nodes") or [])) if isinstance(gb.get("nodes"), list) else 0
+            if anzahl_a != anzahl_b:
+                groessen_diff += 1
             y = p.get("y") or [[], []]
             m = len(y[0]) if isinstance(y, list) and len(y) == 2 else 0
-            ratios.append(m / max(1, na))
+            ratios.append(m / max(1, anzahl_a))
         if ratios:
             avg = sum(ratios) / len(ratios)
-            print(f"Positive Paare mit unterschiedlicher Knotenzahl: {size_diffs} ({size_diffs/max(1,len(pos))*100:.1f}%)")
-            print(f"Durchschnittliche Match-Abdeckung (|y|/|A|): {avg:.3f}")
+            print(f"Positive pairs with different node counts: {groessen_diff} ({groessen_diff/max(1,len(pos))*100:.1f}%)")
+            print(f"Average of actual correspondences for graph a (|labeled correspondences in y|/|nodes in graph a|): {avg:.3f}")
 
 
 if __name__ == "__main__":
@@ -1008,7 +977,7 @@ if __name__ == "__main__":
     templates_path = os.path.join(base, "data", "lbs_soll_graphs.jsonl")
     out_path = os.path.join(base, "data", "synthetic_training_pairs.jsonl")
 
-    templates = load_templates_jsonl(templates_path)
+    templates = template_loader(templates_path)
     print("Geladene Template-Graphen:", len(templates))
 
     supervision = "y"
@@ -1021,14 +990,14 @@ if __name__ == "__main__":
         p_apply_attachment=0.70,
         ensure_nontrivial=True,
         supervision=supervision,
-        p_node_dropout=0.50,
+        node_drop_prob=0.50,
         respect_min_occurs=True,
-        p_add_extra_nodes=0.25,
-        max_extra_nodes_total=3,
+        node_add_prob=0.25,
+        max_extra_nodes=3,
         extra_node_types=("TR",),
-        strip_template_meta_in_b=True,
+        template_meta_raus=True,
     )
-    _print_quick_stats(pairs, supervision=supervision)
+    _print_stats(pairs, supervision=supervision)
 
-    write_pairs_jsonl(pairs, out_path)
-    print("JSONL geschrieben nach:", out_path)
+    paare_zu_jsonl(pairs, out_path)
+    print("JSONL written to:", out_path)

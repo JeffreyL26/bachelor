@@ -24,6 +24,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\analysis\descriptive\tables\edge_type_distribution.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\analysis\descriptive\tables\encoder_unknown_rates.csv">
           <value>
             <Attribute>
@@ -31,7 +38,35 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\analysis\descriptive\tables\issues_top.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\analysis\descriptive\tables\ist_graph_attrs_keys.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\ist_node_attr_keys.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\ist_unused_node_attrs.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\node_type_distribution.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
@@ -101,7 +136,35 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\analysis\descriptive\tables\top_values_ist_MeLo_direction.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\top_values_ist_TR_direction.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\analysis\descriptive\tables\top_values_soll_MaLo_direction.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\top_values_soll_MeLo_direction.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\analysis\descriptive\tables\top_values_soll_TR_direction.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />

@@ -1,13 +1,13 @@
 """
-Deskriptive Analyse für Ist-Graphen (Instanzen) und LBS-Soll-Template-Graphen (Schema).
+Deskriptive Analyse für Ist-Graphen (Instanzen) und Template-Graphen (Schema)
 
-Ziele (Goal 2 aus Proposal):
-- Transparenter Überblick: "Was ist drin? Wie oft? In welcher Form?"
-- Vergleich Ist vs Soll: "Wo/Wie unterscheiden sie sich?"
-- Technischer Abgleich mit Feature-Encoding (graph_pipeline.py): "Was nutzt das Modell tatsächlich?"
-- Qualitäts-/Vollständigkeitschecks: "Fehlt etwas? Ist etwas redundant/unbenutzt?"
+In Thesis erwähnen, nicht vergessen:
+- Was ist drin? Wie oft? In welcher Form?
+- Wo/Wie unterscheiden sich Ist und Soll?
+- Was nutzt das Modell tatsächlich?
+- Fehlt etwas? Ist etwas unbenutzt?
 
-Eingabeformat (JSONL):
+Eingabe:
 Jede Zeile ist ein Graph als JSON-Dict mit mindestens:
 {
   "graph_id": "...",
@@ -15,32 +15,7 @@ Jede Zeile ist ein Graph als JSON-Dict mit mindestens:
   "edges": [{"src": "...", "dst": "...", "rel": "MEMA|METR|MENE|MEME|..."}, ...],
   "graph_attrs": {...}
 }
-Templates können zusätzlich "label" haben.
-
-Ausgabe:
-- out_dir/report.md (Markdown-Report)
-- out_dir/tables/*.csv (Tabellen)
-- out_dir/plots/*.png (Plots, wenn matplotlib installiert ist)
-
-Wichtige Definitionen (Quick Wins 1/2/4):
-- Originale JSON-Kanten sind i.d.R. **gerichtet** (src -> dst).
-- Viele Strukturmetriken werden zusätzlich in einer **undirected**-Sicht ausgewertet
-  (Kanten als ungerichtete Nachbarschaft), weil das später für Message Passing im GNN
-  häufig relevant ist.
-- Alle Strukturmetriken (Komponenten, Degree, Dichte, Isolierte Knoten, etc.) werden
-  ausschließlich auf **valide Kanten** berechnet (src/dst referenzieren existierende Nodes).
-  Ungültige Kanten werden separat gezählt und als Qualitätsindikator ausgewiesen.
-
-Aufruf (Beispiel):
-python descriptive_analysis.py ^
-  --ist data/ist_graphs_all.jsonl ^
-  --soll data/lbs_soll_graphs_pro.jsonl ^
-  --out_dir analysis/descriptive ^
-  --plots
-
-Hinweis:
-- Das Script liest standardmäßig ALLE Zeilen (keine Stichprobe).
-- Mit --max_graphs kannst du für schnelle Iterationen begrenzen.
+Templates können "label" haben
 """
 
 from __future__ import annotations
@@ -58,23 +33,18 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 try:
-    import pandas as pd  # type: ignore
-except Exception:  # pragma: no cover
-    pd = None  # type: ignore
+    import pandas as pd
+except Exception:
+    pd = None
 
 try:
-    import matplotlib.pyplot as plt  # type: ignore
-except Exception:  # pragma: no cover
-    plt = None  # type: ignore
+    import matplotlib.pyplot as plt
+except Exception:
+    plt = None
 
-#TODO: Kommentare und jeff - Done bis:
-
-# Try to import graph_pipeline to stay consistent with your model encoding.
-# Falls Import fehlschlägt (z.B. weil du das Script nicht aus dem Repo-Root startest),
-# versucht das Script zusätzlich den Ordner der Script-Datei zu sys.path hinzuzufügen.
-gp = None  # type: ignore
+gp = None
 try:
-    import graph_pipeline as gp  # type: ignore
+    import graph_pipeline as gp
 except Exception:
     try:
         import sys
@@ -82,13 +52,13 @@ except Exception:
         this_dir = str(Path(__file__).resolve().parent)
         if this_dir not in sys.path:
             sys.path.insert(0, this_dir)
-        import graph_pipeline as gp  # type: ignore
+        import graph_pipeline as gp
     except Exception:
-        gp = None  # type: ignore
+        gp = None
 
 
 # -------------------------
-# TODO
+# DATEIEN UND RECHNEN
 # -------------------------
 
 def _file_reader(pfad: Path) -> str:
@@ -343,7 +313,7 @@ class ReportWriter:
 
 
 # -------------------------
-# TODO Graphutilities
+# GETTER UND VALIDIERER
 # -------------------------
 
 def get_nodes(graph: Dict[str, Any]) -> Iterable[Dict[str, Any]]:
@@ -645,74 +615,79 @@ def generate_graph_metrics(graph: Dict[str, Any]) -> Dict[str, Any]:
         "scc_largest_directed": int(sc_components[0]) if sc_components else 0,
     }
 
-#TODO
-def degrees_by_type(g: Dict[str, Any]) -> Dict[str, List[int]]:
-    """Undirected unique-neighbor degree sequence, grouped by node type."""
-    nbrs = undirected_neighbor_builder(g)
+def degree_per_typ(graph: Dict[str, Any]) -> Dict[str, List[int]]:
+    """
+    Ungerichtete Gradfolgen, per Nodetyp
+    """
+    nachbarn = undirected_neighbor_builder(graph)
     id_to_type: Dict[str, str] = {}
-    for n in get_nodes(g):
-        nid = n.get("id")
-        if nid is None:
+    for n in get_nodes(graph):
+        nachbar_id = n.get("id")
+        if nachbar_id is None:
             continue
-        id_to_type[str(nid)] = str(n.get("type"))
+        id_to_type[str(nachbar_id)] = str(n.get("type"))
 
     out: Dict[str, List[int]] = defaultdict(list)
-    for nid, neis in nbrs.items():
-        out[id_to_type.get(nid, "UNKNOWN")].append(len(neis))
+    for nachbar_id, neis in nachbarn.items():
+        out[id_to_type.get(nachbar_id, "UNKNOWN")].append(len(neis))
     return out
 
 
-def directed_degrees_by_type(g: Dict[str, Any]) -> Dict[str, Dict[str, List[int]]]:
-    """Directed degrees (unique in/out neighbors), grouped by node type."""
-    out_nbrs, in_nbrs = directed_neighbor_builder(g)
+def gerichtet_degree_per_typ(graph: Dict[str, Any]) -> Dict[str, Dict[str, List[int]]]:
+    """
+    Gerichtete GRadfolgen per Nodetyp
+    """
+    ausgehend, eingehend = directed_neighbor_builder(graph)
     id_to_type: Dict[str, str] = {}
-    for n in get_nodes(g):
-        nid = n.get("id")
-        if nid is None:
+    for n in get_nodes(graph):
+        nachbar_id = n.get("id")
+        if nachbar_id is None:
             continue
-        id_to_type[str(nid)] = str(n.get("type"))
+        id_to_type[str(nachbar_id)] = str(n.get("type"))
 
     out: Dict[str, Dict[str, List[int]]] = defaultdict(lambda: {"out": [], "in": []})
-    for nid in out_nbrs.keys():
-        t = id_to_type.get(nid, "UNKNOWN")
-        out[t]["out"].append(len(out_nbrs.get(nid, set())))
-        out[t]["in"].append(len(in_nbrs.get(nid, set())))
+    for nachbar_id in ausgehend.keys():
+        t = id_to_type.get(nachbar_id, "UNKNOWN")
+        out[t]["out"].append(len(ausgehend.get(nachbar_id, set())))
+        out[t]["in"].append(len(eingehend.get(nachbar_id, set())))
     return out
 
 
-def graph_signature(g: Dict[str, Any]) -> Dict[str, Any]:
-    """Lightweight graph fingerprint (Nice-to-have 5)."""
-    # Node types (by unique ids)
-    ids = set_of_node_ids(g)
+def graph_signature(graph: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Erzeugt eine Graph-Signatur
+    """
+    #Nodetypen pro ID
+    ids = set_of_node_ids(graph)
     id_to_type: Dict[str, str] = {}
-    for n in get_nodes(g):
-        nid = n.get("id")
-        if nid is None:
+    for n in get_nodes(graph):
+        nachbar_id = n.get("id")
+        if nachbar_id is None:
             continue
-        id_to_type[str(nid)] = str(n.get("type"))
-    nt = Counter(id_to_type.get(nid, "UNKNOWN") for nid in ids)
+        id_to_type[str(nachbar_id)] = str(n.get("type"))
+    node_typen = Counter(id_to_type.get(nid, "UNKNOWN") for nid in ids)
 
-    # Edge rel types (valid typed)
-    et = Counter(rel for _, _, rel in get_valid_typed_edges(g))
+    #Valide Edge Typen
+    edge_typen = Counter(rel for _, _, rel in get_valid_typed_edges(graph))
 
-    # Degree summary (undirected, valid)
-    nbrs = undirected_neighbor_builder(g)
-    degrees = [len(nbrs.get(nid, set())) for nid in ids]
+    #Degrees
+    nachbarn = undirected_neighbor_builder(graph)
+    degrees = [len(nachbarn.get(nid, set())) for nid in ids]
     dq = quantiles([float(d) for d in degrees])
-    comps = connected_components_sizes(g)
+    comps = connected_components_sizes(graph)
 
-    # Normalize counts to stable ordering
-    node_part = ",".join([f"{t}={int(nt.get(t,0))}" for t in ["MaLo", "MeLo", "TR", "NeLo", "UNKNOWN"] if t in nt or t != "UNKNOWN"])
-    edge_part = ",".join([f"{r}={int(et.get(r,0))}" for r in ["MEMA", "METR", "MENE", "MEME"]])
+    #Anzahl
+    node_part = ",".join([f"{t}={int(node_typen.get(t,0))}" for t in ["MaLo", "MeLo", "TR", "NeLo", "UNKNOWN"] if t in node_typen or t != "UNKNOWN"])
+    edge_part = ",".join([f"{r}={int(edge_typen.get(r,0))}" for r in ["MEMA", "METR", "MENE", "MEME"]])
 
-    sig_str = f"NT:{node_part}|ET:{edge_part}|CC:{len(comps)}|DEG:{int(dq['q0']) if degrees else 0},{int(dq['q50']) if degrees else 0},{int(dq['q100']) if degrees else 0}"
-    sig_hash = hashlib.md5(sig_str.encode("utf-8")).hexdigest()[:10]
+    signatur_txt = f"NT:{node_part}|ET:{edge_part}|CC:{len(comps)}|DEG:{int(dq['q0']) if degrees else 0},{int(dq['q50']) if degrees else 0},{int(dq['q100']) if degrees else 0}"
+    signatur_aus_hash = hashlib.md5(signatur_txt.encode("utf-8")).hexdigest()[:10]
 
     return {
-        "signature": sig_str,
-        "signature_id": sig_hash,
-        "node_types": dict(nt),
-        "edge_types": dict(et),
+        "signature": signatur_txt,
+        "signature_id": signatur_aus_hash,
+        "node_types": dict(node_typen),
+        "edge_types": dict(edge_typen),
         "cc_count": len(comps),
         "deg_min": int(dq["q0"]) if degrees else 0,
         "deg_med": int(dq["q50"]) if degrees else 0,
@@ -721,136 +696,141 @@ def graph_signature(g: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # -------------------------
-# Validation + Extraction
+# VALIDIERUNG
 # -------------------------
 
 
 @dataclass
 class ValidationIssue:
-    severity: str  # "ERROR" | "WARN"
-    where: str  # graph_id or context
+    schwere_grad: str  # "ERROR" | "WARN"
+    problem_bei: str  # graph_id or context
     message: str
 
 
-def validate_graph(g: Dict[str, Any], kind: str) -> List[ValidationIssue]:
-    issues: List[ValidationIssue] = []
-    gid = str(g.get("graph_id", "<no-graph_id>"))
+def graph_validator(graph: Dict[str, Any], art: str) -> List[ValidationIssue]:
+    probleme: List[ValidationIssue] = []
+    graph_id = str(graph.get("graph_id", "<no-graph_id>"))
 
     for k in ["graph_id", "nodes", "edges", "graph_attrs"]:
-        if k not in g:
-            issues.append(ValidationIssue("ERROR", gid, f"Missing top-level key: {k}"))
+        if k not in graph:
+            probleme.append(ValidationIssue("ERROR", graph_id, f"Missing top-level key: {k}"))
 
-    # node IDs unique
+    #Node IDS
     ids: List[str] = []
-    for n in get_nodes(g):
-        nid = n.get("id")
-        if nid is None:
-            issues.append(ValidationIssue("ERROR", gid, "Node without id"))
+    for n in get_nodes(graph):
+        node_id = n.get("id")
+        if node_id is None:
+            probleme.append(ValidationIssue("ERROR", graph_id, "Node without id"))
             continue
-        ids.append(str(nid))
+        ids.append(str(node_id))
     if len(ids) != len(set(ids)):
         dup = [k for k, c in Counter(ids).items() if c > 1][:10]
-        issues.append(ValidationIssue("ERROR", gid, f"Duplicate node ids (sample): {dup}"))
+        probleme.append(ValidationIssue("ERROR", graph_id, f"Duplicate node ids (sample): {dup}"))
 
     idset = set(ids)
 
-    # edges reference existing nodes
-    missing_refs = 0
-    missing_fields = 0
-    for e in get_edges(g):
+    # Edges
+    fehlende_references = 0
+    fehlende_felder = 0
+    for e in get_edges(graph):
         s = e.get("src")
         t = e.get("dst")
         rel = _get_edge_relations(e)
         if s is None or t is None or rel is None:
-            missing_fields += 1
+            fehlende_felder += 1
             continue
         if str(s) not in idset or str(t) not in idset:
-            missing_refs += 1
+            fehlende_references += 1
 
-    if missing_fields:
-        issues.append(ValidationIssue("ERROR", gid, f"{missing_fields} edges missing src/dst/rel"))
-    if missing_refs:
-        issues.append(ValidationIssue("ERROR", gid, f"{missing_refs} edges reference missing node ids"))
+    if fehlende_felder:
+        probleme.append(ValidationIssue("ERROR", graph_id, f"{fehlende_felder} edges missing src/dst/rel"))
+    if fehlende_references:
+        probleme.append(ValidationIssue("ERROR", graph_id, f"{fehlende_references} edges reference missing node ids"))
 
-    # unknown node/edge types
-    known_node_types = {"MaLo", "MeLo", "TR", "NeLo"}
-    unknown_nt = Counter()
-    for n in get_nodes(g):
+    # Unbekannte Typen
+    valide_node_types = {"MaLo", "MeLo", "TR", "NeLo"}
+    unbekannte_node_types = Counter()
+    for n in get_nodes(graph):
         t = str(n.get("type"))
-        if t not in known_node_types:
-            unknown_nt[t] += 1
-    if unknown_nt:
-        issues.append(ValidationIssue("WARN", gid, f"Unknown node types: {dict(unknown_nt)}"))
+        if t not in valide_node_types:
+            unbekannte_node_types[t] += 1
+    if unbekannte_node_types:
+        probleme.append(ValidationIssue("WARN", graph_id, f"Unknown node types: {dict(unbekannte_node_types)}"))
 
-    known_edge_types = {"MEMA", "METR", "MENE", "MEME"}
-    unknown_rel = Counter()
-    for _, _, r in get_valid_typed_edges(g):
-        if r not in known_edge_types:
-            unknown_rel[r] += 1
-    if unknown_rel:
-        issues.append(ValidationIssue("WARN", gid, f"Unknown edge rel types: {dict(unknown_rel)}"))
+    valide_edge_types = {"MEMA", "METR", "MENE", "MEME"}
+    unbekannte_edge_types = Counter()
+    for _, _, r in get_valid_typed_edges(graph):
+        if r not in valide_edge_types:
+            unbekannte_edge_types[r] += 1
+    if unbekannte_edge_types:
+        probleme.append(ValidationIssue("WARN", graph_id, f"Unknown edge rel types: {dict(unbekannte_edge_types)}"))
 
-    # Graph attrs count consistency (Ist only)
-    ga = g.get("graph_attrs", {}) or {}
-    if kind == "ist":
-        actual = Counter(str(n.get("type")) for n in get_nodes(g))
+    # Konsistente Graphen in Ist bzgl. Attribute
+    graph_attribute = graph.get("graph_attrs", {}) or {}
+    if art == "ist":
+        actual = Counter(str(n.get("type")) for n in get_nodes(graph))
         for t, key in [("MaLo", "malo_count"), ("MeLo", "melo_count"), ("TR", "tr_count"), ("NeLo", "nelo_count")]:
-            if key in ga:
+            if key in graph_attribute:
                 try:
-                    declared = int(ga[key])
+                    declared = int(graph_attribute[key])
                 except Exception:
-                    issues.append(ValidationIssue("WARN", gid, f"graph_attrs.{key} not int: {ga[key]}"))
+                    probleme.append(ValidationIssue("WARN", graph_id, f"graph_attrs.{key} not int: {graph_attribute[key]}"))
                     continue
                 if declared != int(actual.get(t, 0)):
-                    issues.append(
+                    probleme.append(
                         ValidationIssue(
-                            "WARN", gid, f"Count mismatch {key}: declared={declared} actual={actual.get(t,0)}"
+                            "WARN", graph_id, f"Count mismatch {key}: declared={declared} actual={actual.get(t,0)}"
                         )
                     )
 
-    # Template bounds sanity
-    if kind == "soll":
+    # Template Bounds prüfen - soll
+    if art == "soll":
         for t in ["malo", "melo", "tr", "nelo"]:
-            mn = ga.get(f"{t}_min")
-            mx = ga.get(f"{t}_max")
+            mn = graph_attribute.get(f"{t}_min")
+            mx = graph_attribute.get(f"{t}_max")
             if mn is None or mx is None:
                 continue
             try:
                 mn_i = int(mn)
             except Exception:
-                issues.append(ValidationIssue("WARN", gid, f"{t}_min not int: {mn}"))
+                probleme.append(ValidationIssue("WARN", graph_id, f"{t}_min not int: {mn}"))
                 continue
             if mx is not None:
                 try:
                     mx_i = int(mx)
                     if mx_i < mn_i:
-                        issues.append(ValidationIssue("ERROR", gid, f"Invalid bounds: {t}_max({mx_i}) < {t}_min({mn_i})"))
+                        probleme.append(ValidationIssue("ERROR", graph_id, f"Invalid bounds: {t}_max({mx_i}) < {t}_min({mn_i})"))
                 except Exception:
-                    issues.append(ValidationIssue("WARN", gid, f"{t}_max not int/None: {mx}"))
+                    probleme.append(ValidationIssue("WARN", graph_id, f"{t}_max not int/None: {mx}"))
 
-    return issues
+    return probleme
 
-
-def extract_global_keysets(graphs: List[Dict[str, Any]]) -> Tuple[Counter, Counter, Counter]:
-    """Returns: graph_attrs keys, node attrs keys, edge dict keys."""
-    ga_keys = Counter()
-    node_attr_keys = Counter()
+def keyset_extrahieren(graphs: List[Dict[str, Any]]) -> Tuple[Counter, Counter, Counter]:
+    """
+    Gibt graph_attrs keys, node attrs keys, edge dict keys zurück
+    """
+    grattibute_keys = Counter()
+    node_attribute_keys = Counter()
     edge_keys = Counter()
+
     for g in graphs:
-        ga = g.get("graph_attrs", {}) or {}
-        for k in ga.keys():
-            ga_keys[str(k)] += 1
+        graph_attributes = g.get("graph_attrs", {}) or {}
+        for k in graph_attributes.keys():
+            grattibute_keys[str(k)] += 1
         for n in get_nodes(g):
             attrs = n.get("attrs", {}) or {}
             for k in attrs.keys():
-                node_attr_keys[str(k)] += 1
+                node_attribute_keys[str(k)] += 1
         for e in get_edges(g):
             for k in e.keys():
                 edge_keys[str(k)] += 1
-    return ga_keys, node_attr_keys, edge_keys
+    return grattibute_keys, node_attribute_keys, edge_keys
 
 
 def node_type_counts(graphs: List[Dict[str, Any]]) -> Counter:
+    """
+    Zählt Node Typen
+    """
     c = Counter()
     for g in graphs:
         for n in get_nodes(g):
@@ -859,6 +839,9 @@ def node_type_counts(graphs: List[Dict[str, Any]]) -> Counter:
 
 
 def edge_type_counts(graphs: List[Dict[str, Any]]) -> Counter:
+    """
+    Zählt Edge Typen
+    """
     c = Counter()
     for g in graphs:
         for _, _, rel in get_valid_typed_edges(g):
@@ -866,12 +849,16 @@ def edge_type_counts(graphs: List[Dict[str, Any]]) -> Counter:
     return c
 
 
-def per_graph_basic_df(graphs: List[Dict[str, Any]], kind: str) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
-    for g in graphs:
-        ga = g.get("graph_attrs", {}) or {}
+def dataframe_per_graph(graphs: List[Dict[str, Any]], kind: str) -> List[Dict[str, Any]]:
+    """
+    Baut eine Liste von Dict. pro Graph, die danach als DataFrame weiterverarbeitet werden
+    """
+    zeilen: List[Dict[str, Any]] = []
 
-        # keep raw sizes (backward compatible)
+    for g in graphs:
+        graph_attribute = g.get("graph_attrs", {}) or {}
+
+        #Rohe Zählung
         node_count_raw = len(list(get_nodes(g)))
         edge_count_raw = len(list(get_edges(g)))
 
@@ -882,56 +869,49 @@ def per_graph_basic_df(graphs: List[Dict[str, Any]], kind: str) -> List[Dict[str
             "graph_id": g.get("graph_id"),
             "node_count": node_count_raw,
             "edge_count": edge_count_raw,
-            **sm,
+            **sm,                               #Entpacke alle Key-Value-Paare und füge sie ein - neu gelernt, noch irgendwo aufschreiben
         }
 
         if kind == "ist":
-            row["dataset"] = ga.get("dataset")
+            row["dataset"] = graph_attribute.get("dataset")
             for k in ["malo_count", "melo_count", "tr_count", "nelo_count"]:
-                row[k] = ga.get(k)
+                row[k] = graph_attribute.get(k)
         else:
-            row["lbs_code"] = ga.get("lbs_code") or g.get("label")
+            row["lbs_code"] = graph_attribute.get("lbs_code") or g.get("label")
             for t in ["malo", "melo", "tr", "nelo"]:
-                row[f"{t}_min"] = ga.get(f"{t}_min")
-                row[f"{t}_max"] = ga.get(f"{t}_max")
-                row[f"{t}_node_types"] = ga.get(f"{t}_node_types")
-            row["attachment_rules_n"] = len(ga.get("attachment_rules") or [])
-            row["constraints_n"] = len(ga.get("optionality_constraints") or [])
+                row[f"{t}_min"] = graph_attribute.get(f"{t}_min")
+                row[f"{t}_max"] = graph_attribute.get(f"{t}_max")
+                row[f"{t}_node_types"] = graph_attribute.get(f"{t}_node_types")
+            row["attachment_rules_n"] = len(graph_attribute.get("attachment_rules") or [])
+            row["constraints_n"] = len(graph_attribute.get("optionality_constraints") or [])
 
-        # Edge type breakdown (valid typed)
-        etc = Counter(rel for _, _, rel in get_valid_typed_edges(g))
+        #Edge Typen
+        edge_typ_zaehler = Counter(rel for _, _, rel in get_valid_typed_edges(g))
         for rel in ["MEMA", "METR", "MENE", "MEME"]:
-            row[f"edge_{rel}"] = int(etc.get(rel, 0))
+            row[f"edge_{rel}"] = int(edge_typ_zaehler.get(rel, 0))
 
-        rows.append(row)
+        zeilen.append(row)
 
-    return rows
-
+    return zeilen
 
 # -------------------------
-# Feature-Encoding alignment
+# FEATURES ALLE RICHTIG?
 # -------------------------
 
 
-def _normalize_direction_fallback(raw: Any) -> Optional[str]:
-    """Best-effort direction normalizer used when graph_pipeline is not importable.
-
-    This mirrors the intent of graph_pipeline._normalize_direction:
-      - tolerate different spellings / languages
-      - map to {consumption, generation, both}
-      - otherwise return None
-
-    Note: In the current project setup, *direction* is encoded for MaLo/MeLo/TR.
+def _direction_normalizer(dir_raw: Any) -> Optional[str]:
     """
-    if raw is None:
+    Richtungen vereinheitlichen (ich weiß nicht mehr, ob nötig, wenn wir pipeline importieren)
+    """
+    if dir_raw is None:
         return None
-    s = str(raw).strip()
+    s = str(dir_raw).strip()
     if not s:
         return None
 
     s_low = s.lower()
 
-    # TR type codes (if passed through)
+    #TR Typen aus UTILMD
     s_up = s.upper()
     if s_up == "Z17":
         return "consumption"
@@ -940,19 +920,19 @@ def _normalize_direction_fallback(raw: Any) -> Optional[str]:
     if s_up == "Z56":
         return "both"
 
-    # Storage / Speicher
+    # Speicher - Both
     if "storage" in s_low or "speicher" in s_low:
         return "both"
 
-    # Already canonical
+    # Wenn bereits einheitlich
     if s_low in ("consumption", "generation", "both"):
         return s_low
 
-    # Combined spellings
+    # Falls was falsch geschrieben sein sollte
     if ("consumption" in s_low and "generation" in s_low) or ("einspeis" in s_low and "ausspeis" in s_low):
         return "both"
 
-    # German heuristics
+    #Ableitungen daraus
     if "einspeis" in s_low or "erzeug" in s_low:
         return "generation"
     if "ausspeis" in s_low or "bezug" in s_low or "verbrauch" in s_low:
@@ -961,74 +941,62 @@ def _normalize_direction_fallback(raw: Any) -> Optional[str]:
     return None
 
 
-def encoder_alignment(graphs: List[Dict[str, Any]], kind: str) -> Dict[str, Any]:
-    """Compute how often values fall into the *unknown* bucket according to graph_pipeline.
-
-    Important: We only track *features actually used by graph_pipeline.py*.
-
-    Current graph_pipeline encodes:
-      - Node type (MaLo/MeLo/TR/NeLo)
-      - Direction (consumption/generation/both/unknown), derived via fallbacks:
-          * attrs['direction']
-          * TR: attrs['tr_direction']
-          * TR: attrs['tr_type_code'] or attrs['art_der_technischen_ressource']
-          * MaLo/MeLo: attrs['direction_hint']
-      - Edge relation (MEMA/METR/MENE/MEME/unknown)
-
-    Everything else may exist in the JSON, but is not used as ML feature right now.
+def is_tatsaechlich_nutzbar(graphs: List[Dict[str, Any]], kind: str) -> Dict[str, Any]:
+    """
+    Um zu schauen wie oft Werte in unknown fallen
     """
     if gp is not None:
         NODE_TYPES = getattr(gp, "NODE_TYPES", {"MaLo": 0, "MeLo": 1, "TR": 2, "NeLo": 3})
         EDGE_TYPES = getattr(gp, "EDGE_TYPES", {"MEMA": 0, "METR": 1, "MENE": 2, "MEME": 3})
         DIRECTIONS = getattr(gp, "DIRECTIONS", {"consumption": 0, "generation": 1, "both": 2})
-        normalize_dir = getattr(gp, "_normalize_direction", _normalize_direction_fallback)
+        normalize_dir = getattr(gp, "_normalize_direction", _direction_normalizer)
     else:
         NODE_TYPES = {"MaLo": 0, "MeLo": 1, "TR": 2, "NeLo": 3}
         EDGE_TYPES = {"MEMA": 0, "METR": 1, "MENE": 2, "MEME": 3}
         DIRECTIONS = {"consumption": 0, "generation": 1, "both": 2}
-        normalize_dir = _normalize_direction_fallback
+        normalize_dir = _direction_normalizer
 
     counts = Counter()
     unknown = Counter()
 
-    raw_dir_vals = Counter()
-    raw_nt_vals = Counter()
-    raw_rel_vals = Counter()
+    direction_values_c = Counter()
+    node_type_values_c = Counter()
+    rel_values_c = Counter()
 
     for g in graphs:
         for n in get_nodes(g):
             ntype = str(n.get("type"))
-            raw_nt_vals[ntype] += 1
+            node_type_values_c[ntype] += 1
             counts["nodes_total"] += 1
             if ntype not in NODE_TYPES:
                 unknown["node_type_unknown"] += 1
 
             attrs = n.get("attrs", {}) or {}
 
-            # Reproduce graph_pipeline's direction lookup logic
-            raw_dir = None
+            # Richtungs-Logik aus pipeline - kann man das noch in eine Funktion schreiben?
+            direction_raw = None
             if ntype == "TR":
-                raw_dir = attrs.get("direction")
-                if raw_dir is None:
-                    raw_dir = attrs.get("tr_direction")
-                if raw_dir is None:
-                    raw_dir = attrs.get("tr_type_code") or attrs.get("art_der_technischen_ressource")
+                direction_raw = attrs.get("direction")
+                if direction_raw is None:
+                    direction_raw = attrs.get("tr_direction")
+                if direction_raw is None:
+                    direction_raw = attrs.get("tr_type_code") or attrs.get("art_der_technischen_ressource")
             elif ntype in ("MaLo", "MeLo"):
-                raw_dir = attrs.get("direction")
+                direction_raw = attrs.get("direction")
 
-            if raw_dir is not None:
-                raw_dir_vals[str(raw_dir)] += 1
+            if direction_raw is not None:
+                direction_values_c[str(direction_raw)] += 1
 
-            # Direction is meaningful for MaLo/MeLo/TR (NeLo defaults to unknown)
+            # NeLo egal
             if ntype in ("MaLo", "MeLo", "TR"):
                 counts["dir_nodes_total"] += 1
-                canon = normalize_dir(raw_dir)
+                canon = normalize_dir(direction_raw)
                 if canon is None or canon not in DIRECTIONS:
                     unknown["dir_unknown"] += 1
 
         for _, _, rel in get_valid_typed_edges(g):
             rel = str(rel).strip().upper()
-            raw_rel_vals[rel] += 1
+            rel_values_c[rel] += 1
             counts["edges_total"] += 1
             if rel not in EDGE_TYPES:
                 unknown["edge_rel_unknown"] += 1
@@ -1037,16 +1005,18 @@ def encoder_alignment(graphs: List[Dict[str, Any]], kind: str) -> Dict[str, Any]
         "kind": kind,
         "counts": dict(counts),
         "unknown": dict(unknown),
-        "raw_node_types": raw_nt_vals,
-        "raw_edge_types": raw_rel_vals,
-        "raw_direction_values": raw_dir_vals,
+        "raw_node_types": node_type_values_c,
+        "raw_edge_types": rel_values_c,
+        "raw_direction_values": direction_values_c,
     }
 # -------------------------
-# Ist vs Soll coverage (bounds)
+# BOUNDS PRÜFEN
 # -------------------------
 
-
 def _as_int_or_none(x: Any) -> Optional[int]:
+    """
+    Gibt Parameter als int zurück oder eben nicht
+    """
     if x is None:
         return None
     if isinstance(x, bool):
@@ -1057,42 +1027,47 @@ def _as_int_or_none(x: Any) -> Optional[int]:
         return None
 
 
-def within_bounds(val: int, mn: Optional[int], mx: Optional[int]) -> bool:
-    if mn is not None and val < mn:
+def within_bounds(wert: int, minimum: Optional[int], maximum: Optional[int]) -> bool:
+    """
+    Ist der Wert innerhalb der Grenzen?
+    """
+    if minimum is not None and wert < minimum:
         return False
-    if mx is not None and val > mx:
+    if maximum is not None and wert > maximum:
         return False
     return True
 
 
-def ist_vs_template_coverage(ist_graphs: List[Dict[str, Any]], soll_templates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """For each template, count how many ist graphs satisfy the template's min/max bounds."""
-    ist_rows: List[Dict[str, Any]] = []
+def in_bounds_per_template(ist_graphs: List[Dict[str, Any]], soll_templates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Pro Template messen wie viele Instance Graphs die Grenzen erfüllen
+    """
+    ist_zeilen: List[Dict[str, Any]] = []
     for g in ist_graphs:
-        ga = g.get("graph_attrs", {}) or {}
+        graph_attribute = g.get("graph_attrs", {}) or {}
         actual = Counter(str(n.get("type")) for n in get_nodes(g))
-        ist_rows.append(
+        ist_zeilen.append(
             {
                 "graph_id": g.get("graph_id"),
-                "dataset": ga.get("dataset"),
-                "malo": _as_int_or_none(ga.get("malo_count")) if ga.get("malo_count") is not None else int(actual.get("MaLo", 0)),
-                "melo": _as_int_or_none(ga.get("melo_count")) if ga.get("melo_count") is not None else int(actual.get("MeLo", 0)),
-                "tr": _as_int_or_none(ga.get("tr_count")) if ga.get("tr_count") is not None else int(actual.get("TR", 0)),
-                "nelo": _as_int_or_none(ga.get("nelo_count")) if ga.get("nelo_count") is not None else int(actual.get("NeLo", 0)),
+                "dataset": graph_attribute.get("dataset"),
+                "malo": _as_int_or_none(graph_attribute.get("malo_count")) if graph_attribute.get("malo_count") is not None else int(actual.get("MaLo", 0)),
+                "melo": _as_int_or_none(graph_attribute.get("melo_count")) if graph_attribute.get("melo_count") is not None else int(actual.get("MeLo", 0)),
+                "tr": _as_int_or_none(graph_attribute.get("tr_count")) if graph_attribute.get("tr_count") is not None else int(actual.get("TR", 0)),
+                "nelo": _as_int_or_none(graph_attribute.get("nelo_count")) if graph_attribute.get("nelo_count") is not None else int(actual.get("NeLo", 0)),
             }
         )
 
     out: List[Dict[str, Any]] = []
     for t in soll_templates:
-        ga = t.get("graph_attrs", {}) or {}
-        code = ga.get("lbs_code") or t.get("label") or t.get("graph_id")
+        graph_attribute = t.get("graph_attrs", {}) or {}
+        code = graph_attribute.get("lbs_code") or t.get("label") or t.get("graph_id")
         bounds = {}
         for k in ["malo", "melo", "tr", "nelo"]:
-            bounds[f"{k}_min"] = _as_int_or_none(ga.get(f"{k}_min"))
-            bounds[f"{k}_max"] = _as_int_or_none(ga.get(f"{k}_max"))
+            bounds[f"{k}_min"] = _as_int_or_none(graph_attribute.get(f"{k}_min"))
+            bounds[f"{k}_max"] = _as_int_or_none(graph_attribute.get(f"{k}_max"))
         ok = 0
-        ok_by_dataset = Counter()
-        for r in ist_rows:
+        ok_per_dataset = Counter()
+        for r in ist_zeilen:
             if (
                 within_bounds(r["malo"], bounds["malo_min"], bounds["malo_max"])
                 and within_bounds(r["melo"], bounds["melo_min"], bounds["melo_max"])
@@ -1100,28 +1075,30 @@ def ist_vs_template_coverage(ist_graphs: List[Dict[str, Any]], soll_templates: L
                 and within_bounds(r["nelo"], bounds["nelo_min"], bounds["nelo_max"])
             ):
                 ok += 1
-                ok_by_dataset[str(r["dataset"])] += 1
-        row = {"lbs_code": code, "templates_graph_id": t.get("graph_id"), **bounds, "ist_graphs_fitting_total": ok}
-        for ds, cnt in ok_by_dataset.items():
-            row[f"ist_fitting_{ds}"] = int(cnt)
-        out.append(row)
+                ok_per_dataset[str(r["dataset"])] += 1
+        zeile = {"lbs_code": code, "templates_graph_id": t.get("graph_id"), **bounds, "ist_graphs_fitting_total": ok}
+        for ds, cnt in ok_per_dataset.items():
+            zeile[f"ist_fitting_{ds}"] = int(cnt)
+        out.append(zeile)
 
     out.sort(key=lambda r: (-int(r["ist_graphs_fitting_total"]), str(r["lbs_code"])))
     return out
 
 
 # -------------------------
-# Plot helpers
+# PLOT HELFER
 # -------------------------
 
-
-def plot_hist(values: List[int], title: str, xlabel: str, out_path: Path) -> None:
+def plot_histogramm(werte: List[int], titel: str, xlabel: str, out_path: Path) -> None:
+    """
+    Erzeugt Histogramm
+    """
     if plt is None:
         return
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.hist(values, bins=min(60, max(5, int(math.sqrt(len(values))) if values else 5)))
-    ax.set_title(title)
+    ax.hist(werte, bins=min(60, max(5, int(math.sqrt(len(werte))) if werte else 5)))
+    ax.set_title(titel)
     ax.set_xlabel(xlabel)
     ax.set_ylabel("count")
     fig.savefig(out_path, bbox_inches="tight", dpi=160)
@@ -1129,65 +1106,67 @@ def plot_hist(values: List[int], title: str, xlabel: str, out_path: Path) -> Non
 
 
 # -------------------------
-# Topology checklist (Nice-to-have 6)
+# TOPOLOGY CHECKS
 # -------------------------
 
-
-def topology_checklist_row(g: Dict[str, Any], kind: str) -> Dict[str, Any]:
-    ids = set_of_node_ids(g)
+def topology_per_row(graph: Dict[str, Any], kind: str) -> Dict[str, Any]:
+    """
+    Topologie zeilenweise überprüfen
+    """
+    ids = set_of_node_ids(graph)
     id_to_type: Dict[str, str] = {}
-    for n in get_nodes(g):
-        nid = n.get("id")
-        if nid is None:
+    for n in get_nodes(graph):
+        node_id = n.get("id")
+        if node_id is None:
             continue
-        id_to_type[str(nid)] = str(n.get("type"))
+        id_to_type[str(node_id)] = str(n.get("type"))
 
-    nt = Counter(id_to_type.get(nid, "UNKNOWN") for nid in ids)
-    et = Counter(rel for _, _, rel in get_valid_typed_edges(g))
+    node_types = Counter(id_to_type.get(nid, "UNKNOWN") for nid in ids)
+    edge_types = Counter(rel for _, _, rel in get_valid_typed_edges(graph))
 
-    melo_n = int(nt.get("MeLo", 0))
-    malo_n = int(nt.get("MaLo", 0))
-    tr_n = int(nt.get("TR", 0))
-    nelo_n = int(nt.get("NeLo", 0))
+    melo_count = int(node_types.get("MeLo", 0))
+    malo_count = int(node_types.get("MaLo", 0))
+    tr_count = int(node_types.get("TR", 0))
+    nelo_count = int(node_types.get("NeLo", 0))
 
-    expects_mema = melo_n > 0 and malo_n > 0
-    expects_metr = melo_n > 0 and tr_n > 0
-    expects_mene = melo_n > 0 and nelo_n > 0
+    erwartete_mema = melo_count > 0 and malo_count > 0
+    erwartete_metr = melo_count > 0 and tr_count > 0
+    erwartete_mene = melo_count > 0 and nelo_count > 0
 
-    has_mema = int(et.get("MEMA", 0)) > 0
-    has_metr = int(et.get("METR", 0)) > 0
-    has_mene = int(et.get("MENE", 0)) > 0
-    has_meme = int(et.get("MEME", 0)) > 0
+    hat_mema = int(edge_types.get("MEMA", 0)) > 0
+    hat_metr = int(edge_types.get("METR", 0)) > 0
+    hat_mene = int(edge_types.get("MENE", 0)) > 0
+    hat_meme = int(edge_types.get("MEME", 0)) > 0
 
-    ga = g.get("graph_attrs", {}) or {}
-    lbs_code = ga.get("lbs_code") or g.get("label")
+    graph_attributes = graph.get("graph_attrs", {}) or {}
+    lbs_code = graph_attributes.get("lbs_code") or graph.get("label")
 
-    ev = edge_validator(g)
+    ev = edge_validator(graph)
 
-    rel_set = sorted(set(et.keys()))
+    rel_set = sorted(set(edge_types.keys()))
 
     row: Dict[str, Any] = {
         "kind": kind,
-        "graph_id": g.get("graph_id"),
+        "graph_id": graph.get("graph_id"),
         "lbs_code": lbs_code,
-        "MaLo": malo_n,
-        "MeLo": melo_n,
-        "TR": tr_n,
-        "NeLo": nelo_n,
-        "edge_MEMA": int(et.get("MEMA", 0)),
-        "edge_METR": int(et.get("METR", 0)),
-        "edge_MENE": int(et.get("MENE", 0)),
-        "edge_MEME": int(et.get("MEME", 0)),
+        "MaLo": malo_count,
+        "MeLo": melo_count,
+        "TR": tr_count,
+        "NeLo": nelo_count,
+        "edge_MEMA": int(edge_types.get("MEMA", 0)),
+        "edge_METR": int(edge_types.get("METR", 0)),
+        "edge_MENE": int(edge_types.get("MENE", 0)),
+        "edge_MEME": int(edge_types.get("MEME", 0)),
         "rel_types_present": ",".join(rel_set) if rel_set else "",
-        "expects_MEMA": expects_mema,
-        "missing_MEMA": bool(expects_mema and not has_mema),
-        "expects_METR": expects_metr,
-        "missing_METR": bool(expects_metr and not has_metr),
-        "expects_MENE": expects_mene,
-        "missing_MENE": bool(expects_mene and not has_mene),
-        "multi_MeLo": bool(melo_n > 1),
-        "has_MEME": bool(has_meme),
-        "attachment_rules_n": len(ga.get("attachment_rules") or []),
+        "expects_MEMA": erwartete_mema,
+        "missing_MEMA": bool(erwartete_mema and not hat_mema),
+        "expects_METR": erwartete_metr,
+        "missing_METR": bool(erwartete_metr and not hat_metr),
+        "expects_MENE": erwartete_mene,
+        "missing_MENE": bool(erwartete_mene and not hat_mene),
+        "multi_MeLo": bool(melo_count > 1),
+        "has_MEME": bool(hat_meme),
+        "attachment_rules_n": len(graph_attributes.get("attachment_rules") or []),
         "edges_missing_refs": int(ev.get("edges_missing_refs", 0)),
         "edges_missing_srcdst": int(ev.get("edges_missing_srcdst", 0)),
         "edges_missing_rel": int(ev.get("edges_missing_rel", 0)),
@@ -1196,7 +1175,7 @@ def topology_checklist_row(g: Dict[str, Any], kind: str) -> Dict[str, Any]:
 
 
 # -------------------------
-# TODO MAIN REPORT
+# MAIN REPORT
 # -------------------------
 
 
@@ -1232,11 +1211,11 @@ def run_analysis(
     rw.h2("Quality-Check")
     all_issues: List[ValidationIssue] = []
     for g in ist_graphen:
-        all_issues.extend(validate_graph(g, "ist"))
+        all_issues.extend(graph_validator(g, "ist"))
     for g in soll_graphen:
-        all_issues.extend(validate_graph(g, "soll"))
+        all_issues.extend(graph_validator(g, "soll"))
 
-    by_sev = Counter(i.severity for i in all_issues)
+    by_sev = Counter(i.schwere_grad for i in all_issues)
     rw.bullet(
         [
             f"Issues total: {len(all_issues)}",
@@ -1254,15 +1233,15 @@ def run_analysis(
     rw.insert_table(Table("issues_top", issue_rows))
 
     if by_sev.get("ERROR", 0) > 0:
-        sample_err = [i for i in all_issues if i.severity == "ERROR"][:30]
+        sample_err = [i for i in all_issues if i.schwere_grad == "ERROR"][:30]
         rw.h3("ERROR contexts")
-        rw.insert_table(Table("issues_error_samples", [{"graph_id": e.where, "message": e.message} for e in sample_err]))
+        rw.insert_table(Table("issues_error_samples", [{"graph_id": e.problem_bei, "message": e.message} for e in sample_err]))
 
     # Keysets
     rw.h2("Fields present in Instance-Graphs")
     rw.text(f"Metadata fields that are consistently available across Instance-Graphs.")
-    ist_ga_keys, ist_node_attr_keys, ist_edge_keys = extract_global_keysets(ist_graphen)
-    soll_ga_keys, soll_node_attr_keys, soll_edge_keys = extract_global_keysets(soll_graphen)
+    ist_ga_keys, ist_node_attr_keys, ist_edge_keys = keyset_extrahieren(ist_graphen)
+    soll_ga_keys, soll_node_attr_keys, soll_edge_keys = keyset_extrahieren(soll_graphen)
 
     def top_counter_table(name: str, c: Counter, total_graphs: int) -> Table:
         rows = []
@@ -1306,8 +1285,8 @@ def run_analysis(
 
     # Statistik pro Graph
     rw.h2("Metrics per Graph")
-    ist_rows = per_graph_basic_df(ist_graphen, "ist")
-    soll_rows = per_graph_basic_df(soll_graphen, "soll")
+    ist_rows = dataframe_per_graph(ist_graphen, "ist")
+    soll_rows = dataframe_per_graph(soll_graphen, "soll")
 
     rw.h3("Per-Graph-Table (Sample)")
     rw.text("Full table is stored in `tables/`.")
@@ -1340,10 +1319,10 @@ def run_analysis(
     rw.insert_table(Table("size_distributions", size_rows))
 
     if create_plots:
-        plot_hist(ist_nodes, "Instance-Graphs: Node count ", "node_count", rw.out_dir / "plots" / "ist_node_count.png")
-        plot_hist(ist_edges, "Instance-Graphs: Edge count ", "edge_count", rw.out_dir / "plots" / "ist_edge_count.png")
-        plot_hist(soll_nodes, "Templates: Node count ", "node_count", rw.out_dir / "plots" / "soll_node_count.png")
-        plot_hist(soll_edges, "Templates: Edge count ", "edge_count", rw.out_dir / "plots" / "soll_edge_count.png")
+        plot_histogramm(ist_nodes, "Instance-Graphs: Node count ", "node_count", rw.out_dir / "plots" / "ist_node_count.png")
+        plot_histogramm(ist_edges, "Instance-Graphs: Edge count ", "edge_count", rw.out_dir / "plots" / "ist_edge_count.png")
+        plot_histogramm(soll_nodes, "Templates: Node count ", "node_count", rw.out_dir / "plots" / "soll_node_count.png")
+        plot_histogramm(soll_edges, "Templates: Edge count ", "edge_count", rw.out_dir / "plots" / "soll_edge_count.png")
         rw.text("Plots saved in `plots/` (siehe Dateien).")
 
     # Connectivity + new structural stats
@@ -1395,7 +1374,7 @@ def run_analysis(
     def agg_degree_undirected(graphs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         acc: Dict[str, List[int]] = defaultdict(list)
         for g in graphs:
-            per_t = degrees_by_type(g)
+            per_t = degree_per_typ(g)
             for t, vals in per_t.items():
                 acc[t].extend(vals)
         out = []
@@ -1420,7 +1399,7 @@ def run_analysis(
         acc_out: Dict[str, List[int]] = defaultdict(list)
         acc_in: Dict[str, List[int]] = defaultdict(list)
         for g in graphs:
-            per_t = directed_degrees_by_type(g)
+            per_t = gerichtet_degree_per_typ(g)
             for t, d in per_t.items():
                 acc_out[t].extend(d["out"])
                 acc_in[t].extend(d["in"])
@@ -1449,7 +1428,7 @@ def run_analysis(
         def collect_all_degrees(graphs: List[Dict[str, Any]]) -> Dict[str, List[int]]:
             acc: Dict[str, List[int]] = defaultdict(list)
             for g in graphs:
-                per = degrees_by_type(g)
+                per = degree_per_typ(g)
                 # overall
                 for t, vals in per.items():
                     acc["ALL"].extend(vals)
@@ -1460,15 +1439,15 @@ def run_analysis(
         soll_deg = collect_all_degrees(soll_graphen)
 
         # overall
-        plot_hist(ist_deg.get("ALL", []), "Ist: Degree distribution (undirected)", "degree", rw.out_dir / "plots" / "ist_degree_all.png")
-        plot_hist(soll_deg.get("ALL", []), "Soll: Degree distribution (undirected)", "degree", rw.out_dir / "plots" / "soll_degree_all.png")
+        plot_histogramm(ist_deg.get("ALL", []), "Ist: Degree distribution (undirected)", "degree", rw.out_dir / "plots" / "ist_degree_all.png")
+        plot_histogramm(soll_deg.get("ALL", []), "Soll: Degree distribution (undirected)", "degree", rw.out_dir / "plots" / "soll_degree_all.png")
 
         # per type (bounded set)
         for t in ["MaLo", "MeLo", "TR", "NeLo"]:
             if ist_deg.get(t):
-                plot_hist(ist_deg[t], f"Ist: Degree ({t}, undirected)", "degree", rw.out_dir / "plots" / f"ist_degree_{t}.png")
+                plot_histogramm(ist_deg[t], f"Ist: Degree ({t}, undirected)", "degree", rw.out_dir / "plots" / f"ist_degree_{t}.png")
             if soll_deg.get(t):
-                plot_hist(soll_deg[t], f"Soll: Degree ({t}, undirected)", "degree", rw.out_dir / "plots" / f"soll_degree_{t}.png")
+                plot_histogramm(soll_deg[t], f"Soll: Degree ({t}, undirected)", "degree", rw.out_dir / "plots" / f"soll_degree_{t}.png")
 
         rw.text("Degree-Plots saved in `plots/` (ist_degree_*.png, soll_degree_*.png).")
     else:
@@ -1592,7 +1571,7 @@ def run_analysis(
     # Topologie-Checkliste
     rw.h3("Topology Checklist: Expected vs. Existing Relations")
 
-    tmpl_rows = [topology_checklist_row(t, "soll") for t in soll_graphen]
+    tmpl_rows = [topology_per_row(t, "soll") for t in soll_graphen]
     tmpl_rows.sort(key=lambda r: (not (r["missing_MEMA"] or r["missing_METR"] or r["missing_MENE"]), str(r.get("lbs_code") or "")))
 
     rw.insert_table(Table("template_topology_checklist", tmpl_rows), max_rows=60)
@@ -1614,7 +1593,7 @@ def run_analysis(
     rw.bullet(checklist_summary(tmpl_rows, "Templates"))
 
     # Ist: show only anomalies to keep report small
-    ist_check = [topology_checklist_row(g, "ist") for g in ist_graphen]
+    ist_check = [topology_per_row(g, "ist") for g in ist_graphen]
     ist_anom = [
         r
         for r in ist_check
@@ -1675,14 +1654,14 @@ def run_analysis(
 
     # Min/Max Infos
     rw.h2("Instances vs. Templates: Flexibility Compliance")
-    cov = ist_vs_template_coverage(ist_graphen, soll_graphen)
+    cov = in_bounds_per_template(ist_graphen, soll_graphen)
     rw.text("Shows how many Instance-Graphs comply to the min/max-bounds given by the governing body BDEW (per Template).")
     rw.insert_table(Table("template_coverage", cov), max_rows=60)
 
     # Pipeline Abgleich
     rw.h2("Feature Encoding Alignment (graph_pipeline.py)")
-    align_ist = encoder_alignment(ist_graphen, "ist")
-    align_soll = encoder_alignment(soll_graphen, "soll")
+    align_ist = is_tatsaechlich_nutzbar(ist_graphen, "ist")
+    align_soll = is_tatsaechlich_nutzbar(soll_graphen, "soll")
     def alignment_table(al: Dict[str, Any]) -> List[Dict[str, Any]]:
         c = al["counts"]
         u = al["unknown"]
